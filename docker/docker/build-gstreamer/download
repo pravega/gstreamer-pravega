@@ -1,0 +1,37 @@
+#!/bin/bash
+set -ex
+
+git clone --no-checkout "$GSTREAMER_REPOSITORY"
+pushd gstreamer
+git checkout "$GSTREAMER_CHECKOUT"
+popd
+
+git clone --no-checkout "$LIBNICE_REPOSITORY"
+pushd libnice
+git checkout "$LIBNICE_CHECKOUT"
+popd
+
+git clone --no-checkout "$GST_PLUGINS_BASE_REPOSITORY"
+pushd gst-plugins-base
+git checkout "$GST_PLUGINS_BASE_CHECKOUT"
+popd
+
+git clone --no-checkout "$GST_PLUGINS_BAD_REPOSITORY"
+pushd gst-plugins-bad
+git checkout "$GST_PLUGINS_BAD_CHECKOUT"
+popd
+
+git clone --no-checkout "$GST_PLUGINS_GOOD_REPOSITORY"
+pushd gst-plugins-good
+git checkout "$GST_PLUGINS_GOOD_CHECKOUT"
+popd
+
+git clone --no-checkout "$GST_PLUGINS_UGLY_REPOSITORY"
+pushd gst-plugins-ugly
+git checkout "$GST_PLUGINS_UGLY_CHECKOUT"
+popd
+
+git clone --no-checkout "$GST_LIBAV_REPOSITORY"
+pushd gst-libav
+git checkout "$GST_LIBAV_CHECKOUT"
+popd

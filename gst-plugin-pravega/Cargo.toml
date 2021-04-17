@@ -1,0 +1,41 @@
+[package]
+name = "gst-plugin-pravega"
+version = "0.7.0"
+authors = ["Claudio Fahey <claudio.fahey@dell.com>"]
+repository = "https://github.com/pravega/gstreamer-pravega"
+license = "MIT/Apache-2.0"
+description = "GStreamer Plugin for Pravega"
+edition = "2018"
+
+[dependencies]
+chrono = "0.4"
+enumflags2 = { version = "0.6", features = ["serde"]}
+glib = { git = "https://github.com/gtk-rs/gtk-rs" }
+gst = { package = "gstreamer", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
+gst-base = { package = "gstreamer-base", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
+once_cell = "1"
+pravega-client = { path = "../pravega-client-rust" }
+pravega-client-config = { path = "../pravega-client-rust/config"}
+pravega-client-shared = { path = "../pravega-client-rust/shared"}
+pravega-video = { path = "../pravega-video" }
+
+[lib]
+name = "gstpravega"
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[build-dependencies]
+gst-plugin-version-helper = { git = "https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs" }
+
+[package.metadata.deb]
+maintainer = "Claudio Fahey <claudio.fahey@dell.com>"
+copyright = "Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved."
+license-file = ["LICENSE", "4"]
+extended-description = """\
+GStreamer Plugin for Pravega"""
+depends = "$auto"
+section = "utility"
+priority = "optional"
+assets = [
+    ["target/release/libgstpravega.so", "usr/lib/aarch64-linux-gnu/gstreamer-1.0/", "644"],
+]

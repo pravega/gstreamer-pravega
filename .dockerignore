@@ -1,0 +1,16 @@
+/logs
+/target/
+/target
+**/target/
+**/*.rs.bk
+.git
+.idea
+.~lock.*
+*.iml
+.vscode
+.gradle
+*.engine
+*.log
+*.ts
+__pycache__/
+.ipynb_checkpoints

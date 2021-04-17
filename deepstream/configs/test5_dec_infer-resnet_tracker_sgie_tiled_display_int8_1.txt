@@ -1,0 +1,254 @@
+################################################################################
+# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+################################################################################
+
+[application]
+enable-perf-measurement=1
+perf-measurement-interval-sec=5
+#gie-kitti-output-dir=streamscl
+
+[tiled-display]
+enable=1
+rows=1
+columns=2
+width=1280
+height=720
+gpu-id=0
+nvbuf-memory-type=0
+
+[source0]
+enable=1
+#Type - 1=CameraV4L2 2=URI 3=MultiURI 4=RTSP
+type=4
+uri=rtsp://admin:CAMERA_PASSWORD@192.168.1.102/cam/realmonitor?channel=1&subtype=0
+num-sources=1
+gpu-id=0
+nvbuf-memory-type=0
+# smart record specific fields, valid only for source type=4
+# 0 = disable, 1 = through cloud events, 2 = through cloud + local events
+#smart-record=1
+# 0 = mp4, 1 = mkv
+#smart-rec-container=0
+#smart-rec-file-prefix
+#smart-rec-dir-path
+# video cache size in seconds
+#smart-rec-video-cache
+# default duration of recording in seconds.
+#smart-rec-default-duration
+# duration of recording in seconds.
+# this will override default value.
+#smart-rec-duration
+# seconds before the current time to start recording.
+#smart-rec-start-time
+# value in seconds to dump video stream.
+#smart-rec-interval
+
+[source1]
+enable=0
+#Type - 1=CameraV4L2 2=URI 3=MultiURI 4=RTSP
+type=4
+uri=rtsp://foo.com/stream2.mp4
+num-sources=1
+gpu-id=0
+nvbuf-memory-type=0
+# smart record specific fields, valid only for source type=4
+# 0 = disable, 1 = through cloud events, 2 = through cloud + local events
+#smart-record=1
+# 0 = mp4, 1 = mkv
+#smart-rec-container=0
+#smart-rec-file-prefix
+#smart-rec-dir-path
+# video cache size in seconds
+#smart-rec-video-cache
+
+[sink0]
+enable=1
+#Type - 1=FakeSink 2=EglSink 3=File
+type=2
+sync=0
+source-id=0
+gpu-id=0
+nvbuf-memory-type=0
+
+[sink1]
+enable=1
+#Type - 1=FakeSink 2=EglSink 3=File 4=UDPSink 5=nvoverlaysink 6=MsgConvBroker
+type=6
+msg-conv-config=dstest5_msgconv_sample_config.txt
+#(0): PAYLOAD_DEEPSTREAM - Deepstream schema payload
+#(1): PAYLOAD_DEEPSTREAM_MINIMAL - Deepstream schema payload minimal
+#(256): PAYLOAD_RESERVED - Reserved type
+#(257): PAYLOAD_CUSTOM   - Custom schema payload
+msg-conv-payload-type=0
+msg-broker-proto-lib=/opt/nvidia/deepstream/deepstream-5.0/lib/libnvds_kafka_proto.so
+#Provide your msg-broker-conn-str here
+msg-broker-conn-str=localhost;9092
+topic=topic1
+#Optional:
+msg-broker-config=../../deepstream-test4/cfg_kafka.txt
+#new-api=0
+#(0) Use message adapter library api's
+#(1) Use new msgbroker library api's
+
+[sink2]
+enable=0
+type=3
+#1=mp4 2=mkv
+container=1
+#1=h264 2=h265 3=mpeg4
+## only SW mpeg4 is supported right now.
+codec=3
+sync=1
+bitrate=2000000
+output-file=out.mp4
+source-id=0
+
+# sink type = 6 by default creates msg converter + broker.
+# To use multiple brokers use this group for converter and use
+# sink type = 6 with disable-msgconv = 1
+[message-converter]
+enable=0
+msg-conv-config=dstest5_msgconv_sample_config.txt
+#(0): PAYLOAD_DEEPSTREAM - Deepstream schema payload
+#(1): PAYLOAD_DEEPSTREAM_MINIMAL - Deepstream schema payload minimal
+#(256): PAYLOAD_RESERVED - Reserved type
+#(257): PAYLOAD_CUSTOM   - Custom schema payload
+msg-conv-payload-type=0
+# Name of library having custom implementation.
+#msg-conv-msg2p-lib=<val>
+# Id of component in case only selected message to parse.
+#msg-conv-comp-id=<val>
+
+# Configure this group to enable cloud message consumer.
+[message-consumer0]
+enable=0
+proto-lib=/opt/nvidia/deepstream/deepstream-5.0/lib/libnvds_kafka_proto.so
+conn-str=<host>;<port>
+config-file=<broker config file e.g. cfg_kafka.txt>
+subscribe-topic-list=<topic1>;<topic2>;<topicN>
+# Use this option if message has sensor name as id instead of index (0,1,2 etc.).
+#sensor-list-file=dstest5_msgconv_sample_config.txt
+
+[osd]
+enable=1
+gpu-id=0
+border-width=1
+text-size=15
+text-color=1;1;1;1;
+text-bg-color=0.3;0.3;0.3;1
+font=Arial
+show-clock=0
+clock-x-offset=800
+clock-y-offset=820
+clock-text-size=12
+clock-color=1;0;0;0
+nvbuf-memory-type=0
+
+[streammux]
+gpu-id=0
+##Boolean property to inform muxer that sources are live
+live-source=0
+batch-size=2
+##time out in usec, to wait after the first buffer is available
+##to push the batch even if the complete batch is not formed
+batched-push-timeout=40000
+## Set muxer output width and height
+width=1920
+height=1080
+##Enable to maintain aspect ratio wrt source, and allow black borders, works
+##along with width, height properties
+enable-padding=0
+nvbuf-memory-type=0
+## If set to TRUE, system timestamp will be attached as ntp timestamp
+## If set to FALSE, ntp timestamp from rtspsrc, if available, will be attached
+# attach-sys-ts-as-ntp=1
+
+# config-file property is mandatory for any gie section.
+# Other properties are optional and if set will override the properties set in
+# the infer config file.
+[primary-gie]
+enable=1
+gpu-id=0
+#Required to display the PGIE labels, should be added even when using config-file
+#property
+batch-size=2
+#Required by the app for OSD, not a plugin property
+bbox-border-color0=1;0;0;1
+bbox-border-color1=0;1;1;1
+bbox-border-color2=0;0;1;1
+bbox-border-color3=0;1;0;1
+interval=0
+#Required by the app for SGIE, when used along with config-file property
+gie-unique-id=1
+nvbuf-memory-type=0
+model-engine-file=../../../../../samples/models/Primary_Detector/resnet10.caffemodel_b2_gpu0_int8.engine
+labelfile-path=../../../../../samples/models/Primary_Detector/labels.txt
+config-file=../../../../../samples/configs/deepstream-app/config_infer_primary.txt
+#infer-raw-output-dir=../../../../../samples/primary_detector_raw_output/
+
+
+[tracker]
+enable=1
+tracker-width=600
+tracker-height=288
+ll-lib-file=/opt/nvidia/deepstream/deepstream-5.0/lib/libnvds_mot_klt.so
+#ll-config-file required for DCF/IOU only
+#ll-config-file=tracker_config.yml
+#ll-config-file=iou_config.txt
+gpu-id=0
+#enable-batch-process applicable to DCF only
+enable-batch-process=0
+
+[secondary-gie0]
+enable=1
+gpu-id=0
+gie-unique-id=4
+operate-on-gie-id=1
+operate-on-class-ids=0;
+batch-size=16
+config-file=../../../../../samples/configs/deepstream-app/config_infer_secondary_vehicletypes.txt
+labelfile-path=../../../../../samples/models/Secondary_VehicleTypes/labels.txt
+model-engine-file=../../../../../samples/models/Secondary_VehicleTypes/resnet18.caffemodel_b16_gpu0_int8.engine
+
+[secondary-gie1]
+enable=1
+gpu-id=0
+gie-unique-id=5
+operate-on-gie-id=1
+operate-on-class-ids=0;
+batch-size=16
+config-file=../../../../../samples/configs/deepstream-app/config_infer_secondary_carcolor.txt
+labelfile-path=../../../../../samples/models/Secondary_CarColor/labels.txt
+model-engine-file=../../../../../samples/models/Secondary_CarColor/resnet18.caffemodel_b16_gpu0_int8.engine
+
+[secondary-gie2]
+enable=1
+gpu-id=0
+gie-unique-id=6
+operate-on-gie-id=1
+operate-on-class-ids=0;
+batch-size=16
+config-file=../../../../../samples/configs/deepstream-app/config_infer_secondary_carmake.txt
+labelfile-path=../../../../../samples/models/Secondary_CarMake/labels.txt
+model-engine-file=../../../../../samples/models/Secondary_CarMake/resnet18.caffemodel_b16_gpu0_int8.engine
+
+[tests]
+file-loop=0

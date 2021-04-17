@@ -1,0 +1,23 @@
+[package]
+name = "pravega-video-server"
+version = "0.1.0"
+authors = ["Claudio Fahey <claudio.fahey@dell.com>"]
+edition = "2018"
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+clap = "3.0.0-beta.2"
+futures-util = "0.3"
+handlebars = "3"
+hyper = "0.14"
+pravega-client = { path = "../pravega-client-rust" }
+pravega-client-config = { path = "../pravega-client-rust/config"}
+pravega-client-shared = { path = "../pravega-client-rust/shared"}
+pravega-video = { path = "../pravega-video" }
+serde = "1"
+serde_derive = "1"
+tracing = { version = "0.1", default-features = false, features = ["log", "std"] }
+tracing-subscriber = "0.2"
+tokio = { version = "1.1", features = ["full"] }
+warp = { version = "0.3", features = ["compression"] }

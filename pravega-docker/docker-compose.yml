@@ -1,0 +1,101 @@
+#
+# This will run a local installation of Pravega using Docker.
+# It provides persistence of long-term-storage (LTS) data to a local host volume
+# but it does not provide any high availability.
+# This should never be used for production workloads.
+#
+# To use this, run:
+#   export HOST_IP=x.x.x.x
+#   docker-compose up -d
+#
+
+version: '3'
+services:
+  zookeeper:
+    image: zookeeper:3.6.1
+    networks:
+      pravega_net:
+        ipv4_address: 172.28.1.11
+    ports:
+      - "2181:2181"
+    restart: always
+
+  bookie1:
+    environment:
+      ZK_URL: zookeeper:2181
+      bookiePort: 3181
+      BK_minorCompactionInterval: 1800
+      BK_majorCompactionInterval: 3600
+    image: pravega/bookkeeper:0.9.0
+    links:
+      - zookeeper
+    networks:
+      pravega_net:
+        # We must use a fixed IP address so that the Bookkeeper cookie does not change upon restarts.
+        ipv4_address: 172.28.1.21
+    ports:
+      - "3181:3181"
+    restart: always
+
+  controller:
+    command: controller
+    environment:
+      WAIT_FOR: zookeeper:2181
+      ZK_URL: zookeeper:2181
+      REST_SERVER_PORT: 10080
+      JAVA_OPTS: |
+        -Dcontroller.service.rpc.listener.port=9090
+        -Xmx512m
+        -XX:OnError="kill -9 p%"
+        -XX:+ExitOnOutOfMemoryError
+        -XX:+CrashOnOutOfMemoryError
+        -XX:+HeapDumpOnOutOfMemoryError
+      SERVICE_HOST_IP: segmentstore
+    image: pravega/pravega:0.9.0
+    links:
+      - zookeeper
+    networks:
+      pravega_net:
+        ipv4_address: 172.28.1.31
+    ports:
+      - "9090:9090"
+      - "10080:10080"
+    restart: always
+
+  segmentstore:
+    image: pravega/pravega:0.9.0
+    ports:
+      - "12345:12345"
+    command: segmentstore
+    environment:
+      WAIT_FOR: bookie1:3181
+      TIER2_STORAGE: "FILESYSTEM"
+      ZK_URL: zookeeper:2181
+      CONTROLLER_URL: tcp://${HOST_IP}:9090
+      JAVA_OPTS: |
+        -Dfilesystem.root=/pravega-lts
+        -Dpravegaservice.service.published.host.nameOrIp=${HOST_IP}
+        -Dbookkeeper.ensemble.size=1
+        -Dbookkeeper.ack.quorum.size=1
+        -Dbookkeeper.write.quorum.size=1
+        -Xmx4000m
+        -XX:OnError="kill -9 p%"
+        -XX:+ExitOnOutOfMemoryError
+        -XX:+CrashOnOutOfMemoryError
+        -XX:+HeapDumpOnOutOfMemoryError
+    links:
+      - zookeeper
+      - bookie1
+    networks:
+      pravega_net:
+        ipv4_address: 172.28.1.41
+    restart: always
+    volumes:
+      - ${PRAVEGA_LTS_PATH:-/tmp/pravega-lts}:/pravega-lts
+
+networks:
+  pravega_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16

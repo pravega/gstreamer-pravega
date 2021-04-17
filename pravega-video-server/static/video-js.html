@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Pravega Web Player</title>
+        <link href="https://vjs.zencdn.net/7.10.2/video-js.css" rel="stylesheet" />
+        <script src="https://vjs.zencdn.net/7.10.2/video.min.js"></script>
+        <style type="text/css">
+            .video-js .vjs-time-control{display:block;}
+            .video-js .vjs-remaining-time{display: none;}
+        </style>
+    </head>
+    <body>
+        <video-js id="my_video_1" class="vjs-default-skin" controls preload="auto" >
+            <!-- <source src="https://d2zihajmogu5jn.cloudfront.net/bipbop-advanced/bipbop_16x9_variant.m3u8" type="application/x-mpegURL"> -->
+            <!-- <source src="bipbop.m3u8" type="application/x-mpegURL" /> -->
+            <source src="/scopes/examples/streams/hls2/m3u8" type="application/x-mpegURL" />
+        </video-js>
+    </body>
+    <script src="video-js.js"></script>
+</html>

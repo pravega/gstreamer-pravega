@@ -1,0 +1,7 @@
+FROM pravega/gstreamer:latest-dev-with-source
+
+# Only development dependencies
+FROM pravega/gstreamer:dev-dependencies
+
+# And binaries built with debug symbols
+COPY --from=0 /compiled-binaries /

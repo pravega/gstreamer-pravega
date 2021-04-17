@@ -1,0 +1,28 @@
+FROM pravega/gstreamer:dev-dependencies
+
+ARG GSTREAMER_REPOSITORY=https://gitlab.freedesktop.org/nazar-pc/gstreamer.git
+ARG GSTREAMER_CHECKOUT=4dd12f18c83df8130662c5d4620cb913a6bd00b7
+
+ARG LIBNICE_REPOSITORY=https://gitlab.freedesktop.org/libnice/libnice.git
+ARG LIBNICE_CHECKOUT=2b38ba23b726694293de53c90b59b28ca11746ab
+
+ARG GST_PLUGINS_BASE_REPOSITORY=https://gitlab.freedesktop.org/nazar-pc/gst-plugins-base.git
+ARG GST_PLUGINS_BASE_CHECKOUT=b127a3173010c7005021a95ba2a14d8a2bb5c321
+
+ARG GST_PLUGINS_BAD_REPOSITORY=https://gitlab.freedesktop.org/nazar-pc/gst-plugins-bad.git
+ARG GST_PLUGINS_BAD_CHECKOUT=c919d7a49fe16222e09cf013cbe5019930b2fbd2
+
+ARG GST_PLUGINS_GOOD_REPOSITORY=https://gitlab.freedesktop.org/nazar-pc/gst-plugins-good.git
+ARG GST_PLUGINS_GOOD_CHECKOUT=0855885aa9312628e8a5d6ac53617c6866c73059
+
+ARG GST_PLUGINS_UGLY_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gst-plugins-ugly.git
+ARG GST_PLUGINS_UGLY_CHECKOUT=a9105ad1e1fb8cbcf787c2a967697707eea405ed
+
+ARG GST_LIBAV_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gst-libav.git
+ARG GST_LIBAV_CHECKOUT=8f2cab6c03ea095b9fe728e83264ae1e119db009
+
+COPY docker/build-gstreamer/download /
+
+RUN ["/download"]
+
+COPY docker/build-gstreamer/compile /

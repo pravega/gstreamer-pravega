@@ -1,0 +1,10 @@
+# Install with: sudo ln -s /home/faheyc/nautilus/gstreamer/gstreamer-pravega/scripts/dot-viewer.desktop /usr/share/applications/
+[Desktop Entry]
+Name=dot-viewer
+Comment=Interactive viewer for Graphviz dot files
+Exec=/home/faheyc/nautilus/gstreamer/gstreamer-pravega/scripts/dot-viewer.sh %f
+Terminal=false
+Type=Application
+Categories=GTK;DataVisualization;Science;Graphics;
+MimeType=text/vnd.graphviz
+Keywords=graphviz;dot;viewer;graph;

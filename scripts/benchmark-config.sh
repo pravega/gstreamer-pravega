@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+SIZE_SEC=3600
+FPS=30
+TARGET_RATE_KB_PER_SEC=2000
+TMPFILE=/tmp/benchmark-data-${SIZE_SEC}-${TARGET_RATE_KB_PER_SEC}.ts
