@@ -20,7 +20,6 @@ gst-rtsp = { package = "gstreamer-rtsp", git = "https://gitlab.freedesktop.org/g
 gst-rtsp-server = { package = "gstreamer-rtsp-server", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
 gst-sdp = { package = "gstreamer-sdp", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
 gstreamer-video = { git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
-gst-plugin-pravega = { path = "../gst-plugin-pravega" }
 gtk = { git = "https://github.com/gtk-rs/gtk-rs" }
 pravega-client = { path = "../pravega-client-rust" }
 pravega-client-config = { path = "../pravega-client-rust/config"}
