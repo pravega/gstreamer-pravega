@@ -17,8 +17,6 @@ fn main() {
     // Initialize GStreamer
     gst::init().unwrap();
 
-    gstpravega::plugin_register_static().unwrap();
-
     // This creates a pipeline by parsing the gst-launch pipeline syntax.
     let pipeline = gst::parse_launch(
         "pravegasrc stream=examples/s9 \
@@ -36,7 +34,7 @@ fn main() {
         .expect("Unable to set the pipeline to the `Playing` state");
 
     // Listen to the bus
-    let bus = pipeline.get_bus().unwrap();
+    let bus = pipeline.bus().unwrap();
     let mut custom_data = CustomData {
         pipeline,
         playing: false,
@@ -102,9 +100,9 @@ fn handle_message(custom_data: &mut CustomData, msg: &gst::Message) {
         MessageView::Error(err) => {
             println!(
                 "Error received from element {:?}: {} ({:?})",
-                err.get_src().map(|s| s.get_path_string()),
-                err.get_error(),
-                err.get_debug()
+                err.src().map(|s| s.path_string()),
+                err.error(),
+                err.debug()
             );
             custom_data.terminate = true;
         }
@@ -118,12 +116,12 @@ fn handle_message(custom_data: &mut CustomData, msg: &gst::Message) {
         }
         MessageView::StateChanged(state_changed) => {
             if state_changed
-                .get_src()
+                .src()
                 .map(|s| s == custom_data.pipeline)
                 .unwrap_or(false)
             {
-                let new_state = state_changed.get_current();
-                let old_state = state_changed.get_old();
+                let new_state = state_changed.current();
+                let old_state = state_changed.old();
 
                 println!(
                     "Pipeline state changed from {:?} to {:?}",
@@ -134,7 +132,7 @@ fn handle_message(custom_data: &mut CustomData, msg: &gst::Message) {
                 if custom_data.playing {
                     let mut seeking = gst::query::Seeking::new(gst::Format::Time);
                     if custom_data.pipeline.query(&mut seeking) {
-                        let (seekable, start, end) = seeking.get_result();
+                        let (seekable, start, end) = seeking.result();
                         custom_data.seek_enabled = seekable;
                         if seekable {
                             println!("Seeking is ENABLED from {:?} to {:?}", start, end)

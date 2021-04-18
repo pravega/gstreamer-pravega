@@ -63,7 +63,7 @@ fn run() -> Result<(), Error>  {
 
     let main_loop = glib::MainLoop::new(None, false);
     let server = gst_rtsp_server::RTSPServer::new();
-    let mounts = server.get_mount_points().ok_or(NoMountPoints)?;
+    let mounts = server.mount_points().ok_or(NoMountPoints)?;
     let factory = media_factory::Factory::default();
     let factory: gst_rtsp_server::RTSPMediaFactory = factory.dynamic_cast::<gst_rtsp_server::RTSPMediaFactory>().unwrap();
 
@@ -100,8 +100,8 @@ fn run() -> Result<(), Error>  {
 
     tracing::info!(
         "RTSP Camera Simulator ready at rtsp://{}:{}{}",
-        server.get_address().unwrap(),
-        server.get_bound_port(),
+        server.address().unwrap(),
+        server.bound_port(),
         opts.path,
     );
 
@@ -145,7 +145,7 @@ mod media_factory {
                 let opts: Opts = Opts::parse();
 
                 // Parse the URL to get parameters used to build the pipeline.
-                let url = url.get_request_uri().unwrap().to_string();
+                let url = url.request_uri().unwrap().to_string();
                 let url = Url::parse(&url[..]).unwrap();
                 tracing::info!("url={:?}", url);
                 let query_map: HashMap<_, _> = url.query_pairs().into_owned().collect();
