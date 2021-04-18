@@ -3,6 +3,7 @@ set -ex
 
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
 GSTREAMER_CHECKOUT=${GSTREAMER_CHECKOUT:-1.18.4}
+RUST_JOBS=6
 
 pushd ${ROOT_DIR}/docker
 
@@ -28,6 +29,7 @@ docker build -t pravega/gstreamer:dev-downloaded \
     --build-arg GST_LIBAV_CHECKOUT=${GSTREAMER_CHECKOUT} \
     --build-arg GST_RTSP_SERVER_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gst-rtsp-server.git \
     --build-arg GST_RTSP_SERVER_CHECKOUT=${GSTREAMER_CHECKOUT} \
+    --build-arg RUST_JOBS=${RUST_JOBS} \
     -f Dockerfile-dev-downloaded .
 
 # Build dev image with source code included
