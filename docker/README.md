@@ -1,31 +1,38 @@
-# Docker Container for GStreamer
+# Docker Containers for GStreamer
+
+## Overview
 
 This builds container images with GStreamer and plugins pre-installed. This can be used for GStreamer applications that do not use DeepStream.
-
-This is based on [https://github.com/restreamio/docker-gstreamer](https://github.com/restreamio/docker-gstreamer/tree/6cf16dc77f5d5928abecacf5005e49a3fbccf918).
 
 The following components are included:
 
 - GStreamer
 - gst-plugin-pravega
+- pravega-video-server
+- rtsp-camera-simulator
 - gst-plugins-base
 - gst-plugins-good
-- gst-plugins-bad (with `msdk`)
+- gst-plugins-bad
 - gst-plugins-ugly
 - gst-libav
-- libnice (newer version from git)
+- gst-rtsp-server
+- libnice
+- Ubuntu 20.10
 
-Base OS is Ubuntu 20.10.
+This is based on [https://github.com/restreamio/docker-gstreamer](https://github.com/restreamio/docker-gstreamer/tree/6cf16dc77f5d5928abecacf5005e49a3fbccf918).
 
-# Builds on Docker Hub
+## Image Types
 
-Builds use Restream-specific patches by default, but there are also vanilla upstream builds available.
+There are 4 kinds of images that are built.
 
-There are 4 kinds of images pushed to Docker Hub:
+- pravega/gstreamer:latest-dev-with-source - includes unoptimized build with debug symbols and even source code it was built with
+- pravega/gstreamer:latest-dev - same as above, but without source code for development purposes
+- pravega/gstreamer:latest-prod - optimized (`-O3` and `LTO`) build without debug symbols for production purposes
+- pravega/gstreamer:latest-prod-dbg - optimized (`-O2` only) build with debug symbols included for production purposes with better debugging experience
+- pravega/gstreamer:pravega-dev - same as latest-dev-with-source, with gstreamer-pravega source code, libraries, and applications
 
-* pravega/gstreamer:latest-dev-with-source - includes unoptimized build with debug symbols and even source code it was built with
-* pravega/gstreamer:latest-dev - same as above, but without source code for development purposes
-* pravega/gstreamer:latest-prod - optimized (`-O3` and `LTO`) build without debug symbols for production purposes
-* pravega/gstreamer:latest-prod-dbg - optimized (`-O2` only) build with debug symbols included for production purposes with better debugging experience
+## Build Procedure
 
-There are also above tags prefixed with build date for stable reference.
+```bash
+./build-release.sh
+```

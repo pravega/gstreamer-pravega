@@ -35,3 +35,8 @@ git clone --no-checkout "$GST_LIBAV_REPOSITORY"
 pushd gst-libav
 git checkout "$GST_LIBAV_CHECKOUT"
 popd
+
+git clone --no-checkout "$GST_RTSP_SERVER_REPOSITORY"
+pushd gst-rtsp-server
+git checkout "$GST_RTSP_SERVER_CHECKOUT"
+popd

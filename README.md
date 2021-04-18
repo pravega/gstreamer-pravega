@@ -175,11 +175,19 @@ You can view the Pravega logs with `docker-compose logs --follow`.
 
 You can view the stream files stored on long-term storage (LTS) with `ls -h -R ${PRAVEGA_LTS_PATH}`.
 
+## Docker Containers
+
+Docker containers can be built with and without NVIDIA DeepStream.
+The containers without DeepStream are based on a newer version of GStreamer.
+
+- [Standard Docker Containers](docker/README.md)
+- [Docker Containers with NVIDIA DeepStream](deepstream/README.md)
+
 ## Examples
 
 When you run any of these examples for the first time, the Rust build system, Cargo, will download and build all dependencies.
 
-### Basic Examples
+### Synthetic video to Pravega
 
 Generate synthetic video data, compress it using H.264, wrap it in an MPEG Transport Stream, and write to a Pravega stream.
 
@@ -187,12 +195,16 @@ Generate synthetic video data, compress it using H.264, wrap it in an MPEG Trans
 STREAM=mystream1 scripts/videotestsrc-to-pravega.sh
 ```
 
-Get video from a camera, compress it using H.264, wrap it in an MPEG Transport Stream, and write to a Pravega stream.
+### USB camera to Pravega
+
+Get video from a local USB camera, compress it using H.264, wrap it in an MPEG Transport Stream, and write to a Pravega stream.
 This command can be run multiple times (but not concurrently) to append additional video frames to the Pravega stream.
 
 ```bash
 STREAM=mystream1 scripts/camera-to-pravega.sh
 ```
+
+### Pravega Video Player (Native)
 
 Read video from a Pravega stream and play it on the screen.
 This command can be executed before, during, or after `camera-to-pravega.sh`.
@@ -202,7 +214,7 @@ Multiple instances can be executed concurrently, even on different computers.
 STREAM=mystream1 scripts/pravega-video-player.sh
 ```
 
-### HTTP Live Streaming
+### HTTP Live Streaming with Pravega Video Server
 
 [HTTP Live Streaming (HLS)](https://en.wikipedia.org/wiki/HTTP_Live_Streaming)
 allows all major browsers to view live video over an Internet connection.
@@ -234,6 +246,32 @@ http://localhost:3030/player?scope=examples&stream=mystream1
 
 You may also specify a time window:
 http://localhost:3030/player?scope=examples&stream=mystream1&begin=2021-01-25T00:00:00Z&end=2021-01-26T00:00:00Z
+
+### RTSP Camera Simulator
+
+The RTSP Camera Simulator can be used to simulate an RTSP camera using GStreamer.
+RTSP players can connect to it and request live video, and it will send a video test pattern.
+
+Build and run it using the following steps.
+
+```bash
+export CAMERA_PORT=8554
+export CAMERA_USER=user
+export CAMERA_PASSWORD=mypassword
+scripts/rtsp-camera-simulator.sh
+```
+
+Alternatively, you may build and run it in a Docker container using the following steps:
+
+```bash
+export CAMERA_PORT=8554
+export CAMERA_USER=user
+export CAMERA_PASSWORD=mypassword
+scripts/rtsp-camera-simulator-docker.sh
+```
+
+You can then use an RTSP player such as VLC to play the URL
+`rtsp://user:mypassword@127.0.0.1:8554/cam/realmonitor?width=640&height=480`.
 
 ### Additional Examples
 

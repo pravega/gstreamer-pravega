@@ -23,22 +23,22 @@ struct NoMountPoints;
 #[derive(Clap)]
 struct Opts {
     /// TCP port to listen on
-    #[clap(long, env = "RTSP_PORT", default_value = "8554")]
+    #[clap(long, env = "CAMERA_PORT", default_value = "8554")]
     port: u16,
     /// URL path to accept
-    #[clap(long, env = "RTSP_PATH", default_value = "/cam/realmonitor")]
+    #[clap(long, env = "CAMERA_PATH", default_value = "/cam/realmonitor")]
     path: String,
     /// Default width
-    #[clap(long, env = "RTSP_WIDTH", default_value = "640")]
+    #[clap(long, env = "CAMERA_WIDTH", default_value = "640")]
     width: u32,
     /// Default height
-    #[clap(long, env = "RTSP_HEIGHT", default_value = "480")]
+    #[clap(long, env = "CAMERA_HEIGHT", default_value = "480")]
     height: u32,
     /// User name for basic authentication
-    #[clap(long, env = "RTSP_USER_NAME", default_value = "user")]
+    #[clap(long, env = "CAMERA_USER", default_value = "user")]
     user_name: String,
     /// Password for basic authentication. Authentication will be disabled if not specified.
-    #[clap(long, env = "RTSP_PASSWORD")]
+    #[clap(long, env = "CAMERA_PASSWORD")]
     password: Option<String>,
 }
 
