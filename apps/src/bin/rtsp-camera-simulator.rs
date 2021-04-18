@@ -1,13 +1,16 @@
 // Simulate an RTSP camera.
-// Based on gstreamer-rs/examples/src/bin/rtsp-server.rs.
+// Based on gstreamer-rs/examples/src/bin/rtsp-server.rs and rtsp-server-record.rs.
 
 use anyhow::Error;
 use clap::Clap;
 use derive_more::{Display, Error};
 use glib::subclass::prelude::*;
+use glib::translate::*;
 use gst::prelude::*;
 use gst_rtsp_server::prelude::*;
+use gst_rtsp_server::{RTSPAuth, RTSPToken};
 use gst_rtsp_server::subclass::prelude::*;
+use std::ptr;
 use std::collections::HashMap;
 use tracing_subscriber::fmt::format::FmtSpan;
 use url::Url;
@@ -20,17 +23,23 @@ struct NoMountPoints;
 #[derive(Clap)]
 struct Opts {
     /// TCP port to listen on
-    #[clap(long, default_value = "8554")]
+    #[clap(long, env = "RTSP_PORT", default_value = "8554")]
     port: u16,
     /// URL path to accept
-    #[clap(long, default_value = "/cam/realmonitor")]
+    #[clap(long, env = "RTSP_PATH", default_value = "/cam/realmonitor")]
     path: String,
     /// Default width
-    #[clap(long, default_value = "640")]
+    #[clap(long, env = "RTSP_WIDTH", default_value = "640")]
     width: u32,
     /// Default height
-    #[clap(long, default_value = "480")]
+    #[clap(long, env = "RTSP_HEIGHT", default_value = "480")]
     height: u32,
+    /// User name for basic authentication
+    #[clap(long, env = "RTSP_USER_NAME", default_value = "user")]
+    user_name: String,
+    /// Password for basic authentication. Authentication will be disabled if not specified.
+    #[clap(long, env = "RTSP_PASSWORD")]
+    password: Option<String>,
 }
 
 fn main() {
@@ -54,9 +63,38 @@ fn run() -> Result<(), Error>  {
 
     let main_loop = glib::MainLoop::new(None, false);
     let server = gst_rtsp_server::RTSPServer::new();
-    server.set_service(&opts.port.to_string()[..]);
     let mounts = server.get_mount_points().ok_or(NoMountPoints)?;
     let factory = media_factory::Factory::default();
+    let factory: gst_rtsp_server::RTSPMediaFactory = factory.dynamic_cast::<gst_rtsp_server::RTSPMediaFactory>().unwrap();
+
+    if let Some(password) = opts.password {
+        tracing::info!("Authentication enabled.");
+        tracing::debug!("User name={}, Password={}", opts.user_name, password);
+        let auth = RTSPAuth::new();
+        let token = RTSPToken::new(&[(*gst_rtsp_server::RTSP_TOKEN_MEDIA_FACTORY_ROLE, &"user")]);
+        let basic = RTSPAuth::make_basic(&opts.user_name[..], &password[..]);
+        // This declares that the user "user" (once authenticated) has a role that
+        // allows them to access and construct media factories.
+        unsafe {
+            gst_rtsp_server::ffi::gst_rtsp_media_factory_add_role(
+                factory.to_glib_none().0,
+                "user".to_glib_none().0,
+                gst_rtsp_server::RTSP_PERM_MEDIA_FACTORY_ACCESS
+                    .to_glib_none()
+                    .0,
+                <bool as StaticType>::static_type().to_glib() as *const u8,
+                true.to_glib() as *const u8,
+                gst_rtsp_server::RTSP_PERM_MEDIA_FACTORY_CONSTRUCT.as_ptr() as *const u8,
+                <bool as StaticType>::static_type().to_glib() as *const u8,
+                true.to_glib() as *const u8,
+                ptr::null_mut::<u8>(),
+            );
+        }
+        auth.add_basic(basic.as_str(), &token);
+        server.set_auth(Some(&auth));
+    }
+
+    server.set_service(&opts.port.to_string()[..]);
     mounts.add_factory(&opts.path[..], &factory);
     let source_id = server.attach(None)?;
 
