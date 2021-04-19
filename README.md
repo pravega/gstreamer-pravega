@@ -195,13 +195,29 @@ Generate synthetic video data, compress it using H.264, wrap it in an MPEG Trans
 STREAM=mystream1 scripts/videotestsrc-to-pravega.sh
 ```
 
-### USB camera to Pravega
+### USB Camera to Pravega
 
 Get video from a local USB camera, compress it using H.264, wrap it in an MPEG Transport Stream, and write to a Pravega stream.
 This command can be run multiple times (but not concurrently) to append additional video frames to the Pravega stream.
 
 ```bash
 STREAM=mystream1 scripts/camera-to-pravega.sh
+```
+
+### RTSP Camera to Pravega
+
+Capture from RTSP camera and write video to a Pravega stream.
+
+```bash
+sudo apt install \
+    python-gi-dev \
+    python3 \
+    python3-gi \
+    python3-gi-cairo \
+    python3-pip
+pip3 install -r python_apps/requirements.txt
+export CAMERA_PASSWORD=password
+scripts/rtsp-camera-to-pravega-python.sh
 ```
 
 ### Pravega Video Player (Native)

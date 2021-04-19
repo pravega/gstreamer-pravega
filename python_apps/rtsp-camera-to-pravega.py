@@ -3,7 +3,7 @@
 # Capture from RTSP camera and write video to a Pravega stream.
 #
 
-import argparse
+import configargparse as argparse
 import ctypes
 import logging
 import os
@@ -34,7 +34,8 @@ def bus_call(bus, message, loop):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Capture from RTSP camera and write video to a Pravega stream")
+        description="Capture from RTSP camera and write video to a Pravega stream",
+        auto_env_var_prefix="")
     parser.add_argument("--controller", default="127.0.0.1:9090")
     parser.add_argument("--log_level", type=int, default=logging.INFO, help="10=DEBUG,20=INFO")
     parser.add_argument("--scope", default="examples")
