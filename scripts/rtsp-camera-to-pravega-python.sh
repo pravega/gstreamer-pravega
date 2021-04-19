@@ -16,13 +16,14 @@ export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/release:${GST_PLUGI
 # log level can be INFO, DEBUG, or LOG (verbose)
 export GST_DEBUG=pravegasink:DEBUG,basesink:INFO,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO
 export RUST_BACKTRACE=1
-export STREAM=${STREAM:-rtsp1}
-CAMERA_USER=${CAMERA_USER:-user}
-CAMERA_IP=${CAMERA_IP:-127.0.0.1}
-CAMERA_PORT=${CAMERA_PORT:-8554}
+export CAMERA_ADDRESS=${CAMERA_ADDRESS:-127.0.0.1}
+export CAMERA_PASSWORD=${CAMERA_PASSWORD:?Required environment variable not set}
+export CAMERA_PATH="/cam/realmonitor?channel=1&subtype=0"
+export CAMERA_PORT=${CAMERA_PORT:-8554}
+export CAMERA_USER=${CAMERA_USER:-user}
+export PRAVEGA_CONTROLLER_URI=127.0.0.1:9090
+export PRAVEGA_SCOPE=examples
+export PRAVEGA_STREAM=${STREAM:-rtsp1}
 
 ${ROOT_DIR}/python_apps/rtsp-camera-to-pravega.py \
---controller 127.0.0.1:9090 \
---scope examples \
---source-uri "rtsp://${CAMERA_USER}:${CAMERA_PASSWORD:?Required environment variable not set}@${CAMERA_IP}:${CAMERA_PORT}/cam/realmonitor?channel=1&subtype=0" \
 $* |& tee ${LOG_FILE}

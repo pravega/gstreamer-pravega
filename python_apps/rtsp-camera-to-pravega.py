@@ -36,15 +36,30 @@ def main():
     parser = argparse.ArgumentParser(
         description="Capture from RTSP camera and write video to a Pravega stream",
         auto_env_var_prefix="")
-    parser.add_argument("--controller", default="127.0.0.1:9090")
-    parser.add_argument("--log_level", type=int, default=logging.INFO, help="10=DEBUG,20=INFO")
-    parser.add_argument("--scope", default="examples")
-    parser.add_argument("--source-uri", required=True)
-    parser.add_argument("--stream", default="camera1")
+    parser.add_argument("--camera-address")
+    parser.add_argument("--camera-password")
+    parser.add_argument("--camera-path", default="/")
+    parser.add_argument("--camera-port", type=int, default=554)
+    parser.add_argument("--camera-uri")
+    parser.add_argument("--camera-user")
+    parser.add_argument("--log-level", type=int, default=logging.INFO, help="10=DEBUG,20=INFO")
+    parser.add_argument("--pravega-controller-uri", default="127.0.0.1:9090")
+    parser.add_argument("--pravega-scope", required=True)
+    parser.add_argument("--pravega-stream", required=True)
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
-    logging.info("args=%s" % str(args))
+
+    for arg in vars(args):
+        if 'password' not in arg:
+            logging.info("argument: %s: %s" % (arg, getattr(args, arg)))
+
+    # Build camera_uri from components.
+    if args.camera_uri is None:
+        if args.camera_address is None:
+            raise Exception("If camera-uri is empty, then camera-address is required.")
+        args.camera_uri = "rtsp://%s:%d%s" % (args.camera_address, args.camera_port, args.camera_path)
+    logging.info("camera_uri=%s" % args.camera_uri)
 
     # Set GStreamer log level.
     if not "GST_DEBUG" in os.environ:
@@ -72,7 +87,11 @@ def main():
     pipeline = Gst.parse_launch(pipeline_description)
 
     source = pipeline.get_by_name("source")
-    source.set_property("location", args.source_uri)
+    source.set_property("location", args.camera_uri)
+    if args.camera_user:
+        source.set_property("user-id", args.camera_user)
+    if args.camera_password:
+        source.set_property("user-pw", args.camera_password)
     # Outgoing timestamps are calculated directly from the RTP timestamps. This mode is good for recording.
     # This will provide the RTP timestamps as PTS (and the arrival timestamps as DTS).
     # See https://gitlab.freedesktop.org/gstreamer/gst-plugins-base/issues/255
@@ -95,8 +114,8 @@ def main():
         queue0.set_property("leaky", "downstream")
     pravegasink = pipeline.get_by_name("pravegasink")
     if pravegasink:
-        pravegasink.set_property("controller", args.controller)
-        pravegasink.set_property("stream", "%s/%s" % (args.scope, args.stream))
+        pravegasink.set_property("controller", args.pravega_controller_uri)
+        pravegasink.set_property("stream", "%s/%s" % (args.pravega_scope, args.pravega_stream))
         # Always write to Pravega immediately regardless of PTS
         pravegasink.set_property("sync", False)
         # Required to use NTP timestamps in PTS
@@ -120,7 +139,6 @@ def main():
         raise
 
     pipeline.set_state(Gst.State.NULL)
-    logging.info("END")
 
 
 if __name__ == "__main__":
