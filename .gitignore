@@ -10,6 +10,7 @@
 *.iml
 .vscode
 .gradle
+*.crt
 *.engine
 *.log
 *.ts
