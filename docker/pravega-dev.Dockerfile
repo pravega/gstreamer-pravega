@@ -49,12 +49,6 @@ RUN cd pravega-video-server && \
 
 ## Build misc. Rust apps
 
-# RUN apt-get update
-    # apt-get install -y --no-install-recommends \
-    #   libatk1.0-dev \
-    #   libgtk-3-dev \
-    #   libges-1.0-dev
-
 COPY apps apps
 
 RUN cd apps && \
