@@ -10,7 +10,7 @@ FROM ${FROM_IMAGE}
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH \
-    RUST_VERSION=1.49.0
+    RUST_VERSION=1.51.0
 
 RUN set -eux; \
     rustArch="x86_64-unknown-linux-gnu"; \
@@ -26,17 +26,31 @@ RUN set -eux; \
 
 # Build GStreamer Pravega libraries and applications.
 
+ARG RUST_JOBS=1
+
 WORKDIR /usr/src/gstreamer-pravega
+
+## Build gst-plugin-pravega
 
 COPY gst-plugin-pravega gst-plugin-pravega
 COPY pravega-client-rust pravega-client-rust
 COPY pravega-video pravega-video
 
 RUN cd gst-plugin-pravega && \
-    cargo build --release && \
+    cargo build --release --jobs ${RUST_JOBS} && \
     mv -v target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+
+## Build pravega-video-server
 
 COPY pravega-video-server pravega-video-server
 
 RUN cd pravega-video-server && \
     cargo install --path .
+
+## Build misc. Rust apps
+
+COPY apps apps
+
+RUN cd apps && \
+    cargo install --jobs ${RUST_JOBS} --path . --bin \
+      rtsp-camera-simulator

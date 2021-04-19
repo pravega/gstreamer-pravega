@@ -44,15 +44,13 @@ fn run() -> Result<(), Error>  {
     // Initialize GStreamer
     gst::init()?;
 
-    gstpravega::plugin_register_static().unwrap();
-
     let main_loop = glib::MainLoop::new(None, false);
     let server = gst_rtsp_server::RTSPServer::new();
     // Much like HTTP servers, RTSP servers have multiple endpoints that
     // provide different streams. Here, we ask our server to give
     // us a reference to his list of endpoints, so we can add our
     // test endpoint, providing the pipeline from the cli.
-    let mounts = server.get_mount_points().ok_or(NoMountPoints)?;
+    let mounts = server.mount_points().ok_or(NoMountPoints)?;
 
     // // Next, we create a factory for the endpoint we want to create.
     // // The job of the factory is to create a new pipeline for each client that
@@ -95,7 +93,7 @@ fn run() -> Result<(), Error>  {
 
     println!(
         "Stream ready at rtsp://127.0.0.1:{}/test",
-        server.get_bound_port()
+        server.bound_port()
     );
 
     // Start the mainloop. From this point on, the server will start to serve
@@ -153,7 +151,7 @@ mod media_factory {
                 _factory: &Self::Type,
                 url: &gst_rtsp::RTSPUrl,
             ) -> Option<gst::Element> {
-                let url = url.get_request_uri().unwrap().to_string();
+                let url = url.request_uri().unwrap().to_string();
                 let url = Url::parse(&url[..]).unwrap();
                 info!("url={:?}", url);
                 let query_map: HashMap<_, _> = url.query_pairs().into_owned().collect();

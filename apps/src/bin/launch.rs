@@ -20,8 +20,6 @@ fn main() {
 
     gst::init().unwrap();
 
-    gstpravega::plugin_register_static().unwrap();
-
     // Let GStreamer create a pipeline from the parsed launch syntax on the cli.
     // In comparision to the launch_glib_main example, this is using the advanced launch syntax
     // parsing API of GStreamer. The function returns a Result, handing us the pipeline if
@@ -37,7 +35,7 @@ fn main() {
             Ok(pipeline) => pipeline,
             Err(err) => {
                 if let Some(gst::ParseError::NoSuchElement) = err.kind::<gst::ParseError>() {
-                    eprintln!("Missing element(s): {:?}", context.get_missing_elements());
+                    eprintln!("Missing element(s): {:?}", context.missing_elements());
                 } else {
                     eprintln!("Failed to parse pipeline: {}", err);
                 }
@@ -45,7 +43,7 @@ fn main() {
                 process::exit(-1)
             }
         };
-    let bus = pipeline.get_bus().unwrap();
+    let bus = pipeline.bus().unwrap();
 
     pipeline
         .set_state(gst::State::Playing)
@@ -59,9 +57,9 @@ fn main() {
             MessageView::Error(err) => {
                 eprintln!(
                     "Error from {:?}: {} ({:?})",
-                    err.get_src().map(|s| s.get_path_string()),
-                    err.get_error(),
-                    err.get_debug()
+                    err.src().map(|s| s.path_string()),
+                    err.error(),
+                    err.debug()
                 );
                 break;
             }

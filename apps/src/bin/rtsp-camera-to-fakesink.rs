@@ -26,8 +26,6 @@ fn main() {
         return;
     }
 
-    gstpravega::plugin_register_static().unwrap();
-
     let pipeline_description =
         "rtspsrc name=src".to_owned()
         + "   buffer-mode=none"                 // Outgoing timestamps are calculated directly from the RTP timestamps. This mode is good for recording.
@@ -64,7 +62,7 @@ fn main() {
 
     let clock = gst::SystemClock::obtain();
     clock.set_property("clock-type", &gst::ClockType::Realtime).unwrap();
-    println!("clock={:?}, get_time={:?}", clock, clock.get_time());
+    println!("clock={:?}, time={:?}", clock, clock.time());
     pipeline.use_clock(Some(&clock));
 
     let rtspsrc = pipeline
@@ -83,7 +81,7 @@ fn main() {
         .expect("Unable to set the pipeline to the `Playing` state");
 
     // Wait until error or EOS
-    let bus = pipeline.get_bus().unwrap();
+    let bus = pipeline.bus().unwrap();
     for msg in bus.iter_timed(gst::CLOCK_TIME_NONE) {
         use gst::MessageView;
 
@@ -92,9 +90,9 @@ fn main() {
             MessageView::Error(err) => {
                 println!(
                     "Error from {:?}: {} ({:?})",
-                    err.get_src().map(|s| s.get_path_string()),
-                    err.get_error(),
-                    err.get_debug()
+                    err.src().map(|s| s.path_string()),
+                    err.error(),
+                    err.debug()
                 );
                 break;
             }

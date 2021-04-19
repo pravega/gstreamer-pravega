@@ -116,7 +116,7 @@ fn create_ui(playbin: &gst::Pipeline, video_sink: &gst::Element) -> AppWindow {
     let pipeline = playbin.clone();
     let slider_update_signal_id = slider.connect_value_changed(move |slider| {
         let pipeline = &pipeline;
-        let value = slider.get_value() as u64;
+        let value = slider.value() as u64;
         info!("create_ui: handling slider change; value={}", value);
         if pipeline
             .seek_simple(
@@ -144,7 +144,7 @@ fn create_ui(playbin: &gst::Pipeline, video_sink: &gst::Element) -> AppWindow {
         let mut seeking_query = gst::query::Seeking::new(gst::Format::Time);
         let (start, end) = match pipeline.query(&mut seeking_query) {
             true => {
-                let (_seekable, start, end) = seeking_query.get_result();
+                let (_seekable, start, end) = seeking_query.result();
                 info!("create_ui: seeking_query={:?}, start={:?}, end={:?}", seeking_query, start, end);
                 let start = match start {
                     gst::GenericFormattedValue::Time(start) => start.nanoseconds(),
@@ -171,12 +171,12 @@ fn create_ui(playbin: &gst::Pipeline, video_sink: &gst::Element) -> AppWindow {
             info!("create_ui: start={:?}, end={:?}, pos={:?}, change_pos={}", start, end, pos, change_pos);
 
             let position_textbuf = lposition_textview
-                .get_buffer()
+                .buffer()
                 .expect("Couldn't get buffer from text_view");
             position_textbuf.set_text(&format!("Position: {}", format_nanos_since_epoch(pos)));
 
             let lseek_range_textbuf = lseek_range_textview
-                .get_buffer()
+                .buffer()
                 .expect("Couldn't get buffer from text_view");
             lseek_range_textbuf.set_text(&format!(
                 "Start: {}  End: {}",
@@ -212,14 +212,14 @@ fn create_ui(playbin: &gst::Pipeline, video_sink: &gst::Element) -> AppWindow {
 
     video_window.connect_realize(move |video_window| {
         let video_overlay = &video_overlay;
-        let gdk_window = video_window.get_window().unwrap();
+        let gdk_window = video_window.window().unwrap();
 
         if !gdk_window.ensure_native() {
             info!("Can't create native window for widget");
             process::exit(-1);
         }
 
-        let display_type_name = gdk_window.get_display().get_type().name();
+        let display_type_name = gdk_window.display().type_().name();
         #[cfg(all(target_os = "linux", feature = "x11"))]
         {
             // Check if we're using X11 or ...
@@ -311,8 +311,6 @@ pub fn run() {
         return;
     }
 
-    gstpravega::plugin_register_static().unwrap();
-
     let pipeline_description =
         "pravegasrc name=src".to_owned()
         + " ! queue2 use-buffering=true"
@@ -367,9 +365,9 @@ pub fn run() {
         // Try to detect whether the raw stream decodebin provided us with
         // just now is either audio or video (or none of both, e.g. subtitles).
         let (is_audio, is_video) = {
-            let media_type = src_pad.get_current_caps().and_then(|caps| {
+            let media_type = src_pad.current_caps().and_then(|caps| {
                 caps.get_structure(0).map(|s| {
-                    let name = s.get_name();
+                    let name = s.name();
                     (name.starts_with("audio/"), name.starts_with("video/"))
                 })
             });
@@ -379,7 +377,7 @@ pub fn run() {
                     gst::element_warning!(
                         dbin,
                         gst::CoreError::Negotiation,
-                        ("Failed to get media type from pad {}", src_pad.get_name())
+                        ("Failed to get media type from pad {}", src_pad.name())
                     );
 
                     return;
@@ -465,7 +463,7 @@ pub fn run() {
         info!("connect_pad_added: END");
     });
 
-    let bus = playbin.get_bus().unwrap();
+    let bus = playbin.bus().unwrap();
     bus.add_signal_watch();
 
     let pipeline_weak = playbin.downgrade();
@@ -489,20 +487,20 @@ pub fn run() {
             gst::MessageView::Error(err) => {
                 info!(
                     "Error from {:?}: {} ({:?})",
-                    err.get_src().map(|s| s.get_path_string()),
-                    err.get_error(),
-                    err.get_debug()
+                    err.src().map(|s| s.path_string()),
+                    err.error(),
+                    err.debug()
                 );
             }
             // This is called when the pipeline changes states. We use it to
             // keep track of the current state.
             gst::MessageView::StateChanged(state_changed) => {
                 if state_changed
-                    .get_src()
+                    .src()
                     .map(|s| s == pipeline)
                     .unwrap_or(false)
                 {
-                    info!("State set to {:?}", state_changed.get_current());
+                    info!("State set to {:?}", state_changed.current());
                 }
             }
             _ => (),
