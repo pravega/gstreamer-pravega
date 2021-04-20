@@ -78,7 +78,7 @@ mod filters {
             .and_then(handlers::get_mpeg_transport_stream)
     }
 
-    /// GET /scopes/my_scope/streams/my_stream/m3u8?begin=0&end=204
+    /// GET /scopes/my_scope/streams/my_stream/m3u8?begin=2021-04-19T00:00:00Z&end=2021-04-20T00:00:00Z
     pub fn get_m3u8_playlist(
         db: Db,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
