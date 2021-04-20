@@ -3,7 +3,7 @@ set -ex
 
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
 GSTREAMER_CHECKOUT=${GSTREAMER_CHECKOUT:-1.18.4}
-RUST_JOBS=6
+RUST_JOBS=${RUST_JOBS:-1}
 
 pushd ${ROOT_DIR}/docker
 
