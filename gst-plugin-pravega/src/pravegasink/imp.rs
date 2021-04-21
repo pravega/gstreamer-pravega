@@ -11,6 +11,8 @@ use std::cmp;
 use std::convert::TryInto;
 use std::io::{BufWriter, Write};
 use std::sync::Mutex;
+use std::env;
+use std::collections::HashMap;
 
 use once_cell::sync::Lazy;
 
@@ -32,6 +34,7 @@ const PROPERTY_NAME_BUFFER_SIZE: &str = "buffer-size";
 const PROPERTY_NAME_TIMESTAMP_MODE: &str = "timestamp-mode";
 const PROPERTY_NAME_INDEX_MIN_SEC: &str = "index-min-sec";
 const PROPERTY_NAME_INDEX_MAX_SEC: &str = "index-max-sec";
+const PROPERTY_NAME_ALLOW_CREATE_SCOPE: &str = "allow-create-scope";
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy, glib::GEnum)]
 #[repr(u32)]
@@ -57,6 +60,7 @@ const DEFAULT_BUFFER_SIZE: usize = 128*1024;
 const DEFAULT_TIMESTAMP_MODE: TimestampMode = TimestampMode::RealtimeClock;
 const DEFAULT_INDEX_MIN_SEC: f64 = 0.5;
 const DEFAULT_INDEX_MAX_SEC: f64 = 10.0;
+const AUTH_KEYCLOAK_PATH: &str = "pravega_client_auth_keycloak";
 
 #[derive(Debug)]
 struct Settings {
@@ -68,6 +72,7 @@ struct Settings {
     timestamp_mode: TimestampMode,
     index_min_nanos: u64,
     index_max_nanos: u64,
+    allow_create_scope: bool,
 }
 
 impl Default for Settings {
@@ -81,6 +86,7 @@ impl Default for Settings {
             timestamp_mode: DEFAULT_TIMESTAMP_MODE,
             index_min_nanos: (DEFAULT_INDEX_MIN_SEC * 1e9) as u64,
             index_max_nanos: (DEFAULT_INDEX_MAX_SEC * 1e9) as u64,
+            allow_create_scope: true,
         }
     }
 }
@@ -238,6 +244,13 @@ impl ObjectImpl for PravegaSink {
                 DEFAULT_INDEX_MAX_SEC.try_into().unwrap(),
                 glib::ParamFlags::WRITABLE,
             ),
+            glib::ParamSpec::boolean(
+                PROPERTY_NAME_ALLOW_CREATE_SCOPE,
+                "Allow create scope",
+                "Controller whether to create scope at startup",
+                true,
+                glib::ParamFlags::WRITABLE,
+            ),
         ]});
         PROPERTIES.as_ref()
     }
@@ -334,6 +347,19 @@ impl ObjectImpl for PravegaSink {
                     gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_INDEX_MAX_SEC, err);
                 }
             },
+            PROPERTY_NAME_ALLOW_CREATE_SCOPE => {
+                let res: Result<(), glib::Error> = match value.get::<bool>() {
+                    Ok(allow_create_scope) => {
+                        let mut settings = self.settings.lock().unwrap();
+                        settings.allow_create_scope = allow_create_scope.unwrap_or_default();
+                        Ok(())
+                    },
+                    Err(_) => unreachable!("type checked upstream"),
+                };
+                if let Err(err) = res {
+                    gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_ALLOW_CREATE_SCOPE, err);
+                }
+            },
         _ => unimplemented!(),
         };
     }
@@ -409,13 +435,20 @@ impl BaseSinkImpl for PravegaSink {
             gst::error_msg!(gst::ResourceError::Settings, ["Controller is not defined"])
         })?;
         gst_info!(CAT, obj: element, "controller={}", controller);
-        //let controller_uri = utils::parse_controller_uri(controller).unwrap();
-        //gst_info!(CAT, obj: element, "controller_uri={}", controller_uri);
+        let controller_uri = utils::parse_controller_uri(controller).unwrap();
+        gst_info!(CAT, obj: element, "controller_uri={}", controller_uri);
+
+        gst_info!(CAT, obj: element, "allow_create_scope={}", settings.allow_create_scope);
+
+        let filter_env_val = env::vars()
+            .filter(|(k, _v)| k.starts_with(AUTH_KEYCLOAK_PATH))
+            .collect::<HashMap<String, String>>();
+        let is_auth_enabled = if filter_env_val.contains_key(AUTH_KEYCLOAK_PATH) { true } else { false };
+        gst_info!(CAT, obj: element, "is_auth_enabled={}", is_auth_enabled);
 
         let config = ClientConfigBuilder::default()
-            .controller_uri(controller)
-            .is_auth_enabled(true)
-            .is_tls_enabled(true)
+            .controller_uri(controller_uri)
+            .is_auth_enabled(is_auth_enabled)
             .build()
             .expect("creating config");
 
@@ -424,7 +457,9 @@ impl BaseSinkImpl for PravegaSink {
         let runtime = client_factory.get_runtime();
 
         // Create scope.
-        //runtime.block_on(controller_client.create_scope(&scope)).unwrap();
+        if settings.allow_create_scope {
+            runtime.block_on(controller_client.create_scope(&scope)).unwrap();
+        }
 
         // Create data stream.
         let stream_config = StreamConfiguration {
