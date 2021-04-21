@@ -13,7 +13,7 @@ fn main() {
         ! videoconvert \
         ! x264enc key-int-max=30 bitrate=100 \
         ! mpegtsmux \
-        ! pravegasink stream=examples/stream1",
+        ! pravegasink controller=127.0.0.1:9090 stream=examples/stream1 allow-create-scope=false",
     )
     .unwrap();
 

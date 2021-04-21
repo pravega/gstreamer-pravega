@@ -12,6 +12,8 @@ use std::convert::{TryInto, TryFrom};
 use std::io::{BufReader, ErrorKind, Seek, SeekFrom};
 use std::sync::{Arc, Mutex};
 use std::u8;
+use std::env;
+use std::collections::HashMap;
 
 use once_cell::sync::Lazy;
 
@@ -35,6 +37,7 @@ const PROPERTY_NAME_START_TIMESTAMP: &str = "start-timestamp";
 const PROPERTY_NAME_END_TIMESTAMP: &str = "end-timestamp";
 const PROPERTY_NAME_START_UTC: &str = "start-utc";
 const PROPERTY_NAME_END_UTC: &str = "end-utc";
+const PROPERTY_NAME_ALLOW_CREATE_SCOPE: &str = "allow-create-scope";
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy, glib::GEnum)]
 #[repr(u32)]
@@ -102,6 +105,7 @@ const DEFAULT_START_MODE: StartMode = StartMode::NoSeek;
 const DEFAULT_END_MODE: EndMode = EndMode::Unbounded;
 const DEFAULT_START_TIMESTAMP: u64 = 0;
 const DEFAULT_END_TIMESTAMP: u64 = u64::MAX;
+const AUTH_KEYCLOAK_PATH: &str = "pravega_client_auth_keycloak";
 
 #[derive(Debug)]
 struct Settings {
@@ -114,6 +118,7 @@ struct Settings {
     end_mode: EndMode,
     start_timestamp: u64,
     end_timestamp: u64,
+    allow_create_scope: bool,
 }
 
 impl Default for Settings {
@@ -128,6 +133,7 @@ impl Default for Settings {
             end_mode: DEFAULT_END_MODE,
             start_timestamp: DEFAULT_START_TIMESTAMP,
             end_timestamp: DEFAULT_END_TIMESTAMP,
+            allow_create_scope: true,
         }
     }
 }
@@ -308,7 +314,14 @@ impl ObjectImpl for PravegaSrc {
                 in RFC 3339 format. For example: 2021-12-28T23:41:45.691Z",
                 None,
                 glib::ParamFlags::WRITABLE,
-            ),        
+            ),
+            glib::ParamSpec::boolean(
+                PROPERTY_NAME_ALLOW_CREATE_SCOPE,
+                "Allow create scope",
+                "If true, the Pravega scope will be created if needed.",
+                true,
+                glib::ParamFlags::WRITABLE,
+            ),
         ]});
         PROPERTIES.as_ref()
     }
@@ -445,6 +458,19 @@ impl ObjectImpl for PravegaSrc {
                     gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_END_UTC, err);
                 }
             },
+            PROPERTY_NAME_ALLOW_CREATE_SCOPE => {
+                let res: Result<(), glib::Error> = match value.get::<bool>() {
+                    Ok(allow_create_scope) => {
+                        let mut settings = self.settings.lock().unwrap();
+                        settings.allow_create_scope = allow_create_scope.unwrap_or_default();
+                        Ok(())
+                    },
+                    Err(_) => unreachable!("type checked upstream"),
+                };
+                if let Err(err) = res {
+                    gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_ALLOW_CREATE_SCOPE, err);
+                }
+            },
         _ => unimplemented!(),
         };
     }
@@ -508,8 +534,17 @@ impl BaseSrcImpl for PravegaSrc {
         let controller_uri = utils::parse_controller_uri(controller).unwrap();
         gst_info!(CAT, obj: element, "controller_uri={}", controller_uri);
 
+        gst_info!(CAT, obj: element, "allow_create_scope={}", settings.allow_create_scope);
+
+        let filter_env_val = env::vars()
+            .filter(|(k, _v)| k.starts_with(AUTH_KEYCLOAK_PATH))
+            .collect::<HashMap<String, String>>();
+        let is_auth_enabled = filter_env_val.contains_key(AUTH_KEYCLOAK_PATH);
+        gst_info!(CAT, obj: element, "is_auth_enabled={}", is_auth_enabled);
+
         let config = ClientConfigBuilder::default()
             .controller_uri(controller_uri)
+            .is_auth_enabled(is_auth_enabled)
             .build()
             .expect("creating config");
 
@@ -518,7 +553,9 @@ impl BaseSrcImpl for PravegaSrc {
         let runtime = client_factory.get_runtime();
 
         // Create scope.
-        runtime.block_on(controller_client.create_scope(&scope)).unwrap();
+        if settings.allow_create_scope {
+            runtime.block_on(controller_client.create_scope(&scope)).unwrap();
+        }
 
         // Create data stream.
         let stream_config = StreamConfiguration {
