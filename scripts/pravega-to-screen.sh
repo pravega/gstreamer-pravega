@@ -7,9 +7,7 @@ ls -lh ${ROOT_DIR}/gst-plugin-pravega/target/release/*.so
 export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/release:${GST_PLUGIN_PATH}
 export GST_DEBUG="pravegasrc:INFO,mpegtsbase:4,mpegtspacketizer:4,GST_TRACER:7"
 export RUST_BACKTRACE=1
-#export pravega_client_auth_method=Bearer
-#export pravega_client_auth_keycloak=/tmp/keycloak.json
-CONTROLLER=${CONTROLLER:-127.0.0.1:9090}
+PRAVEGA_CONTROLLER=${PRAVEGA_CONTROLLER:-127.0.0.1:9090}
 SCOPE=${SCOPE:-examples}
 STREAM=${STREAM:-test1}
 ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
@@ -20,7 +18,7 @@ gst-launch-1.0 \
 -v \
 pravegasrc \
   stream=${SCOPE}/${STREAM} \
-  controller=${CONTROLLER} \
+  controller=${PRAVEGA_CONTROLLER} \
   allow-create-scope=${ALLOW_CREATE_SCOPE} \
   $* \
 ! decodebin \

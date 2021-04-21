@@ -10,14 +10,14 @@ ls -lh ${ROOT_DIR}/gst-plugin-pravega/target/debug/*.so
 export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_PATH}
 # log level can be INFO, DEBUG, or LOG (verbose)
 export GST_DEBUG=pravegasink:DEBUG,basesink:INFO
-export PRAVEGA_VIDEO_LOG=trace
+export PRAVEGA_VIDEO_LOG=info
 export RUST_LOG=debug
 export RUST_BACKTRACE=full
 PRAVEGA_CONTROLLER=${PRAVEGA_CONTROLLER:-127.0.0.1:9090}
 SCOPE=${SCOPE:-examples}
 STREAM=${STREAM:-test1}
 ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
-SIZE_SEC=10
+SIZE_SEC=300
 FPS=30
 
 gst-launch-1.0 \
