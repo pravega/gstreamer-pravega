@@ -510,6 +510,8 @@ impl BaseSrcImpl for PravegaSrc {
 
         let config = ClientConfigBuilder::default()
             .controller_uri(controller_uri)
+            .is_auth_enabled(true)
+            .is_tls_enabled(true)
             .build()
             .expect("creating config");
 
@@ -518,7 +520,7 @@ impl BaseSrcImpl for PravegaSrc {
         let runtime = client_factory.get_runtime();
 
         // Create scope.
-        runtime.block_on(controller_client.create_scope(&scope)).unwrap();
+        //runtime.block_on(controller_client.create_scope(&scope)).unwrap();
 
         // Create data stream.
         let stream_config = StreamConfiguration {

@@ -409,11 +409,13 @@ impl BaseSinkImpl for PravegaSink {
             gst::error_msg!(gst::ResourceError::Settings, ["Controller is not defined"])
         })?;
         gst_info!(CAT, obj: element, "controller={}", controller);
-        let controller_uri = utils::parse_controller_uri(controller).unwrap();
-        gst_info!(CAT, obj: element, "controller_uri={}", controller_uri);
+        //let controller_uri = utils::parse_controller_uri(controller).unwrap();
+        //gst_info!(CAT, obj: element, "controller_uri={}", controller_uri);
 
         let config = ClientConfigBuilder::default()
-            .controller_uri(controller_uri)
+            .controller_uri(controller)
+            .is_auth_enabled(true)
+            .is_tls_enabled(true)
             .build()
             .expect("creating config");
 
@@ -422,7 +424,7 @@ impl BaseSinkImpl for PravegaSink {
         let runtime = client_factory.get_runtime();
 
         // Create scope.
-        runtime.block_on(controller_client.create_scope(&scope)).unwrap();
+        //runtime.block_on(controller_client.create_scope(&scope)).unwrap();
 
         // Create data stream.
         let stream_config = StreamConfiguration {
