@@ -247,7 +247,7 @@ impl ObjectImpl for PravegaSink {
             glib::ParamSpec::boolean(
                 PROPERTY_NAME_ALLOW_CREATE_SCOPE,
                 "Allow create scope",
-                "Controller whether to create scope at startup",
+                "If true, the Pravega scope will be created if needed.",
                 true,
                 glib::ParamFlags::WRITABLE,
             ),
@@ -443,7 +443,7 @@ impl BaseSinkImpl for PravegaSink {
         let filter_env_val = env::vars()
             .filter(|(k, _v)| k.starts_with(AUTH_KEYCLOAK_PATH))
             .collect::<HashMap<String, String>>();
-        let is_auth_enabled = if filter_env_val.contains_key(AUTH_KEYCLOAK_PATH) { true } else { false };
+        let is_auth_enabled = filter_env_val.contains_key(AUTH_KEYCLOAK_PATH);
         gst_info!(CAT, obj: element, "is_auth_enabled={}", is_auth_enabled);
 
         let config = ClientConfigBuilder::default()
