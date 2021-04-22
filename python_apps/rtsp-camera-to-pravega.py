@@ -42,6 +42,7 @@ def main():
         description="Capture from RTSP camera and write video to a Pravega stream",
         auto_env_var_prefix="")
     parser.add_argument("--allow-create-scope", type=str2bool, default=True)
+    parser.add_argument("--buffer-size-mb", type=float, default=10.0, help='Buffer size in MiB')
     parser.add_argument("--camera-address")
     parser.add_argument("--camera-password")
     parser.add_argument("--camera-path", default="/")
@@ -59,7 +60,7 @@ def main():
     # Set default GStreamer logging.
     if not "GST_DEBUG" in os.environ:
         os.environ["GST_DEBUG"] = ("WARNING,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO," +
-            "h264parse:INFO,pravegasink:DEBUG")
+            "h264parse:WARN,pravegasink:DEBUG")
 
     # Set default logging for pravega-video, which sets a Rust tracing subscriber used by the Pravega Rust Client.
     if not "PRAVEGA_VIDEO_LOG" in os.environ:
@@ -119,7 +120,7 @@ def main():
     queue0 = pipeline.get_by_name("queue0")
     if queue0:
         queue0.set_property("max-size-buffers", 0)
-        queue0.set_property("max-size-bytes", 10485760)
+        queue0.set_property("max-size-bytes", int(args.buffer_size_mb * 1024 * 1024))
         queue0.set_property("max-size-time", 0)
         queue0.set_property("silent", True)
         queue0.set_property("leaky", "downstream")
