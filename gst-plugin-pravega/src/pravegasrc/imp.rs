@@ -12,8 +12,6 @@ use std::convert::{TryInto, TryFrom};
 use std::io::{BufReader, ErrorKind, Seek, SeekFrom};
 use std::sync::{Arc, Mutex};
 use std::u8;
-use std::env;
-use std::collections::HashMap;
 
 use once_cell::sync::Lazy;
 
@@ -105,7 +103,6 @@ const DEFAULT_START_MODE: StartMode = StartMode::NoSeek;
 const DEFAULT_END_MODE: EndMode = EndMode::Unbounded;
 const DEFAULT_START_TIMESTAMP: u64 = 0;
 const DEFAULT_END_TIMESTAMP: u64 = u64::MAX;
-const AUTH_KEYCLOAK_PATH: &str = "pravega_client_auth_keycloak";
 
 #[derive(Debug)]
 struct Settings {
@@ -531,35 +528,17 @@ impl BaseSrcImpl for PravegaSrc {
             gst::error_msg!(gst::ResourceError::Settings, ["Controller is not defined"])
         })?;
         gst_info!(CAT, obj: element, "controller={}", controller);
-        let mut is_tls_enabled = false;
-        let mut controller_uri = controller;
-        if controller_uri.starts_with("tcp://") {
-            controller_uri = controller_uri.chars().skip(6).collect();
-        }
-        else if controller_uri.starts_with("tls://") {
-            controller_uri = controller_uri.chars().skip(6).collect();
-            is_tls_enabled = true;
-        }
-        gst_info!(CAT, obj: element, "controller_uri={}", controller_uri);
-        gst_info!(CAT, obj: element, "is_tls_enabled={}", is_tls_enabled);
-
-        gst_info!(CAT, obj: element, "allow_create_scope={}", settings.allow_create_scope);
-
-        let is_auth_enabled = env::vars().any(|(k, _v)| k.starts_with(AUTH_KEYCLOAK_PATH));
-        gst_info!(CAT, obj: element, "is_auth_enabled={}", is_auth_enabled);
-
-        let config = ClientConfigBuilder::default()
-            .controller_uri(controller_uri)
-            .is_auth_enabled(is_auth_enabled)
-            .is_tls_enabled(is_tls_enabled)
-            .build()
-            .expect("creating config");
+        let config = utils::create_client_config(controller).expect("Failed to create pravega client config");
+        gst_info!(CAT, obj: element, "controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
+        gst_info!(CAT, obj: element, "is_tls_enabled={}", config.is_tls_enabled);
+        gst_info!(CAT, obj: element, "is_auth_enabled={}", config.is_auth_enabled);
 
         let client_factory = ClientFactory::new(config);
         let controller_client = client_factory.get_controller_client();
         let runtime = client_factory.get_runtime();
 
         // Create scope.
+        gst_info!(CAT, obj: element, "allow_create_scope={}", settings.allow_create_scope);
         if settings.allow_create_scope {
             runtime.block_on(controller_client.create_scope(&scope)).unwrap();
         }
