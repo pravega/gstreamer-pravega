@@ -10,7 +10,7 @@ export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_
 export GST_DEBUG=pravegasink:DEBUG,basesink:INFO
 export RUST_BACKTRACE=1
 export TZ=UTC
-STREAM=${STREAM:-hls1}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-hls1}
 SIZE_SEC=604800
 FPS=30
 KEY_FRAME_INTERVAL=$((5*$FPS))
@@ -27,4 +27,4 @@ videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$F
 ! x264enc key-int-max=${KEY_FRAME_INTERVAL} tune=zerolatency speed-preset=medium bitrate=500 \
 ! queue \
 ! mpegtsmux alignment=-1 \
-! pravegasink stream=examples/${STREAM} controller=127.0.0.1:9090 seal=false sync=false
+! pravegasink stream=examples/${PRAVEGA_STREAM} controller=127.0.0.1:9090 seal=false sync=false

@@ -12,7 +12,7 @@ export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/release:${GST_PLUGI
 # log level can be INFO, DEBUG, or LOG (verbose)
 export GST_DEBUG=pravegasink:LOG,basesink:INFO,rtspsrc:LOG,rtpbin:LOG,rtpsession:LOG,rtpjitterbuffer:LOG,identity:LOG
 export RUST_BACKTRACE=1
-STREAM=${STREAM:-rtsp1}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-rtsp1}
 CAMERA_USER=${CAMERA_USER:-admin}
 CAMERA_IP=${CAMERA_IP:-192.168.1.102}
 CAMERA_PORT=${CAMERA_PORT:-554}
@@ -38,7 +38,7 @@ rtspsrc \
 ! queue max-size-buffers=0 max-size-bytes=10485760 max-size-time=0 silent=true leaky=downstream \
 ! identity name=from-queue silent=false \
 ! pravegasink \
-  stream=examples/${STREAM} \
+  stream=examples/${PRAVEGA_STREAM} \
   controller=127.0.0.1:9090 \
   timestamp-mode=ntp \
   sync=false \

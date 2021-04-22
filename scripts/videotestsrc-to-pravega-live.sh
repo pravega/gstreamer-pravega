@@ -15,7 +15,7 @@ export RUST_LOG=debug
 export RUST_BACKTRACE=full
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
 PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
-STREAM=${STREAM:-test1}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-test1}
 ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
 SIZE_SEC=${SIZE_SEC:-172800}
 FPS=30
@@ -31,6 +31,7 @@ videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$F
 ! x264enc tune=zerolatency key-int-max=${FPS} bitrate=200 \
 ! mpegtsmux alignment=-1 \
 <<<<<<< HEAD
+<<<<<<< HEAD
 ! pravegasink \
   allow-create-scope=${ALLOW_CREATE_SCOPE} \
   controller=${PRAVEGA_CONTROLLER} \
@@ -40,3 +41,6 @@ videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$F
 =======
 ! pravegasink stream=${PRAVEGA_SCOPE}/${STREAM} controller=${PRAVEGA_CONTROLLER_URI} sync=true allow-create-scope=${ALLOW_CREATE_SCOPE}
 >>>>>>> Change scripts to use PRAVEGA_CONTROLLER_URI and PRAVEGA_SCOPE
+=======
+! pravegasink stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} sync=true allow-create-scope=${ALLOW_CREATE_SCOPE}
+>>>>>>> Change all scripts to use PRAVEGA_STREAM instead of STREAM

@@ -13,7 +13,7 @@ export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_
 # log level can be INFO, DEBUG, or LOG (verbose)
 export GST_DEBUG=pravegasink:LOG
 export RUST_BACKTRACE=1
-STREAM=${STREAM:-split10}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-split10}
 SIZE_SEC=600
 FPS=30
 
@@ -27,7 +27,7 @@ videotestsrc is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$FPS)) \
 ! x264enc \
 ! "video/x-h264,stream-format=byte-stream,profile=main" \
 ! queue \
-! pravegasink stream=examples/${STREAM}-v sync=false \
+! pravegasink stream=examples/${PRAVEGA_STREAM}-v sync=false \
 audiotestsrc is-live=true do-timestamp=true \
              samplesperbuffer=$((44100/$FPS)) num-buffers=$(($SIZE_SEC*$FPS)) \
              wave=ticks volume=0.5 marker-tick-period=5 \
@@ -35,4 +35,4 @@ audiotestsrc is-live=true do-timestamp=true \
 ! "audio/x-raw,rate=44100,channels=2" \
 ! avenc_aac \
 ! queue \
-! pravegasink stream=examples/${STREAM}-a1 sync=false
+! pravegasink stream=examples/${PRAVEGA_STREAM}-a1 sync=false

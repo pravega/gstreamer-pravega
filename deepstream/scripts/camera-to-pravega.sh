@@ -6,7 +6,7 @@ ls -lh ${ROOT_DIR}/gst-plugin-pravega/target/debug/*.so
 export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_PATH}
 export GST_DEBUG=pravegasink:DEBUG
 export RUST_BACKTRACE=1
-STREAM=${STREAM:-camera9}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-camera9}
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-192.168.1.123:9090}
 FPS=21
 BITRATE_KILOBYTES_PER_SEC=1000
@@ -20,5 +20,5 @@ nvarguscamerasrc \
 ! nvvidconv flip-method=2 \
 ! nvv4l2h264enc maxperf-enable=1 preset-level=1 control-rate=1 bitrate=${BITRATE_BITS_PER_SEC} \
 ! mpegtsmux \
-! pravegasink stream=examples/${STREAM} controller=${PRAVEGA_CONTROLLER_URI} \
+! pravegasink stream=examples/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} \
 |& tee /tmp/camera-to-pravega.log

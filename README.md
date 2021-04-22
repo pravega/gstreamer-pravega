@@ -193,7 +193,7 @@ When you run any of these examples for the first time, the Rust build system, Ca
 Generate synthetic video data, compress it using H.264, wrap it in an MPEG Transport Stream, and write to a Pravega stream.
 
 ```bash
-STREAM=mystream1 scripts/videotestsrc-to-pravega.sh
+PRAVEGA_STREAM=mystream1 scripts/videotestsrc-to-pravega.sh
 ```
 
 ### USB Camera to Pravega
@@ -202,7 +202,7 @@ Get video from a local USB camera, compress it using H.264, wrap it in an MPEG T
 This command can be run multiple times (but not concurrently) to append additional video frames to the Pravega stream.
 
 ```bash
-STREAM=mystream1 scripts/camera-to-pravega.sh
+PRAVEGA_STREAM=mystream1 scripts/camera-to-pravega.sh
 ```
 
 ### RTSP Camera to Pravega
@@ -228,7 +228,7 @@ This command can be executed before, during, or after `camera-to-pravega.sh`.
 Multiple instances can be executed concurrently, even on different computers.
 
 ```bash
-STREAM=mystream1 scripts/pravega-video-player.sh
+PRAVEGA_STREAM=mystream1 scripts/pravega-video-player.sh
 ```
 
 ### HTTP Live Streaming with Pravega Video Server
@@ -242,13 +242,13 @@ directly serve a Pravega stream containing an MPEG transport stream.
 Generate synthetic video data that is suitable for HLS. This has key frames at 5 second intervals.
 
 ```bash
-STREAM=mystream1 scripts/videotestsrc-to-pravega-hls.sh
+PRAVEGA_STREAM=mystream1 scripts/videotestsrc-to-pravega-hls.sh
 ```
 
 Alternatively, generate synthetic video and audio data.
 
 ```bash
-STREAM=mystream1 scripts/avtestsrc-to-pravega-hls.sh
+PRAVEGA_STREAM=mystream1 scripts/avtestsrc-to-pravega-hls.sh
 ```
 
 Start Pravega Video Server.

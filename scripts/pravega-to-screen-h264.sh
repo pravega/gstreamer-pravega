@@ -9,11 +9,11 @@ export GST_DEBUG="pravegasrc:INFO,basesrc:INFO,mpegtsbase:INFO,mpegtspacketizer:
 export RUST_BACKTRACE=1
 export GST_DEBUG_DUMP_DOT_DIR=/tmp/gst-dot/pravega-to-screen2
 mkdir -p ${GST_DEBUG_DUMP_DOT_DIR}
-STREAM=${STREAM:-test2}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-test2}
 
 gst-launch-1.0 \
 -v \
-pravegasrc stream=examples/${STREAM} \
+pravegasrc stream=examples/${PRAVEGA_STREAM} \
 ! tsdemux \
 ! h264parse \
 ! avdec_h264 \

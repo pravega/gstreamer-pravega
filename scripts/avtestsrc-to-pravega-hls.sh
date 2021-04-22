@@ -12,7 +12,7 @@ export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_
 export GST_DEBUG=pravegasink:DEBUG
 export RUST_BACKTRACE=1
 export TZ=UTC
-STREAM=${STREAM:-hlsav1}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-hlsav1}
 SIZE_SEC=86400
 FPS=30
 KEY_FRAME_INTERVAL=$((5*$FPS))
@@ -37,4 +37,4 @@ audiotestsrc is-live=true do-timestamp=true \
 ! queue ! mux. \
 mpegtsmux name=mux \
 ! queue \
-! pravegasink stream=examples/${STREAM} sync=false
+! pravegasink stream=examples/${PRAVEGA_STREAM} sync=false

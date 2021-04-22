@@ -13,7 +13,7 @@ export GST_DEBUG=pravegasink:INFO,basesink:INFO
 export RUST_BACKTRACE=1
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
 PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
-STREAM=${STREAM:-test1}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-test1}
 ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
 SIZE_SEC=10
 FPS=30
@@ -28,4 +28,4 @@ videotestsrc name=src is-live=false do-timestamp=true num-buffers=$(($SIZE_SEC*$
 ! videoconvert \
 ! x264enc key-int-max=${FPS} speed-preset=ultrafast bitrate=2000 \
 ! mpegtsmux alignment=-1 \
-! pravegasink stream=${PRAVEGA_SCOPE}/${STREAM} controller=${PRAVEGA_CONTROLLER_URI} seal=false sync=false allow-create-scope=${ALLOW_CREATE_SCOPE}
+! pravegasink stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} seal=false sync=false allow-create-scope=${ALLOW_CREATE_SCOPE}

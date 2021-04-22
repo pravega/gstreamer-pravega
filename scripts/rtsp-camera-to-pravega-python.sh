@@ -23,7 +23,7 @@ export CAMERA_PORT=${CAMERA_PORT:-8554}
 export CAMERA_USER=${CAMERA_USER:-user}
 export PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
 export PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
-export PRAVEGA_STREAM=${STREAM:-rtsp1}
+export PRAVEGA_STREAM=${PRAVEGA_STREAM:-rtsp1}
 
 ${ROOT_DIR}/python_apps/rtsp-camera-to-pravega.py \
 $* |& tee ${LOG_FILE}

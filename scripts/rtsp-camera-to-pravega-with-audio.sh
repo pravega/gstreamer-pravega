@@ -12,7 +12,7 @@ export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/release:${GST_PLUGI
 # log level can be INFO, DEBUG, or LOG (verbose)
 export GST_DEBUG=pravegasink:LOG,basesink:INFO,rtspsrc:LOG,rtpbin:LOG,rtpsession:LOG,rtpjitterbuffer:LOG,identity:LOG
 export RUST_BACKTRACE=1
-STREAM=${STREAM:-rtspav1}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-rtspav1}
 CAMERA_USER=${CAMERA_USER:-admin}
 CAMERA_IP=${CAMERA_IP:-192.168.1.102}
 
@@ -39,7 +39,7 @@ src. \
 mpegtsmux name=mux \
 ! identity silent=false \
 ! pravegasink \
-  stream=examples/${STREAM} \
+  stream=examples/${PRAVEGA_STREAM} \
   timestamp-mode=ntp \
   sync=false \
 $* |& tee /tmp/rtsp-camera-to-pravega-with-audio.log
