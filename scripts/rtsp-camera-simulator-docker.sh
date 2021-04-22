@@ -14,4 +14,4 @@ docker run --rm \
 -e CAMERA_USER \
 -e CAMERA_PASSWORD \
 ${DOCKER_IMAGE} \
-rtsp-camera-simulator \
+rtsp-camera-simulator
