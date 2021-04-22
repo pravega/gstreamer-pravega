@@ -9,7 +9,7 @@ export GST_DEBUG="pravegasrc:INFO,mpegtsbase:4,mpegtspacketizer:4,GST_TRACER:7"
 export RUST_BACKTRACE=1
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
 PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
-PRAVEGA_STREAM=${PRAVEGA_STREAM:-${PRAVEGA_STREAM:-test1}}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-test1}
 ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
 export GST_DEBUG_DUMP_DOT_DIR=/tmp/gst-dot/pravega-to-screen
 mkdir -p ${GST_DEBUG_DUMP_DOT_DIR}
@@ -27,12 +27,16 @@ pravegasrc \
   controller=${PRAVEGA_CONTROLLER_URI} \
 >>>>>>> Change scripts to use PRAVEGA_CONTROLLER_URI and PRAVEGA_SCOPE
   allow-create-scope=${ALLOW_CREATE_SCOPE} \
+<<<<<<< HEAD
   controller=${PRAVEGA_CONTROLLER} \
   keycloak-file=\"${KEYCLOAK_FILE}\" \
   stream=${SCOPE}/${STREAM} \
+=======
+  start-pts-at-zero=true \
+>>>>>>> Add start-pts-at-zero=true to pravega-to-screen*.sh
   $* \
 ! decodebin \
 ! videoconvert \
 ! textoverlay "text=from ${PRAVEGA_STREAM}" valignment=baseline halignment=right "font-desc=Sans 24px" shaded-background=true \
-! autovideosink sync=false \
+! autovideosink sync=true \
 |& tee /tmp/pravega-to-screen.log

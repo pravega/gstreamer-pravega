@@ -29,6 +29,7 @@ pravegasrc \
   stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
   controller=${PRAVEGA_CONTROLLER_URI} \
   allow-create-scope=${ALLOW_CREATE_SCOPE} \
+  start-pts-at-zero=true \
   $* \
 ! decodebin \
 ! videoconvert \
