@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
 
 # Record video from an RTSP camera and write to Pravega.
+# Note: Using rtsp-camera-to-pravega-python.sh is preferred.
 
 set -ex
 
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
-LOG_FILE=/mnt/data/logs/rtsp-camera-to-pravega.log
+LOG_FILE=/tmp/rtsp-camera-to-pravega.log
 pushd ${ROOT_DIR}/gst-plugin-pravega
-cargo build --release
-export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/release:${GST_PLUGIN_PATH}
+cargo build
+export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_PATH}
 # log level can be INFO, DEBUG, or LOG (verbose)
 export GST_DEBUG=pravegasink:DEBUG,basesink:INFO,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO
 export RUST_BACKTRACE=1
+PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-tcp://127.0.0.1:9090}
+PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
+ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
 PRAVEGA_STREAM=${PRAVEGA_STREAM:-rtsp1}
 CAMERA_USER=${CAMERA_USER:-admin}
 CAMERA_IP=${CAMERA_IP:-192.168.1.102}
@@ -35,8 +39,9 @@ rtspsrc \
 ! mpegtsmux \
 ! queue max-size-buffers=0 max-size-bytes=10485760 max-size-time=0 silent=true leaky=downstream \
 ! pravegasink \
-  stream=examples/${PRAVEGA_STREAM} \
-  controller=127.0.0.1:9090 \
-  timestamp-mode=ntp \
+  allow-create-scope=${ALLOW_CREATE_SCOPE} \
+  controller=${PRAVEGA_CONTROLLER_URI} \
+  stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
   sync=false \
+  timestamp-mode=ntp \
 $* |& tee ${LOG_FILE}
