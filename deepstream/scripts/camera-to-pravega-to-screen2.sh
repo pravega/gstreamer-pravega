@@ -7,7 +7,7 @@ export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_
 export GST_DEBUG=pravegasink:5
 export RUST_BACKTRACE=1
 STREAM=${STREAM:-$(uuidgen)}
-PRAVEGA_CONTROLLER=192.168.1.123:9090
+PRAVEGA_CONTROLLER_URI=192.168.1.123:9090
 
 pkill gst-launch || true
 
@@ -20,13 +20,13 @@ nvarguscamerasrc \
 ! nvv4l2h264enc maxperf-enable=1 preset-level=1 control-rate=0 bitrate=400000 \
 ! mpegtsmux \
 ! timestampadd \
-! pravegasink stream=examples/${STREAM} controller=${PRAVEGA_CONTROLLER} \
+! pravegasink stream=examples/${STREAM} controller=${PRAVEGA_CONTROLLER_URI} \
 &
 
 gst-launch-1.0 \
 -v \
 --eos-on-shutdown \
-pravegasrc stream=examples/${STREAM} controller=${PRAVEGA_CONTROLLER} \
+pravegasrc stream=examples/${STREAM} controller=${PRAVEGA_CONTROLLER_URI} \
 ! timestampremove \
 ! tsdemux \
 ! h264parse \

@@ -13,8 +13,8 @@ export GST_DEBUG=pravegasink:DEBUG,basesink:INFO
 export PRAVEGA_VIDEO_LOG=info
 export RUST_LOG=debug
 export RUST_BACKTRACE=full
-PRAVEGA_CONTROLLER=${PRAVEGA_CONTROLLER:-127.0.0.1:9090}
-SCOPE=${SCOPE:-examples}
+PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
+PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
 STREAM=${STREAM:-test1}
 ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
 SIZE_SEC=${SIZE_SEC:-172800}
@@ -30,9 +30,13 @@ videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$F
 ! videoconvert \
 ! x264enc tune=zerolatency key-int-max=${FPS} bitrate=200 \
 ! mpegtsmux alignment=-1 \
+<<<<<<< HEAD
 ! pravegasink \
   allow-create-scope=${ALLOW_CREATE_SCOPE} \
   controller=${PRAVEGA_CONTROLLER} \
   keycloak-file=\"${KEYCLOAK_FILE}\" \
   stream=${SCOPE}/${STREAM} \
   sync=true
+=======
+! pravegasink stream=${PRAVEGA_SCOPE}/${STREAM} controller=${PRAVEGA_CONTROLLER_URI} sync=true allow-create-scope=${ALLOW_CREATE_SCOPE}
+>>>>>>> Change scripts to use PRAVEGA_CONTROLLER_URI and PRAVEGA_SCOPE

@@ -11,8 +11,8 @@ export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_
 # log level can be INFO, DEBUG, or LOG (verbose)
 export GST_DEBUG=pravegasink:INFO,basesink:INFO
 export RUST_BACKTRACE=1
-PRAVEGA_CONTROLLER=${PRAVEGA_CONTROLLER:-127.0.0.1:9090}
-SCOPE=${SCOPE:-examples}
+PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
+PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
 STREAM=${STREAM:-test1}
 ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
 SIZE_SEC=10
@@ -28,4 +28,4 @@ videotestsrc name=src is-live=false do-timestamp=true num-buffers=$(($SIZE_SEC*$
 ! videoconvert \
 ! x264enc key-int-max=${FPS} speed-preset=ultrafast bitrate=2000 \
 ! mpegtsmux alignment=-1 \
-! pravegasink stream=${SCOPE}/${STREAM} controller=${PRAVEGA_CONTROLLER} seal=false sync=false allow-create-scope=${ALLOW_CREATE_SCOPE}
+! pravegasink stream=${PRAVEGA_SCOPE}/${STREAM} controller=${PRAVEGA_CONTROLLER_URI} seal=false sync=false allow-create-scope=${ALLOW_CREATE_SCOPE}

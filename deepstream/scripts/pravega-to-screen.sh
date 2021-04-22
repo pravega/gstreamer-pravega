@@ -8,13 +8,13 @@ export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_
 export GST_DEBUG="pravegasrc:LOG,mpegtsbase:4,mpegtspacketizer:4,GST_TRACER:7"
 export RUST_BACKTRACE=1
 STREAM=${STREAM:-camera8}
-PRAVEGA_CONTROLLER=192.168.1.123:9090
+PRAVEGA_CONTROLLER_URI=192.168.1.123:9090
 export GST_DEBUG_DUMP_DOT_DIR=/tmp/gst-dot/pravega-to-screen
 mkdir -p ${GST_DEBUG_DUMP_DOT_DIR}
 
 gst-launch-1.0 \
 -v \
-pravegasrc stream=examples/${STREAM} controller=${PRAVEGA_CONTROLLER} \
+pravegasrc stream=examples/${STREAM} controller=${PRAVEGA_CONTROLLER_URI} \
 ! decodebin \
 ! videoconvert \
 ! autovideosink sync=false
