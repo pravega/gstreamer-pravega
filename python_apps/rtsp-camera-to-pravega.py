@@ -5,6 +5,7 @@
 
 import configargparse as argparse
 import ctypes
+import distutils.util
 import logging
 import os
 import sys
@@ -32,10 +33,15 @@ def bus_call(bus, message, loop):
     return True
 
 
+def str2bool(v):
+    return bool(distutils.util.strtobool(v))
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Capture from RTSP camera and write video to a Pravega stream",
         auto_env_var_prefix="")
+    parser.add_argument("--allow-create-scope", type=str2bool, default=True)
     parser.add_argument("--camera-address")
     parser.add_argument("--camera-password")
     parser.add_argument("--camera-path", default="/")
@@ -43,7 +49,7 @@ def main():
     parser.add_argument("--camera-uri")
     parser.add_argument("--camera-user")
     parser.add_argument("--log-level", type=int, default=logging.INFO, help="10=DEBUG,20=INFO")
-    parser.add_argument("--pravega-controller-uri", default="127.0.0.1:9090")
+    parser.add_argument("--pravega-controller-uri", default="tcp://127.0.0.1:9090")
     parser.add_argument("--pravega-scope", required=True)
     parser.add_argument("--pravega-stream", required=True)
     args = parser.parse_args()
@@ -114,6 +120,7 @@ def main():
         queue0.set_property("leaky", "downstream")
     pravegasink = pipeline.get_by_name("pravegasink")
     if pravegasink:
+        pravegasink.set_property("allow-create-scope", args.allow_create_scope)
         pravegasink.set_property("controller", args.pravega_controller_uri)
         pravegasink.set_property("stream", "%s/%s" % (args.pravega_scope, args.pravega_stream))
         # Always write to Pravega immediately regardless of PTS
