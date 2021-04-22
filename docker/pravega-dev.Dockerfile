@@ -54,3 +54,11 @@ COPY apps apps
 RUN cd apps && \
     cargo install --jobs ${RUST_JOBS} --path . --bin \
       rtsp-camera-simulator
+
+## Install Python apps
+
+COPY python_apps python_apps
+
+RUN pip3 install -r python_apps/requirements.txt
+
+ENV PATH=/usr/src/gstreamer-pravega/python_apps:$PATH
