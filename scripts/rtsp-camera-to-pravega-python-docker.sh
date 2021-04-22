@@ -5,7 +5,8 @@ ROOT_DIR=$(readlink -f $(dirname $0)/..)
 CONTAINER_NAME=$(basename -s .sh $0)
 DOCKER_IMAGE=${DOCKER_IMAGE:-pravega/gstreamer:pravega-dev}
 # log level can be INFO, DEBUG, or LOG (verbose)
-export GST_DEBUG=pravegasink:DEBUG,basesink:INFO,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO
+#export GST_DEBUG=pravegasink:DEBUG,basesink:INFO,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO
+#export PRAVEGA_VIDEO_LOG=info
 export RUST_BACKTRACE=1
 export ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
 export CAMERA_ADDRESS=${CAMERA_ADDRESS:-127.0.0.1}
@@ -22,6 +23,7 @@ docker run --rm \
 --name ${CONTAINER_NAME} \
 -v ${pravega_client_auth_keycloak}:/tmp/keycloak.json \
 -e GST_DEBUG \
+-e PRAVEGA_VIDEO_LOG \
 -e RUST_BACKTRACE \
 -e ALLOW_CREATE_SCOPE \
 -e CAMERA_ADDRESS \

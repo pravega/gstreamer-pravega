@@ -56,6 +56,16 @@ def main():
 
     logging.basicConfig(level=args.log_level)
 
+    # Set default GStreamer logging.
+    if not "GST_DEBUG" in os.environ:
+        os.environ["GST_DEBUG"] = ("WARNING,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO," +
+            "h264parse:INFO,pravegasink:DEBUG")
+
+    # Set default logging for pravega-video, which sets a Rust tracing subscriber used by the Pravega Rust Client.
+    if not "PRAVEGA_VIDEO_LOG" in os.environ:
+        os.environ["PRAVEGA_VIDEO_LOG"] = "info"
+
+    # Print configuration parameters.
     for arg in vars(args):
         if 'password' not in arg:
             logging.info("argument: %s: %s" % (arg, getattr(args, arg)))
@@ -66,11 +76,6 @@ def main():
             raise Exception("If camera-uri is empty, then camera-address is required.")
         args.camera_uri = "rtsp://%s:%d%s" % (args.camera_address, args.camera_port, args.camera_path)
     logging.info("camera_uri=%s" % args.camera_uri)
-
-    # Set GStreamer log level.
-    if not "GST_DEBUG" in os.environ:
-        os.environ["GST_DEBUG"] = ("WARNING,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO," +
-            "h264parse:INFO,pravegasink:DEBUG")
 
     # Standard GStreamer initialization.
     Gst.init(None)

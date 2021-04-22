@@ -13,7 +13,7 @@ popd
 export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_PATH}
 
 # log level can be INFO, DEBUG, or LOG (verbose)
-export GST_DEBUG=pravegasink:DEBUG,basesink:INFO,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO
+#export GST_DEBUG=pravegasink:DEBUG,basesink:INFO,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO
 export RUST_BACKTRACE=1
 export ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
 export CAMERA_ADDRESS=${CAMERA_ADDRESS:-127.0.0.1}

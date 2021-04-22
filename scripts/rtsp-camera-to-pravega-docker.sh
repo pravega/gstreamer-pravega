@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# Record video from an RTSP camera and write to Pravega.
+# Note: Using rtsp-camera-to-pravega-python-docker.sh is preferred.
+
 set -ex
 
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
