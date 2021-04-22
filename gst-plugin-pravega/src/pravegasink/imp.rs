@@ -11,14 +11,11 @@ use std::cmp;
 use std::convert::TryInto;
 use std::io::{BufWriter, Write};
 use std::sync::Mutex;
-use std::env;
-use std::collections::HashMap;
 
 use once_cell::sync::Lazy;
 
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::byte_stream::ByteStreamWriter;
-use pravega_client_config::ClientConfigBuilder;
 use pravega_client_shared::{Scope, Stream, Segment, ScopedSegment, StreamConfiguration, ScopedStream, Scaling, ScaleType};
 use pravega_video::event_serde::{EventWithHeader, EventWriter};
 use pravega_video::index::{IndexRecord, IndexRecordWriter, get_index_stream_name};
@@ -60,7 +57,6 @@ const DEFAULT_BUFFER_SIZE: usize = 128*1024;
 const DEFAULT_TIMESTAMP_MODE: TimestampMode = TimestampMode::RealtimeClock;
 const DEFAULT_INDEX_MIN_SEC: f64 = 0.5;
 const DEFAULT_INDEX_MAX_SEC: f64 = 10.0;
-const AUTH_KEYCLOAK_PATH: &str = "pravega_client_auth_keycloak";
 
 #[derive(Debug)]
 struct Settings {
@@ -415,7 +411,7 @@ impl BaseSinkImpl for PravegaSink {
         let settings = self.settings.lock().unwrap();
         gst_info!(CAT, obj: element, "index_min_nanos={}, index_max_nanos={}", settings.index_min_nanos, settings.index_max_nanos);
         if !(settings.index_min_nanos <= settings.index_max_nanos) {
-            return Err(gst::error_msg!(gst::ResourceError::Settings, 
+            return Err(gst::error_msg!(gst::ResourceError::Settings,
                 ["{} must be <= {}", PROPERTY_NAME_INDEX_MIN_SEC, PROPERTY_NAME_INDEX_MAX_SEC]))
         };
         let scope_name: String = settings.scope.clone().ok_or_else(|| {
@@ -435,28 +431,18 @@ impl BaseSinkImpl for PravegaSink {
             gst::error_msg!(gst::ResourceError::Settings, ["Controller is not defined"])
         })?;
         gst_info!(CAT, obj: element, "controller={}", controller);
-        let controller_uri = utils::parse_controller_uri(controller).unwrap();
-        gst_info!(CAT, obj: element, "controller_uri={}", controller_uri);
-
-        gst_info!(CAT, obj: element, "allow_create_scope={}", settings.allow_create_scope);
-
-        let filter_env_val = env::vars()
-            .filter(|(k, _v)| k.starts_with(AUTH_KEYCLOAK_PATH))
-            .collect::<HashMap<String, String>>();
-        let is_auth_enabled = filter_env_val.contains_key(AUTH_KEYCLOAK_PATH);
-        gst_info!(CAT, obj: element, "is_auth_enabled={}", is_auth_enabled);
-
-        let config = ClientConfigBuilder::default()
-            .controller_uri(controller_uri)
-            .is_auth_enabled(is_auth_enabled)
-            .build()
-            .expect("creating config");
+        let config = utils::create_client_config(controller).expect("Failed to create pravega client config");
+        gst_debug!(CAT, obj: element, "config={:?}", config);
+        gst_info!(CAT, obj: element, "controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
+        gst_info!(CAT, obj: element, "is_tls_enabled={}", config.is_tls_enabled);
+        gst_info!(CAT, obj: element, "is_auth_enabled={}", config.is_auth_enabled);
 
         let client_factory = ClientFactory::new(config);
         let controller_client = client_factory.get_controller_client();
         let runtime = client_factory.get_runtime();
 
         // Create scope.
+        gst_info!(CAT, obj: element, "allow_create_scope={}", settings.allow_create_scope);
         if settings.allow_create_scope {
             runtime.block_on(controller_client.create_scope(&scope)).unwrap();
         }
