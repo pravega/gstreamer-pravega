@@ -24,9 +24,9 @@ docker run --rm \
 -e CAMERA_PASSWORD \
 -e CAMERA_PATH \
 -e CAMERA_PORT \
+-e CAMERA_USER \
 -e PRAVEGA_CONTROLLER_URI \
 -e PRAVEGA_SCOPE \
 -e PRAVEGA_STREAM \
-pravega/gstreamer:pravega-dev \
 ${DOCKER_IMAGE} \
 rtsp-camera-to-pravega.py
