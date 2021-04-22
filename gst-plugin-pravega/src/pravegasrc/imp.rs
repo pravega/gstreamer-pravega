@@ -4,7 +4,7 @@ use glib::subclass::prelude::*;
 use gst::ClockTime;
 use gst::prelude::*;
 use gst::subclass::prelude::*;
-use gst::{gst_error, gst_info, gst_log, gst_trace};
+use gst::{gst_debug, gst_error, gst_info, gst_log, gst_trace};
 use gst_base::prelude::*;
 use gst_base::subclass::prelude::*;
 
@@ -529,6 +529,7 @@ impl BaseSrcImpl for PravegaSrc {
         })?;
         gst_info!(CAT, obj: element, "controller={}", controller);
         let config = utils::create_client_config(controller).expect("Failed to create pravega client config");
+        gst_debug!(CAT, obj: element, "config={:?}", config);
         gst_info!(CAT, obj: element, "controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
         gst_info!(CAT, obj: element, "is_tls_enabled={}", config.is_tls_enabled);
         gst_info!(CAT, obj: element, "is_auth_enabled={}", config.is_auth_enabled);

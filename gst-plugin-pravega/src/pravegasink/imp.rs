@@ -411,7 +411,7 @@ impl BaseSinkImpl for PravegaSink {
         let settings = self.settings.lock().unwrap();
         gst_info!(CAT, obj: element, "index_min_nanos={}, index_max_nanos={}", settings.index_min_nanos, settings.index_max_nanos);
         if !(settings.index_min_nanos <= settings.index_max_nanos) {
-            return Err(gst::error_msg!(gst::ResourceError::Settings, 
+            return Err(gst::error_msg!(gst::ResourceError::Settings,
                 ["{} must be <= {}", PROPERTY_NAME_INDEX_MIN_SEC, PROPERTY_NAME_INDEX_MAX_SEC]))
         };
         let scope_name: String = settings.scope.clone().ok_or_else(|| {
@@ -432,6 +432,7 @@ impl BaseSinkImpl for PravegaSink {
         })?;
         gst_info!(CAT, obj: element, "controller={}", controller);
         let config = utils::create_client_config(controller).expect("Failed to create pravega client config");
+        gst_debug!(CAT, obj: element, "config={:?}", config);
         gst_info!(CAT, obj: element, "controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
         gst_info!(CAT, obj: element, "is_tls_enabled={}", config.is_tls_enabled);
         gst_info!(CAT, obj: element, "is_auth_enabled={}", config.is_auth_enabled);
