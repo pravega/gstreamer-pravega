@@ -435,20 +435,27 @@ impl BaseSinkImpl for PravegaSink {
             gst::error_msg!(gst::ResourceError::Settings, ["Controller is not defined"])
         })?;
         gst_info!(CAT, obj: element, "controller={}", controller);
-        let controller_uri = utils::parse_controller_uri(controller).unwrap();
+        let mut is_tls_enabled = false;
+        let mut controller_uri = controller;
+        if controller_uri.starts_with("tcp://") {
+            controller_uri = controller_uri.chars().skip(6).collect();
+        }
+        else if controller_uri.starts_with("tls://") {
+            controller_uri = controller_uri.chars().skip(6).collect();
+            is_tls_enabled = true;
+        }
         gst_info!(CAT, obj: element, "controller_uri={}", controller_uri);
+        gst_info!(CAT, obj: element, "is_tls_enabled={}", is_tls_enabled);
 
         gst_info!(CAT, obj: element, "allow_create_scope={}", settings.allow_create_scope);
 
-        let filter_env_val = env::vars()
-            .filter(|(k, _v)| k.starts_with(AUTH_KEYCLOAK_PATH))
-            .collect::<HashMap<String, String>>();
-        let is_auth_enabled = filter_env_val.contains_key(AUTH_KEYCLOAK_PATH);
+        let is_auth_enabled = env::vars().any(|(k, _v)| k.starts_with(AUTH_KEYCLOAK_PATH));
         gst_info!(CAT, obj: element, "is_auth_enabled={}", is_auth_enabled);
 
         let config = ClientConfigBuilder::default()
             .controller_uri(controller_uri)
             .is_auth_enabled(is_auth_enabled)
+            .is_tls_enabled(is_tls_enabled)
             .build()
             .expect("creating config");
 
