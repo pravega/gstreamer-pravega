@@ -324,7 +324,7 @@ impl ObjectImpl for PravegaSrc {
             glib::ParamSpec::string(
                 PROPERTY_NAME_KEYCLOAK_FILE,
                 "Keycloak file",
-                "The keycloak file if keycloak auth is enabled.",
+                "The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.",
                 None,
                 glib::ParamFlags::WRITABLE,
             ),
@@ -479,14 +479,11 @@ impl ObjectImpl for PravegaSrc {
             },
             PROPERTY_NAME_KEYCLOAK_FILE => {
                 let res: Result<(), glib::Error> = match value.get::<String>() {
-                    Ok(Some(file)) => {
+                    Ok(keycloak_file) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.keycloak_file = Some(file);
-                        Ok(())
-                    },
-                    Ok(None) => {
-                        let mut settings = self.settings.lock().unwrap();
-                        settings.keycloak_file = None;
+                        settings.keycloak_file = keycloak_file
+                            .filter(|s| !s.is_empty())
+                            .map(|s| s.to_owned());
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -555,7 +552,11 @@ impl BaseSrcImpl for PravegaSrc {
             gst::error_msg!(gst::ResourceError::Settings, ["Controller is not defined"])
         })?;
         gst_info!(CAT, obj: element, "controller={}", controller);
-        let config = utils::create_client_config(controller, settings.keycloak_file.as_ref()).expect("Failed to create pravega client config");
+        let keycloak_file = settings.keycloak_file.clone();
+        gst_info!(CAT, obj: element, "keycloak_file={:?}", keycloak_file);
+        let config = utils::create_client_config(controller, keycloak_file).map_err(|error| {
+            gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega client config: {}", error])
+        })?;
         gst_debug!(CAT, obj: element, "config={:?}", config);
         gst_info!(CAT, obj: element, "controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
         gst_info!(CAT, obj: element, "is_tls_enabled={}", config.is_tls_enabled);

@@ -8,8 +8,8 @@ use pravega_client::byte_stream::ByteStreamReader;
 use pravega_client_config::ClientConfigBuilder;
 use pravega_client_config::ClientConfig;
 
-const AUTH_KEYCLOAK_PATH: &str = "pravega_client_auth_keycloak";
-const AUTH_METHOD: &str = "pravega_client_auth_method";
+const ENV_VAR_NAME_AUTH_KEYCLOAK: &str = "pravega_client_auth_keycloak";
+const ENV_VAR_NAME_AUTH_METHOD: &str = "pravega_client_auth_method";
 
 /// A trait that allows retrieval of the current head of a Pravega byte stream.
 /// The default implementation returns 0 to indicate that no data has been truncated.
@@ -39,20 +39,24 @@ pub fn format_pravega_timestamp(timestamp: u64) -> String {
     formatted_time.to_string()
 }
 
-pub fn create_client_config(controller: String, keycloak_file: Option<&String>) -> Result<ClientConfig, String> {
+pub fn create_client_config(controller: String, keycloak_file: Option<String>) -> Result<ClientConfig, String> {
     let is_tls_enabled = controller.starts_with("tls://");
-    let controller_uri = 
+    let controller_uri =
         if controller.starts_with("tcp://") || controller.starts_with("tls://") {
             controller.chars().skip(6).collect()
-        }
-        else {
+        } else {
             controller
         };
-    let is_auth_enabled = keycloak_file.is_some();
-    if keycloak_file.is_some() {
-        env::set_var(AUTH_METHOD, "Bearer");
-        env::set_var(AUTH_KEYCLOAK_PATH, keycloak_file.unwrap());
-    }
+    let is_auth_enabled = match keycloak_file {
+        Some(keycloak_file) => {
+            // The Pravega API requires Keycloak credentials to be passed through these environment variables.
+            // This will be fixed with https://github.com/pravega/pravega-client-rust/issues/243.
+            env::set_var(ENV_VAR_NAME_AUTH_METHOD, "Bearer");
+            env::set_var(ENV_VAR_NAME_AUTH_KEYCLOAK, keycloak_file);
+            true
+        },
+        None => false
+    };
 
     ClientConfigBuilder::default()
         .controller_uri(controller_uri)
