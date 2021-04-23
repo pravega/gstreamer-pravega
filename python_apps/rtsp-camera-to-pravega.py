@@ -25,7 +25,7 @@ def bus_call(bus, message, loop):
         loop.quit()
     elif t == Gst.MessageType.WARNING:
         err, debug = message.parse_warning()
-        logging.warn('%s: %s' % (err, debug))
+        logging.warning('%s: %s' % (err, debug))
     elif t == Gst.MessageType.ERROR:
         err, debug = message.parse_error()
         logging.error('%s: %s' % (err, debug))
@@ -117,6 +117,7 @@ def main():
     source.set_property("ntp-sync", True)
     # Required to get NTP timestamps as PTS
     source.set_property("ntp-time-source", "running-time")
+    source.set_property("protocols", "tcp")
     queue0 = pipeline.get_by_name("queue0")
     if queue0:
         queue0.set_property("max-size-buffers", 0)
