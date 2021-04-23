@@ -34,6 +34,7 @@ docker run --rm \
 -e GST_DEBUG \
 -e pravega_client_auth_keycloak=/tmp/keycloak.json \
 -e pravega_client_auth_method \
+-e pravega_client_tls_cert_path \
 -e PRAVEGA_CONTROLLER_URI \
 -e PRAVEGA_SCOPE \
 -e PRAVEGA_STREAM \
