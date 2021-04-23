@@ -33,22 +33,10 @@ videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$F
 ! queue \
 ! x264enc tune=zerolatency key-int-max=${FPS} bitrate=${BITRATE_KILOBITS_PER_SEC} \
 ! mpegtsmux alignment=-1 \
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
+! queue \
 ! pravegasink \
   allow-create-scope=${ALLOW_CREATE_SCOPE} \
-  controller=${PRAVEGA_CONTROLLER} \
+  controller=${PRAVEGA_CONTROLLER_URI} \
   keycloak-file=\"${KEYCLOAK_FILE}\" \
-  stream=${SCOPE}/${STREAM} \
+  stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
   sync=true
-=======
-! pravegasink stream=${PRAVEGA_SCOPE}/${STREAM} controller=${PRAVEGA_CONTROLLER_URI} sync=true allow-create-scope=${ALLOW_CREATE_SCOPE}
->>>>>>> Change scripts to use PRAVEGA_CONTROLLER_URI and PRAVEGA_SCOPE
-=======
-! pravegasink stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} sync=true allow-create-scope=${ALLOW_CREATE_SCOPE}
->>>>>>> Change all scripts to use PRAVEGA_STREAM instead of STREAM
-=======
-! queue \
-! pravegasink stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} allow-create-scope=${ALLOW_CREATE_SCOPE} sync=true
->>>>>>> Add target rate parameter to videotestsrc-to-pravega-live.sh
