@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 
+#
+# Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+
 # This writes 2 independent H264 video MPEG Transport Streams, as if from 2 different cameras.
 # It also writes 2 audio stream.
 # These can be played back concurrently with pravega-to-screen-1x2-and-speaker.sh.
