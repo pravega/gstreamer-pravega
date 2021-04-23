@@ -2,7 +2,7 @@
 #
 # Install with:
 #   kubectl -n examples create secret generic camera-group-1 --type=kubernetes.io/basic-auth --from-literal=username=yourname --from-literal=password=yourpassword
-#   kubectl -n examples apply -f deployment1.yaml
+#   kubectl -n examples apply -f rtsp-camera-to-pravega-sample.yaml
 
 apiVersion: apps/v1
 kind: Deployment
@@ -18,6 +18,7 @@ spec:
       labels:
         app: rtsp-camera-to-pravega-1
     spec:
+      serviceAccount: examples-pravega
       containers:
       - name: gstreamer
         image: devops-repo.isus.emc.com:8116/nautilus/gstreamer:pravega-dev
@@ -42,24 +43,7 @@ spec:
             secretKeyRef:
               name: camera-group-1
               key: password
-        - name: pravega_client_auth_keycloak
-          value: /var/run/secrets/nautilus.dellemc.com/serviceaccount/keycloak.json
-        - name: pravega_client_auth_method
-          value: "Bearer"
         - name: pravega_client_tls_cert_path
           value: "/etc/ssl/certs/DST_Root_CA_X3.pem"
-        - name: PRAVEGA_CONTROLLER_URI
-          value: "tls://pravega-controller.kubespray.nautilus-platform-dev.com:443"
-        - name: PRAVEGA_SCOPE
-          value: examples
         - name: PRAVEGA_STREAM
-          value: "video13"
-        volumeMounts:
-        - mountPath: /var/run/secrets/nautilus.dellemc.com/serviceaccount
-          name: keycloak
-          readOnly: true
-      volumes:
-      - name: keycloak
-        secret:
-          defaultMode: 420
-          secretName: examples-pravega
+          value: "video17"
