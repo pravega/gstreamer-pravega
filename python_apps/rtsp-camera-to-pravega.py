@@ -51,6 +51,7 @@ def main():
     parser.add_argument("--camera-protocols")
     parser.add_argument("--camera-uri")
     parser.add_argument("--camera-user")
+    parser.add_argument("--fakesink", type=str2bool, default=False)
     parser.add_argument("--keycloak-service-account-file")
     parser.add_argument("--log-level", type=int, default=logging.INFO, help="10=DEBUG,20=INFO")
     parser.add_argument("--pravega-controller-uri", default="tcp://127.0.0.1:9090")
@@ -85,6 +86,11 @@ def main():
     Gst.init(None)
     logging.info(Gst.version_string())
 
+    if args.fakesink:
+        sink_desc = "fakesink name=fakesink dump=true"
+    else:
+        sink_desc = "pravegasink name=pravegasink"
+
     # Create Pipeline element that will form a connection of other elements.
     pipeline_description = (
         "rtspsrc name=source\n" +
@@ -96,7 +102,7 @@ def main():
         # Packetize in MPEG transport stream
         "   ! mpegtsmux\n" +
         "   ! queue name=queue0\n" +
-        "   ! pravegasink name=pravegasink\n" +
+        "   ! " + sink_desc + "\n" +
         "")
     logging.info("Creating pipeline:\n" +  pipeline_description)
     pipeline = Gst.parse_launch(pipeline_description)
