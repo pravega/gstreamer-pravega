@@ -18,6 +18,8 @@ SCOPE=${SCOPE:-examples}
 STREAM=${STREAM:-test1}
 ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
 SIZE_SEC=${SIZE_SEC:-172800}
+KEYCLOAK_FILE_PROPERTY=keycloak-file=${KEYCLOAK_FILE}
+KEYCLOAK_FILE=${KEYCLOAK_FILE:+${KEYCLOAK_FILE_PROPERTY}}
 FPS=30
 
 gst-launch-1.0 \
@@ -30,4 +32,4 @@ videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$F
 ! videoconvert \
 ! x264enc tune=zerolatency key-int-max=${FPS} bitrate=200 \
 ! mpegtsmux alignment=-1 \
-! pravegasink stream=${SCOPE}/${STREAM} controller=${PRAVEGA_CONTROLLER} sync=true allow-create-scope=${ALLOW_CREATE_SCOPE}
+! pravegasink stream=${SCOPE}/${STREAM} controller=${PRAVEGA_CONTROLLER} sync=true allow-create-scope=${ALLOW_CREATE_SCOPE} ${KEYCLOAK_FILE}

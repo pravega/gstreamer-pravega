@@ -11,6 +11,8 @@ PRAVEGA_CONTROLLER=${PRAVEGA_CONTROLLER:-127.0.0.1:9090}
 SCOPE=${SCOPE:-examples}
 STREAM=${STREAM:-test1}
 ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
+KEYCLOAK_FILE_PROPERTY=keycloak-file=${KEYCLOAK_FILE}
+KEYCLOAK_FILE=${KEYCLOAK_FILE:+${KEYCLOAK_FILE_PROPERTY}}
 export GST_DEBUG_DUMP_DOT_DIR=/tmp/gst-dot/pravega-to-screen
 mkdir -p ${GST_DEBUG_DUMP_DOT_DIR}
 
@@ -19,7 +21,7 @@ gst-launch-1.0 \
 pravegasrc \
   stream=${SCOPE}/${STREAM} \
   controller=${PRAVEGA_CONTROLLER} \
-  allow-create-scope=${ALLOW_CREATE_SCOPE} \
+  allow-create-scope=${ALLOW_CREATE_SCOPE} ${KEYCLOAK_FILE} \
   $* \
 ! decodebin \
 ! videoconvert \

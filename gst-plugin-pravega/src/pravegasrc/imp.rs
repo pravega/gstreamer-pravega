@@ -17,7 +17,6 @@ use once_cell::sync::Lazy;
 
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::byte_stream::ByteStreamReader;
-use pravega_client_config::ClientConfigBuilder;
 use pravega_client_shared::{Scope, Stream, Segment, ScopedSegment, StreamConfiguration, ScopedStream, Scaling, ScaleType};
 use pravega_video::event_serde::EventReader;
 use pravega_video::index::{IndexSearcher, get_index_stream_name};
@@ -36,6 +35,7 @@ const PROPERTY_NAME_END_TIMESTAMP: &str = "end-timestamp";
 const PROPERTY_NAME_START_UTC: &str = "start-utc";
 const PROPERTY_NAME_END_UTC: &str = "end-utc";
 const PROPERTY_NAME_ALLOW_CREATE_SCOPE: &str = "allow-create-scope";
+const PROPERTY_NAME_KEYCLOAK_FILE: &str = "keycloak-file";
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy, glib::GEnum)]
 #[repr(u32)]
@@ -116,6 +116,7 @@ struct Settings {
     start_timestamp: u64,
     end_timestamp: u64,
     allow_create_scope: bool,
+    keycloak_file: Option<String>,
 }
 
 impl Default for Settings {
@@ -131,6 +132,7 @@ impl Default for Settings {
             start_timestamp: DEFAULT_START_TIMESTAMP,
             end_timestamp: DEFAULT_END_TIMESTAMP,
             allow_create_scope: true,
+            keycloak_file: None,
         }
     }
 }
@@ -319,6 +321,13 @@ impl ObjectImpl for PravegaSrc {
                 true,
                 glib::ParamFlags::WRITABLE,
             ),
+            glib::ParamSpec::string(
+                PROPERTY_NAME_KEYCLOAK_FILE,
+                "Keycloak file",
+                "The keycloak file if keycloak auth is enabled.",
+                None,
+                glib::ParamFlags::WRITABLE,
+            ),
         ]});
         PROPERTIES.as_ref()
     }
@@ -468,6 +477,24 @@ impl ObjectImpl for PravegaSrc {
                     gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_ALLOW_CREATE_SCOPE, err);
                 }
             },
+            PROPERTY_NAME_KEYCLOAK_FILE => {
+                let res: Result<(), glib::Error> = match value.get::<String>() {
+                    Ok(Some(file)) => {
+                        let mut settings = self.settings.lock().unwrap();
+                        settings.keycloak_file = Some(file);
+                        Ok(())
+                    },
+                    Ok(None) => {
+                        let mut settings = self.settings.lock().unwrap();
+                        settings.keycloak_file = None;
+                        Ok(())
+                    },
+                    Err(_) => unreachable!("type checked upstream"),
+                };
+                if let Err(err) = res {
+                    gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_KEYCLOAK_FILE, err);
+                }
+            },
         _ => unimplemented!(),
         };
     }
@@ -528,7 +555,7 @@ impl BaseSrcImpl for PravegaSrc {
             gst::error_msg!(gst::ResourceError::Settings, ["Controller is not defined"])
         })?;
         gst_info!(CAT, obj: element, "controller={}", controller);
-        let config = utils::create_client_config(controller).expect("Failed to create pravega client config");
+        let config = utils::create_client_config(controller, settings.keycloak_file.as_ref()).expect("Failed to create pravega client config");
         gst_debug!(CAT, obj: element, "config={:?}", config);
         gst_info!(CAT, obj: element, "controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
         gst_info!(CAT, obj: element, "is_tls_enabled={}", config.is_tls_enabled);
