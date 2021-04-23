@@ -6,6 +6,7 @@ export DEBIAN_FRONTEND=noninteractive
 sed -i 's/# deb-src/deb-src/g' /etc/apt/sources.list
 apt-get update
 apt-get dist-upgrade -y
+
 apt-get install -y --no-install-recommends \
   bison \
   bubblewrap \
@@ -116,12 +117,21 @@ apt-get install -y --no-install-recommends \
   libxslt1-dev \
   libzbar-dev \
   libzvbi-dev \
+  netcat \
+  python-gi-dev \
   python3 \
+  python3-gi \
+  python3-gi-cairo \
   python3-pip \
   ruby \
   wayland-protocols \
   wget \
   xdg-dbus-proxy
-pip3 install meson ninja
+
+pip3 install \
+  configargparse \
+  meson \
+  ninja
+
 apt-get clean
 rm -rf /var/lib/apt/lists/*

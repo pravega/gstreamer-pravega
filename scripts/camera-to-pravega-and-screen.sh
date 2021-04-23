@@ -8,7 +8,7 @@ ls -lh ${ROOT_DIR}/gst-plugin-pravega/target/debug/*.so
 export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_PATH}
 export GST_DEBUG=pravegasink:5
 export RUST_BACKTRACE=1
-STREAM=${STREAM:-camera8}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-camera8}
 FPS=30
 
 gst-launch-1.0 \
@@ -23,7 +23,7 @@ v4l2src do-timestamp=TRUE \
 t. ! queue \
    ! x264enc tune=zerolatency key-int-max=${FPS} bitrate=1000 \
    ! mpegtsmux \
-   ! pravegasink stream=examples/${STREAM} sync=false \
+   ! pravegasink stream=examples/${PRAVEGA_STREAM} sync=false \
 t. ! queue \
    ! textoverlay text=LIVE valignment=baseline halignment=right "font-desc=Sans 24px" shaded-background=true \
    ! autovideosink sync=false

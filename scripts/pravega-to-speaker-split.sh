@@ -13,11 +13,11 @@ export GST_DEBUG="pravegasrc:INFO,basesrc:INFO,mpegtsbase:INFO,mpegtspacketizer:
 export RUST_BACKTRACE=1
 export GST_DEBUG_DUMP_DOT_DIR=/tmp/gst-dot/pravega-to-speaker
 mkdir -p ${GST_DEBUG_DUMP_DOT_DIR}
-STREAM=${STREAM:-split1}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-split1}
 
 gst-launch-1.0 \
 -v \
-pravegasrc stream=examples/${STREAM}-a1 start-pts-at-zero=true \
+pravegasrc stream=examples/${PRAVEGA_STREAM}-a1 start-pts-at-zero=true \
 ! tsdemux \
 ! avdec_aac \
 ! audioconvert \

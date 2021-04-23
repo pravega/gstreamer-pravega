@@ -14,7 +14,7 @@ export GST_DEBUG=x264enc:LOG,pravegasink:LOG,basesink:INFO
 export RUST_BACKTRACE=1
 export GST_DEBUG_DUMP_DOT_DIR=/tmp/gst-dot/videotestsrc-to-pravega-h264stream
 mkdir -p ${GST_DEBUG_DUMP_DOT_DIR}
-STREAM=${STREAM:-test1}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-test1}
 SIZE_SEC=10
 FPS=30
 
@@ -28,5 +28,5 @@ videotestsrc name=src is-live=false do-timestamp=true num-buffers=$(($SIZE_SEC*$
 ! videoconvert \
 ! x264enc key-int-max=${FPS} speed-preset=medium bitrate=2000 \
 ! "video/x-h264,stream-format=byte-stream,profile=main" \
-! pravegasink stream=examples/${STREAM} controller=127.0.0.1:9090 seal=false sync=false \
+! pravegasink stream=examples/${PRAVEGA_STREAM} controller=127.0.0.1:9090 seal=false sync=false \
 |& tee /tmp/videotestsrc-to-pravega-h264stream.log

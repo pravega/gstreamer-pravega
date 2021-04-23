@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# Record video from an RTSP camera and write to Pravega.
+# Note: Using rtsp-camera-to-pravega-python-docker.sh is preferred.
+
 set -ex
 
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
@@ -6,8 +10,8 @@ CONTAINER_NAME=$(basename -s .sh $0)
 LOG_FILE=/mnt/data/logs/${CONTAINER_NAME}.log
 export GST_DEBUG=pravegasink:LOG,basesink:INFO,rtspsrc:LOG,rtpbin:LOG,rtpsession:LOG,rtpjitterbuffer:LOG,identity:LOG
 export RUST_BACKTRACE=1
-PRAVEGA_CONTROLLER=${PRAVEGA_CONTROLLER:-192.168.1.123:9090}
-STREAM=${STREAM:-rtsp1}
+PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-192.168.1.123:9090}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-rtsp1}
 CAMERA_USER=${CAMERA_USER:-admin}
 CAMERA_IP=${CAMERA_IP:-192.168.1.102}
 CAMERA_PORT=${CAMERA_PORT:-554}
@@ -40,8 +44,8 @@ rtspsrc \
 ! queue max-size-buffers=0 max-size-bytes=10485760 max-size-time=0 silent=true leaky=downstream \
 ! identity name=from-queue silent=false \
 ! pravegasink \
-  stream=examples/${STREAM} \
-  controller=${PRAVEGA_CONTROLLER} \
+  stream=examples/${PRAVEGA_STREAM} \
+  controller=${PRAVEGA_CONTROLLER_URI} \
   timestamp-mode=ntp \
   sync=false \
 $* |& rotatelogs -L ${LOG_FILE} -p ${ROOT_DIR}/scripts/rotatelogs-compress.sh ${LOG_FILE} 1G

@@ -17,7 +17,7 @@ popd
 export GST_DEBUG=pravegasink:INFO,basesink:INFO
 export RUST_LOG=info
 export RUST_BACKTRACE=1
-STREAM=${STREAM:-group1}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-group1}
 SIZE_SEC=60
 FPS=30
 WIDTH=320
@@ -34,7 +34,7 @@ videotestsrc is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$FPS)) patt
 ! x264enc tune=zerolatency key-int-max=${FPS} bitrate=200 \
 ! queue \
 ! mpegtsmux \
-! pravegasink stream=examples/${STREAM}-v1 sync=false \
+! pravegasink stream=examples/${PRAVEGA_STREAM}-v1 sync=false \
 >& /mnt/data/logs/videotestsrc-to-pravega-1x2-v1.log &
 
 ${ROOT_DIR}/apps/target/debug/launch \
@@ -48,7 +48,7 @@ videotestsrc is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$FPS)) patt
 ! x264enc tune=zerolatency key-int-max=${FPS} bitrate=200 \
 ! queue \
 ! mpegtsmux \
-! pravegasink stream=examples/${STREAM}-v2 sync=false \
+! pravegasink stream=examples/${PRAVEGA_STREAM}-v2 sync=false \
 >& /mnt/data/logs/videotestsrc-to-pravega-1x2-v2.log &
 
 wait

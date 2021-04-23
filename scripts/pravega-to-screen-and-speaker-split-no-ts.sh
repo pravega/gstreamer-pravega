@@ -13,16 +13,16 @@ export GST_DEBUG="pravegasrc:INFO,basesrc:INFO,mpegtsbase:INFO,mpegtspacketizer:
 export RUST_BACKTRACE=1
 export GST_DEBUG_DUMP_DOT_DIR=/tmp/gst-dot/pravega-to-screen-and-speaker-split-no-ts
 mkdir -p ${GST_DEBUG_DUMP_DOT_DIR}
-STREAM=${STREAM:-split10}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-split10}
 
 gst-launch-1.0 \
 -v \
-pravegasrc stream=examples/${STREAM}-v \
+pravegasrc stream=examples/${PRAVEGA_STREAM}-v \
 ! h264parse \
 ! avdec_h264 \
 ! videoconvert \
 ! autovideosink \
-pravegasrc stream=examples/${STREAM}-a1 \
+pravegasrc stream=examples/${PRAVEGA_STREAM}-a1 \
 ! aacparse \
 ! avdec_aac \
 ! audioconvert \

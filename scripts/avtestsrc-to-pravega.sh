@@ -11,7 +11,7 @@ export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_
 # log level can be INFO, DEBUG, or LOG (verbose)
 export GST_DEBUG=pravegasink:LOG
 export RUST_BACKTRACE=1
-STREAM=${STREAM:-av1}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-av1}
 SIZE_SEC=3000
 FPS=30
 
@@ -32,4 +32,4 @@ audiotestsrc is-live=true do-timestamp=true \
 ! avenc_aac \
 ! queue ! mux. \
 mpegtsmux name=mux \
-! pravegasink stream=examples/${STREAM} sync=false
+! pravegasink stream=examples/${PRAVEGA_STREAM} sync=false

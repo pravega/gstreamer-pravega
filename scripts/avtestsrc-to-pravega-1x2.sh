@@ -18,7 +18,7 @@ popd
 export GST_DEBUG=pravegasink:INFO,basesink:INFO
 export RUST_LOG=info
 export RUST_BACKTRACE=1
-STREAM=${STREAM:-group1}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-group1}
 SIZE_SEC=60
 FPS=30
 WIDTH=320
@@ -35,7 +35,7 @@ videotestsrc is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$FPS)) patt
 ! x264enc tune=zerolatency key-int-max=${FPS} bitrate=200 \
 ! queue \
 ! mpegtsmux \
-! pravegasink stream=examples/${STREAM}-v1 sync=false \
+! pravegasink stream=examples/${PRAVEGA_STREAM}-v1 sync=false \
 >& /mnt/data/logs/avtestsrc-to-pravega-1x2-v1.log &
 
 ${ROOT_DIR}/apps/target/debug/launch \
@@ -49,7 +49,7 @@ videotestsrc is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$FPS)) patt
 ! x264enc tune=zerolatency key-int-max=${FPS} bitrate=200 \
 ! queue \
 ! mpegtsmux \
-! pravegasink stream=examples/${STREAM}-v2 sync=false \
+! pravegasink stream=examples/${PRAVEGA_STREAM}-v2 sync=false \
 >& /mnt/data/logs/avtestsrc-to-pravega-1x2-v2.log &
 
 ${ROOT_DIR}/apps/target/debug/launch \
@@ -61,7 +61,7 @@ audiotestsrc is-live=true do-timestamp=true \
 ! avenc_aac \
 ! queue \
 ! mpegtsmux \
-! pravegasink stream=examples/${STREAM}-a1 sync=false \
+! pravegasink stream=examples/${PRAVEGA_STREAM}-a1 sync=false \
 >& /mnt/data/logs/avtestsrc-to-pravega-1x2-a1.log &
 
 ${ROOT_DIR}/apps/target/debug/launch \
@@ -73,7 +73,7 @@ audiotestsrc is-live=true do-timestamp=true \
 ! avenc_aac \
 ! queue \
 ! mpegtsmux \
-! pravegasink stream=examples/${STREAM}-a2 sync=false \
+! pravegasink stream=examples/${PRAVEGA_STREAM}-a2 sync=false \
 >& /mnt/data/logs/avtestsrc-to-pravega-1x2-a2.log &
 
 wait

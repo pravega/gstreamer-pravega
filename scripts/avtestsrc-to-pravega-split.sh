@@ -14,7 +14,7 @@ export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_
 export GST_DEBUG=pravegasink:LOG
 export RUST_BACKTRACE=1
 export TZ=UTC
-STREAM=${STREAM:-split1}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-split1}
 SIZE_SEC=3600
 FPS=30
 KEY_FRAME_INTERVAL=$((5*$FPS))
@@ -28,7 +28,7 @@ videotestsrc is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$FPS)) \
 ! timeoverlay valignment=bottom "font-desc=Sans 48px" shaded-background=true \
 ! x264enc key-int-max=${KEY_FRAME_INTERVAL} tune=zerolatency speed-preset=medium bitrate=500 \
 ! mpegtsmux \
-! pravegasink stream=examples/${STREAM}-v sync=false \
+! pravegasink stream=examples/${PRAVEGA_STREAM}-v sync=false \
 audiotestsrc is-live=true do-timestamp=true \
              samplesperbuffer=$((44100/$FPS)) num-buffers=$(($SIZE_SEC*$FPS)) \
              wave=ticks volume=0.5 marker-tick-period=5 \
@@ -36,7 +36,7 @@ audiotestsrc is-live=true do-timestamp=true \
 ! "audio/x-raw,rate=44100,channels=2" \
 ! avenc_aac \
 ! mpegtsmux \
-! pravegasink stream=examples/${STREAM}-a1 sync=false \
+! pravegasink stream=examples/${PRAVEGA_STREAM}-a1 sync=false \
 audiotestsrc is-live=true do-timestamp=true \
              samplesperbuffer=$((44100/$FPS)) num-buffers=$(($SIZE_SEC*$FPS)) \
              wave=sine \
@@ -44,4 +44,4 @@ audiotestsrc is-live=true do-timestamp=true \
 ! "audio/x-raw,rate=44100,channels=2" \
 ! avenc_aac \
 ! mpegtsmux \
-! pravegasink stream=examples/${STREAM}-a2 sync=false
+! pravegasink stream=examples/${PRAVEGA_STREAM}-a2 sync=false

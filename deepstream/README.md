@@ -169,7 +169,7 @@ docker/build-release.sh
 export CAMERA_USER=admin
 export CAMERA_IP=192.168.1.102
 export CAMERA_PASSWORD=YourPassword
-export STREAM=camera1
+export PRAVEGA_STREAM=camera1
 scripts/rtsp-camera-to-pravega-docker.sh
 ```
 
@@ -187,8 +187,8 @@ In a DeepStream container, read video from a Pravega stream, detect objects, and
 ```bash
 root@host:~#
 cd ~/work/gstreamer-pravega/deepstream/python_apps/deepstream-pravega-demos
-export STREAM=camera1
-./pravega-to-object-detection-to-pravega.py --input-stream examples/${STREAM} --output-metadata-stream examples/metadata1
+export PRAVEGA_STREAM=camera1
+./pravega-to-object-detection-to-pravega.py --input-stream examples/${PRAVEGA_STREAM} --output-metadata-stream examples/metadata1
 ```
 
 Capture video from an RTSP camera, detect objects, and show video with bounding boxes on the screen.
@@ -275,7 +275,7 @@ sudo dpkg -i target/debian/gst-plugin-pravega_*.deb
 
 ```
 user@jetson:~/gstreamer-pravega/deepstream$
-STREAM=jetson1 scripts/camera-to-pravega.sh
+PRAVEGA_STREAM=jetson1 scripts/camera-to-pravega.sh
 ```
 
 ```

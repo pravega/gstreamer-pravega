@@ -23,7 +23,7 @@ export RUST_BACKTRACE=1
 
 source ${ROOT_DIR}/scripts/benchmark-config.sh
 
-STREAM=${STREAM:-$(uuidgen)}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-$(uuidgen)}
 
 ls -l ${TMPFILE}
 
@@ -37,7 +37,7 @@ filesrc location=${TMPFILE} \
   split-on-rai=true \
   set-timestamps=true \
 ! queue \
-! pravegasink stream=examples/${STREAM} \
+! pravegasink stream=examples/${PRAVEGA_STREAM} \
   buffer-size=$(( 128 * 1024 )) \
   index-min-sec=600.0 \
   index-max-sec=600.0 \
@@ -47,5 +47,5 @@ T1=`date +%s%N`
 DT_MILLIS=$(( ($T1 - $T0) / 1000 / 1000 ))
 FILESIZE=$(stat -c%s "${TMPFILE}")
 THROUGHPUT_KB_PER_SEC=$(( ${FILESIZE} / ${DT_MILLIS} ))
-echo STREAM=${STREAM}
+echo PRAVEGA_STREAM=${PRAVEGA_STREAM}
 echo Throughput of pravegasink: ${THROUGHPUT_KB_PER_SEC} KB/s

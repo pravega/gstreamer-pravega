@@ -13,9 +13,11 @@ export GST_DEBUG=pravegasink:DEBUG,basesink:INFO
 export PRAVEGA_VIDEO_LOG=info
 export RUST_LOG=debug
 export RUST_BACKTRACE=full
-PRAVEGA_CONTROLLER=${PRAVEGA_CONTROLLER:-127.0.0.1:9090}
-SCOPE=${SCOPE:-examples}
-STREAM=${STREAM:-test1}
+TARGET_RATE_KB_PER_SEC=${TARGET_RATE_KB_PER_SEC:-25}
+BITRATE_KILOBITS_PER_SEC=$(( ${TARGET_RATE_KB_PER_SEC} * 8 ))
+PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
+PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-test1}
 ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
 SIZE_SEC=${SIZE_SEC:-172800}
 FPS=30
@@ -28,11 +30,13 @@ videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$F
 ! clockoverlay "font-desc=Sans 48px" "time-format=%F %T" shaded-background=true \
 ! timeoverlay valignment=bottom "font-desc=Sans 48px" shaded-background=true \
 ! videoconvert \
-! x264enc tune=zerolatency key-int-max=${FPS} bitrate=200 \
+! queue \
+! x264enc tune=zerolatency key-int-max=${FPS} bitrate=${BITRATE_KILOBITS_PER_SEC} \
 ! mpegtsmux alignment=-1 \
+! queue \
 ! pravegasink \
   allow-create-scope=${ALLOW_CREATE_SCOPE} \
-  controller=${PRAVEGA_CONTROLLER} \
-  keycloak-file=\"${KEYCLOAK_FILE}\" \
-  stream=${SCOPE}/${STREAM} \
+  controller=${PRAVEGA_CONTROLLER_URI} \
+  keycloak-file=\"${KEYCLOAK_SERVICE_ACCOUNT_FILE}\" \
+  stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
   sync=true

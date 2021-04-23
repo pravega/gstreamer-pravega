@@ -45,7 +45,7 @@ RUN cd gst-plugin-pravega && \
 COPY pravega-video-server pravega-video-server
 
 RUN cd pravega-video-server && \
-    cargo install --path .
+    cargo install --jobs ${RUST_JOBS} --path .
 
 ## Build misc. Rust apps
 
@@ -54,3 +54,9 @@ COPY apps apps
 RUN cd apps && \
     cargo install --jobs ${RUST_JOBS} --path . --bin \
       rtsp-camera-simulator
+
+## Install Python apps
+
+COPY python_apps python_apps
+
+ENV PATH=/usr/src/gstreamer-pravega/python_apps:$PATH

@@ -7,11 +7,11 @@ ls -lh ${ROOT_DIR}/gst-plugin-pravega/target/debug/*.so
 export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_PATH}
 export GST_DEBUG=pravegasink:5
 export RUST_BACKTRACE=1
-STREAM=${STREAM:-camera8}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-camera8}
 
 export GST_DEBUG=pravegasink:5
 export RUST_BACKTRACE=1
-STREAM=${STREAM:-test1}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-test1}
 SIZE_SEC=5
 FPS=30
 
@@ -25,4 +25,4 @@ videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$F
 ! videoconvert \
 ! x264enc tune=zerolatency \
 ! mpegtsmux \
-! pravegasink stream=examples/${STREAM} controller=192.168.1.123:9090
+! pravegasink stream=examples/${PRAVEGA_STREAM} controller=192.168.1.123:9090

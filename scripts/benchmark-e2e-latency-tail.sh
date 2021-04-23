@@ -8,7 +8,7 @@ ls -lh ${ROOT_DIR}/gst-plugin-pravega/target/release/*.so
 export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/release:${GST_PLUGIN_PATH}
 export RUST_BACKTRACE=1
 
-STREAM=${STREAM:-$(uuidgen)}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-$(uuidgen)}
 BITRATE_KILOBITS_PER_SEC=200
 SIZE_SEC=4
 FPS=30
@@ -27,13 +27,13 @@ gst-launch-1.0 \
 ! x264enc tune=zerolatency \
 ! mpegtsmux \
 ! timestampadd \
-! pravegasink stream=examples/${STREAM} \
+! pravegasink stream=examples/${PRAVEGA_STREAM} \
 &
 
 export GST_DEBUG_FILE=trace.log
 
 gst-launch-1.0 \
 -v \
-  pravegasrc stream=examples/${STREAM} \
+  pravegasrc stream=examples/${PRAVEGA_STREAM} \
 ! timestampremove \
 ! fakesink

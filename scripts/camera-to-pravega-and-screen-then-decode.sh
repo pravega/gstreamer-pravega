@@ -8,7 +8,7 @@ ls -lh ${ROOT_DIR}/gst-plugin-pravega/target/release/*.so
 export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/release:${GST_PLUGIN_PATH}
 export GST_DEBUG=pravegasink:5
 export RUST_BACKTRACE=1
-STREAM=${STREAM:-camera9}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-camera9}
 BITRATE_KILOBITS_PER_SEC=8000
 
 gst-launch-1.0 \
@@ -25,7 +25,7 @@ t. ! queue \
    ! mpegtsmux \
    ! tee name=ts \
    ts. ! queue \
-       ! pravegasink stream=examples/${STREAM} sync=false \
+       ! pravegasink stream=examples/${PRAVEGA_STREAM} sync=false \
    ts. ! queue \
        ! tsdemux \
        ! h264parse \
@@ -34,5 +34,5 @@ t. ! queue \
        ! textoverlay "text=camera encode+decode" valignment=baseline halignment=right "font-desc=Sans 24px" shaded-background=true \
        ! autovideosink sync=false \
 t. ! queue2 \
-   ! textoverlay "text=camera to ${STREAM}" valignment=baseline halignment=right "font-desc=Sans 24px" shaded-background=true \
+   ! textoverlay "text=camera to ${PRAVEGA_STREAM}" valignment=baseline halignment=right "font-desc=Sans 24px" shaded-background=true \
    ! autovideosink sync=false

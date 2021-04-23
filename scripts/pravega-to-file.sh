@@ -6,12 +6,17 @@ cargo build
 ls -lh ${ROOT_DIR}/gst-plugin-pravega/target/debug/*.so
 export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_PATH}
 export GST_DEBUG=pravegasrc:LOG
+export PRAVEGA_VIDEO_LOG=info
 export RUST_BACKTRACE=1
-STREAM=${STREAM:-camera8}
+PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
+PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-test1}
+ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
+OUTPUT_FILE=${HOME}/${PRAVEGA_STREAM}.ts
 
 gst-launch-1.0 \
 -v \
-pravegasrc stream=examples/${STREAM} \
-! filesink location=/mnt/data/tmp/test3.ts
+pravegasrc stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} allow-create-scope=${ALLOW_CREATE_SCOPE} \
+! filesink location=${OUTPUT_FILE} sync=false
 
-ls -l /mnt/data/tmp/test3.ts
+ls -l ${OUTPUT_FILE}
