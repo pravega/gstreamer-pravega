@@ -14,7 +14,10 @@ export CAMERA_USER=${CAMERA_USER:-user}
 DOCKER_IMAGE=${DOCKER_IMAGE:-pravega/gstreamer:pravega-dev}
 # log level can be INFO, DEBUG, or LOG (verbose)
 #export GST_DEBUG=pravegasink:DEBUG,basesink:INFO,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO
-pravega_client_auth_keycloak=${pravega_client_auth_keycloak:-/tmp/keycloak.json}
+if [[ ! -z "${KEYCLOAK_SERVICE_ACCOUNT_FILE}" ]]; then
+    MOUNTS="-v ${KEYCLOAK_SERVICE_ACCOUNT_FILE}:/tmp/keycloak.json"
+    KEYCLOAK_SERVICE_ACCOUNT_FILE=/tmp/keycloak.json
+fi
 export PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
 export PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
 export PRAVEGA_STREAM=${PRAVEGA_STREAM:-rtsp1}
@@ -23,7 +26,7 @@ export RUST_BACKTRACE=1
 
 docker run --rm \
 --name ${CONTAINER_NAME} \
--v ${pravega_client_auth_keycloak}:/tmp/keycloak.json \
+${MOUNTS} \
 -e ALLOW_CREATE_SCOPE \
 -e BUFFER_SIZE_MB \
 -e CAMERA_ADDRESS \
@@ -32,8 +35,7 @@ docker run --rm \
 -e CAMERA_PORT \
 -e CAMERA_USER \
 -e GST_DEBUG \
--e pravega_client_auth_keycloak=/tmp/keycloak.json \
--e pravega_client_auth_method \
+-e KEYCLOAK_SERVICE_ACCOUNT_FILE \
 -e pravega_client_tls_cert_path \
 -e PRAVEGA_CONTROLLER_URI \
 -e PRAVEGA_SCOPE \

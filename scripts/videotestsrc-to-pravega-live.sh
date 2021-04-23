@@ -37,6 +37,6 @@ videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$F
 ! pravegasink \
   allow-create-scope=${ALLOW_CREATE_SCOPE} \
   controller=${PRAVEGA_CONTROLLER_URI} \
-  keycloak-file=\"${KEYCLOAK_FILE}\" \
+  keycloak-file=\"${KEYCLOAK_SERVICE_ACCOUNT_FILE}\" \
   stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
   sync=true
