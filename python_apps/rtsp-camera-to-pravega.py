@@ -41,14 +41,17 @@ def main():
     parser = argparse.ArgumentParser(
         description="Capture from RTSP camera and write video to a Pravega stream",
         auto_env_var_prefix="")
+    # Note that below arguments can be passed through the environment such as PRAVEGA_CONTROLLER_URI.
     parser.add_argument("--allow-create-scope", type=str2bool, default=True)
     parser.add_argument("--buffer-size-mb", type=float, default=10.0, help='Buffer size in MiB')
     parser.add_argument("--camera-address")
     parser.add_argument("--camera-password")
     parser.add_argument("--camera-path", default="/")
     parser.add_argument("--camera-port", type=int, default=554)
+    parser.add_argument("--camera-protocols")
     parser.add_argument("--camera-uri")
     parser.add_argument("--camera-user")
+    parser.add_argument("--keycloak-service-account-file")
     parser.add_argument("--log-level", type=int, default=logging.INFO, help="10=DEBUG,20=INFO")
     parser.add_argument("--pravega-controller-uri", default="tcp://127.0.0.1:9090")
     parser.add_argument("--pravega-scope", required=True)
@@ -117,7 +120,8 @@ def main():
     source.set_property("ntp-sync", True)
     # Required to get NTP timestamps as PTS
     source.set_property("ntp-time-source", "running-time")
-    source.set_property("protocols", "tcp")
+    if args.camera_protocols:
+        source.set_property("protocols", args.camera_protocols)
     queue0 = pipeline.get_by_name("queue0")
     if queue0:
         queue0.set_property("max-size-buffers", 0)
@@ -129,6 +133,7 @@ def main():
     if pravegasink:
         pravegasink.set_property("allow-create-scope", args.allow_create_scope)
         pravegasink.set_property("controller", args.pravega_controller_uri)
+        pravegasink.set_property("keycloak-file", args.keycloak_service_account_file)
         pravegasink.set_property("stream", "%s/%s" % (args.pravega_scope, args.pravega_stream))
         # Always write to Pravega immediately regardless of PTS
         pravegasink.set_property("sync", False)
