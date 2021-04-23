@@ -15,7 +15,7 @@ export ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
 export BUFFER_SIZE_MB=${BUFFER_SIZE_MB:-50}
 export CAMERA_ADDRESS=${CAMERA_ADDRESS:-127.0.0.1}
 export CAMERA_PASSWORD=${CAMERA_PASSWORD:?Required environment variable not set}
-export CAMERA_PATH="/cam/realmonitor?target_rate_KB_per_sec=25"
+export CAMERA_PATH=${CAMERA_PATH:-"/cam/realmonitor?target_rate_KB_per_sec=25"}
 export CAMERA_PORT=${CAMERA_PORT:-8554}
 export CAMERA_USER=${CAMERA_USER:-user}
 # log level can be INFO, DEBUG, or LOG (verbose)
