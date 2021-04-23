@@ -30,4 +30,9 @@ videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$F
 ! videoconvert \
 ! x264enc tune=zerolatency key-int-max=${FPS} bitrate=200 \
 ! mpegtsmux alignment=-1 \
-! pravegasink stream=${SCOPE}/${STREAM} controller=${PRAVEGA_CONTROLLER} sync=true allow-create-scope=${ALLOW_CREATE_SCOPE}
+! pravegasink \
+  allow-create-scope=${ALLOW_CREATE_SCOPE} \
+  controller=${PRAVEGA_CONTROLLER} \
+  keycloak-file=\"${KEYCLOAK_FILE}\" \
+  stream=${SCOPE}/${STREAM} \
+  sync=true

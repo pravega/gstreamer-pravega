@@ -17,9 +17,10 @@ mkdir -p ${GST_DEBUG_DUMP_DOT_DIR}
 gst-launch-1.0 \
 -v \
 pravegasrc \
-  stream=${SCOPE}/${STREAM} \
-  controller=${PRAVEGA_CONTROLLER} \
   allow-create-scope=${ALLOW_CREATE_SCOPE} \
+  controller=${PRAVEGA_CONTROLLER} \
+  keycloak-file=\"${KEYCLOAK_FILE}\" \
+  stream=${SCOPE}/${STREAM} \
   $* \
 ! decodebin \
 ! videoconvert \
