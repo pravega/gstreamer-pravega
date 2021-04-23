@@ -29,10 +29,10 @@ struct Opts {
     #[clap(long, env = "CAMERA_PATH", default_value = "/cam/realmonitor")]
     path: String,
     /// Default width
-    #[clap(long, env = "CAMERA_WIDTH", default_value = "640")]
+    #[clap(long, env = "CAMERA_WIDTH", default_value = "320")]
     width: u32,
     /// Default height
-    #[clap(long, env = "CAMERA_HEIGHT", default_value = "480")]
+    #[clap(long, env = "CAMERA_HEIGHT", default_value = "180")]
     height: u32,
     /// User name for basic authentication
     #[clap(long, env = "CAMERA_USER", default_value = "user")]
@@ -40,6 +40,10 @@ struct Opts {
     /// Password for basic authentication. Authentication will be disabled if not specified.
     #[clap(long, env = "CAMERA_PASSWORD")]
     password: Option<String>,
+    /// Default target rate in KB/sec
+    #[clap(long, env = "TARGET_RATE_KB_PER_SEC", default_value = "25.0")]
+    #[allow(non_snake_case)]
+    target_rate_KB_per_sec: f64,
 }
 
 fn main() {
@@ -158,6 +162,11 @@ mod media_factory {
                     Some(height) => height.clone().parse::<u32>().unwrap_or(opts.height),
                     None => opts.height,
                 };
+                let target_rate_KB_per_sec = match query_map.get("target_rate_KB_per_sec") {
+                    Some(target_rate_KB_per_sec) => target_rate_KB_per_sec.clone().parse::<f64>().unwrap_or(opts.target_rate_KB_per_sec),
+                    None => opts.target_rate_KB_per_sec,
+                };
+                let target_rate_kbits_per_sec = (target_rate_KB_per_sec * 8.0) as u64;
 
                 let pipeline_description =
                         "videotestsrc name=src is-live=true do-timestamp=true".to_owned()
@@ -165,7 +174,7 @@ mod media_factory {
                         + " ! videoconvert"
                         + " ! clockoverlay font-desc=\"Sans, 48\" time-format=\"%F %T\" shaded-background=true"
                         + " ! timeoverlay valignment=bottom font-desc=\"Sans, 48\" shaded-background=true"
-                        + " ! x264enc key-int-max=30 bitrate=1000"
+                        + " ! " + &format!("x264enc tune=zerolatency key-int-max=30 bitrate={}", target_rate_kbits_per_sec)[..]
                         + " ! h264parse"
                         + " ! rtph264pay name=pay0 pt=96"
                     ;
