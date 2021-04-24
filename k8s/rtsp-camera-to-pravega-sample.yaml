@@ -40,7 +40,7 @@ spec:
         - name: CAMERA_ADDRESS
           value: "10.246.27.131"
         - name: CAMERA_PATH
-          value: "/cam/realmonitor?target_rate_KB_per_sec=10"
+          value: "/cam/realmonitor?target_rate_KB_per_sec=100&width=1280&height=720"
         - name: CAMERA_PORT
           value: "8554"
         - name: CAMERA_PROTOCOLS
@@ -58,8 +58,8 @@ spec:
         - name: FAKESINK
           value: "false"
         - name: GST_DEBUG
-          value: "WARNING,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO,h264parse:WARN,pravegasink:LOG"
+          value: "WARNING,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO,h264parse:WARN,pravegasink:DEBUG"
         - name: pravega_client_tls_cert_path
           value: "/etc/ssl/certs/DST_Root_CA_X3.pem"
         - name: PRAVEGA_STREAM
-          value: "video18"
+          value: "video23"
