@@ -11,11 +11,12 @@
 #
 
 # Record video from an RTSP camera and write to Pravega.
+# Install: sudo apt-get install apache2-utils
 
 set -ex
 
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
-LOG_FILE=/mnt/data/logs/rtsp-camera-to-pravega.log
+LOG_FILE=/tmp/rtsp-camera-to-pravega.log
 pushd ${ROOT_DIR}/gst-plugin-pravega
 cargo build --release
 export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/release:${GST_PLUGIN_PATH}
