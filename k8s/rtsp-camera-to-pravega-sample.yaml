@@ -55,6 +55,8 @@ spec:
             secretKeyRef:
               name: camera-group-1
               key: password
+        - name: DEBUGSPY
+          value: "false"
         - name: FAKESINK
           value: "false"
         - name: GST_DEBUG
