@@ -9,6 +9,7 @@
 //
 
 use glib::subclass::prelude::*;
+use gst::ClockTime;
 use gst::prelude::*;
 use gst::subclass::prelude::*;
 use gst::{gst_debug, gst_error, gst_info, gst_log, gst_trace};
@@ -17,6 +18,7 @@ use std::convert::{TryInto, TryFrom};
 use std::sync::{Arc, Mutex};
 
 use once_cell::sync::Lazy;
+use pravega_video::timestamp::PravegaTimestamp;
 
 const PROPERTY_NAME_FIRST_PTS: &str = "first-pts";
 
@@ -35,14 +37,14 @@ impl Default for Settings {
 
 enum State {
     Started {
-        pts_offset: Option<i64>,
+        pts_offset: ClockTime,
     },
 }
 
 impl Default for State {
     fn default() -> State {
         State::Started {
-            pts_offset: None,
+            pts_offset: ClockTime::none(),
         }
     }
 }
@@ -73,9 +75,42 @@ impl RtspSrcSimulator {
         &self,
         pad: &gst::Pad,
         _element: &super::RtspSrcSimulator,
-        buffer: gst::Buffer,
+        mut buffer: gst::Buffer,
     ) -> Result<gst::FlowSuccess, gst::FlowError> {
         gst_log!(CAT, obj: pad, "Handling buffer {:?}", buffer);
+
+        let settings = self.settings.lock().unwrap();
+        let mut state = self.state.lock().unwrap();
+
+        let (pts_offset_setting,) = match *state {
+            State::Started {
+                ref mut pts_offset,
+                ..
+            } => (pts_offset,),
+        };
+        let buffer_pts = buffer.get_pts();
+        if buffer_pts.is_some() {
+            let pts_offset = match pts_offset_setting.nanoseconds() {
+                Some(_) => *pts_offset_setting,
+                None => {
+                    let first_pts = ClockTime::from_nseconds(settings.first_pts);
+                    gst_log!(CAT, obj: pad, "first_pts={}", first_pts);
+                    gst_log!(CAT, obj: pad, "buffer_pts={}", buffer_pts);
+                    let new_pts_offset = first_pts - buffer_pts;
+                    gst_log!(CAT, obj: pad, "Got first buffer. PTS offset is {:?}.", new_pts_offset.nanoseconds());
+                    *pts_offset_setting = new_pts_offset;
+                    new_pts_offset
+                }
+            };
+            let new_pts = buffer_pts + pts_offset;
+            let buffer_ref = buffer.make_mut();
+            gst_log!(CAT, obj: pad, "Input PTS {}, Output PTS {}", buffer_pts, new_pts);
+            buffer_ref.set_pts(new_pts);
+        }
+
+        let timestamp = PravegaTimestamp::from_ntp_nanoseconds(buffer.get_pts().nanoseconds());
+        gst_log!(CAT, obj: pad, "Output timestamp {}", timestamp);
+
         self.srcpad.push(buffer)
     }
 

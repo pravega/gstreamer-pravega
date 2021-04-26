@@ -40,6 +40,6 @@ videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$F
 ! clockoverlay "font-desc=Sans 48px" "time-format=%F %T" shaded-background=true \
 ! timeoverlay valignment=bottom "font-desc=Sans 48px" shaded-background=true \
 ! videoconvert \
-! rtspsrcsimulator \
+! rtspsrcsimulator first-pts=3800000000000000000 \
 ! fakesink \
 $* |& tee ${LOG_FILE}
