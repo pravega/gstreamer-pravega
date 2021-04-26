@@ -2,6 +2,9 @@
 name = "gstreamer-pravega-apps"
 version = "0.1.0"
 authors = ["Claudio Fahey <claudio.fahey@dell.com>"]
+repository = "https://github.com/pravega/gstreamer-pravega"
+license = "Apache-2.0"
+description = "Pravega utilities and samples that use GStreamer"
 edition = "2018"
 
 [dependencies]
