@@ -9,17 +9,12 @@
 //
 
 use glib::subclass::prelude::*;
-use gst::ClockTime;
 use gst::prelude::*;
 use gst::subclass::prelude::*;
 use gst::{gst_debug, gst_error, gst_info, gst_log, gst_trace};
-use gst_base::prelude::*;
-use gst_base::subclass::prelude::*;
 
 use std::convert::{TryInto, TryFrom};
-use std::io::{BufReader, ErrorKind, Seek, SeekFrom};
 use std::sync::{Arc, Mutex};
-use std::u8;
 
 use once_cell::sync::Lazy;
 
@@ -39,7 +34,6 @@ impl Default for Settings {
 }
 
 enum State {
-    Stopped,
     Started {
         pts_offset: Option<i64>,
     },
@@ -47,7 +41,9 @@ enum State {
 
 impl Default for State {
     fn default() -> State {
-        State::Stopped
+        State::Started {
+            pts_offset: None,
+        }
     }
 }
 
@@ -76,7 +72,7 @@ impl RtspSrcSimulator {
     fn sink_chain(
         &self,
         pad: &gst::Pad,
-        _element: &super::Identity,
+        _element: &super::RtspSrcSimulator,
         buffer: gst::Buffer,
     ) -> Result<gst::FlowSuccess, gst::FlowError> {
         gst_log!(CAT, obj: pad, "Handling buffer {:?}", buffer);
@@ -90,7 +86,7 @@ impl RtspSrcSimulator {
     //
     // See the documentation of gst::Event and gst::EventRef to see what can be done with
     // events, and especially the gst::EventView type for inspecting events.
-    fn sink_event(&self, pad: &gst::Pad, _element: &super::Identity, event: gst::Event) -> bool {
+    fn sink_event(&self, pad: &gst::Pad, _element: &super::RtspSrcSimulator, event: gst::Event) -> bool {
         gst_log!(CAT, obj: pad, "Handling event {:?}", event);
         self.srcpad.push_event(event)
     }
@@ -107,7 +103,7 @@ impl RtspSrcSimulator {
     fn sink_query(
         &self,
         pad: &gst::Pad,
-        _element: &super::Identity,
+        _element: &super::RtspSrcSimulator,
         query: &mut gst::QueryRef,
     ) -> bool {
         gst_log!(CAT, obj: pad, "Handling query {:?}", query);
@@ -122,7 +118,7 @@ impl RtspSrcSimulator {
     //
     // See the documentation of gst::Event and gst::EventRef to see what can be done with
     // events, and especially the gst::EventView type for inspecting events.
-    fn src_event(&self, pad: &gst::Pad, _element: &super::Identity, event: gst::Event) -> bool {
+    fn src_event(&self, pad: &gst::Pad, _element: &super::RtspSrcSimulator, event: gst::Event) -> bool {
         gst_log!(CAT, obj: pad, "Handling event {:?}", event);
         self.sinkpad.push_event(event)
     }
@@ -139,7 +135,7 @@ impl RtspSrcSimulator {
     fn src_query(
         &self,
         pad: &gst::Pad,
-        _element: &super::Identity,
+        _element: &super::RtspSrcSimulator,
         query: &mut gst::QueryRef,
     ) -> bool {
         gst_log!(CAT, obj: pad, "Handling query {:?}", query);
@@ -163,27 +159,27 @@ impl ObjectSubclass for RtspSrcSimulator {
         // - Catch panics from the pad functions and instead of aborting the process
         //   it will simply convert them into an error message and poison the element
         //   instance
-        // - Extract our Identity struct from the object instance and pass it to us
+        // - Extract our RtspSrcSimulator struct from the object instance and pass it to us
         //
         // Details about what each function is good for is next to each function definition
-        let templ = klass.pad_template("sink").unwrap();
+        let templ = klass.get_pad_template("sink").unwrap();
         let sinkpad = gst::Pad::builder_with_template(&templ, Some("sink"))
             .chain_function(|pad, parent, buffer| {
-                Identity::catch_panic_pad_function(
+                RtspSrcSimulator::catch_panic_pad_function(
                     parent,
                     || Err(gst::FlowError::Error),
                     |identity, element| identity.sink_chain(pad, element, buffer),
                 )
             })
             .event_function(|pad, parent, event| {
-                Identity::catch_panic_pad_function(
+                RtspSrcSimulator::catch_panic_pad_function(
                     parent,
                     || false,
                     |identity, element| identity.sink_event(pad, element, event),
                 )
             })
             .query_function(|pad, parent, query| {
-                Identity::catch_panic_pad_function(
+                RtspSrcSimulator::catch_panic_pad_function(
                     parent,
                     || false,
                     |identity, element| identity.sink_query(pad, element, query),
@@ -191,17 +187,17 @@ impl ObjectSubclass for RtspSrcSimulator {
             })
             .build();
 
-        let templ = klass.pad_template("src").unwrap();
+        let templ = klass.get_pad_template("src").unwrap();
         let srcpad = gst::Pad::builder_with_template(&templ, Some("src"))
             .event_function(|pad, parent, event| {
-                Identity::catch_panic_pad_function(
+                RtspSrcSimulator::catch_panic_pad_function(
                     parent,
                     || false,
                     |identity, element| identity.src_event(pad, element, event),
                 )
             })
             .query_function(|pad, parent, query| {
-                Identity::catch_panic_pad_function(
+                RtspSrcSimulator::catch_panic_pad_function(
                     parent,
                     || false,
                     |identity, element| identity.src_query(pad, element, query),
@@ -227,7 +223,7 @@ impl ObjectImpl for RtspSrcSimulator {
         // Call the parent class' ::constructed() implementation first
         self.parent_constructed(obj);
 
-        // Here we actually add the pads we created in Identity::new() to the
+        // Here we actually add the pads we created in RtspSrcSimulator::new() to the
         // element so that GStreamer is aware of their existence.
         obj.add_pad(&self.sinkpad).unwrap();
         obj.add_pad(&self.srcpad).unwrap();

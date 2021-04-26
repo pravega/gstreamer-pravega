@@ -89,6 +89,8 @@ Arbitrary GStreamer buffers can be stored and transported using Pravega by utili
 
 ## Getting Started with Ubuntu
 
+GStreamer 1.18.0 or higher is recommended. This comes standard with Ubuntu version 20.10.
+
 ### Clone this Repository
 
 ```bash
@@ -116,7 +118,8 @@ sudo apt-get install \
     libgstrtspserver-1.0-dev \
     libgtk2.0-dev \
     libgtk-3-dev \
-    libpango1.0-dev
+    libpango1.0-dev \
+    libssl-dev
 ```
 
 For more details, refer to https://github.com/sdroege/gstreamer-rs.

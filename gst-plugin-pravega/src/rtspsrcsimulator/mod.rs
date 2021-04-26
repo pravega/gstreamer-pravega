@@ -14,7 +14,7 @@ mod imp;
 
 // The public Rust wrapper type for our element
 glib::wrapper! {
-    pub struct RtspSrcSimulator(ObjectSubclass<imp::RtspSrcSimulator>) @extends gst_base::Element, gst::Element, gst::Object;
+    pub struct RtspSrcSimulator(ObjectSubclass<imp::RtspSrcSimulator>) @extends gst::Element, gst::Object;
 }
 
 // GStreamer elements need to be thread-safe. For the private implementation this is automatically
