@@ -22,12 +22,6 @@ export GST_DEBUG=rtspsrcsimulator:LOG,pravegasink:LOG,basesink:INFO,identity:LOG
 export PRAVEGA_VIDEO_LOG=info
 export RUST_LOG=debug
 export RUST_BACKTRACE=full
-TARGET_RATE_KB_PER_SEC=${TARGET_RATE_KB_PER_SEC:-25}
-BITRATE_KILOBITS_PER_SEC=$(( ${TARGET_RATE_KB_PER_SEC} * 8 ))
-PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
-PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
-PRAVEGA_STREAM=${PRAVEGA_STREAM:-test1}
-ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
 SIZE_SEC=${SIZE_SEC:-172800}
 FPS=30
 
@@ -41,20 +35,5 @@ videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$F
 ! timeoverlay valignment=bottom "font-desc=Sans 48px" shaded-background=true \
 ! videoconvert \
 ! rtspsrcsimulator first-pts=3800000000000000000 \
-! identity name=identity-from-rtspsrcsimulator silent=false \
-! queue \
-! x264enc tune=zerolatency key-int-max=${FPS} bitrate=${BITRATE_KILOBITS_PER_SEC} \
-! rtph264pay pt=96 \
-! rtph264depay \
-! h264parse \
-! "video/x-h264,alignment=au" \
-! mpegtsmux \
-! identity name=from-mpegtsmux silent=false \
-! queue max-size-buffers=0 max-size-bytes=10485760 max-size-time=0 silent=true leaky=downstream \
-! identity name=from-queue silent=false \
-! pravegasink \
-  stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
-  controller=${PRAVEGA_CONTROLLER_URI} \
-  timestamp-mode=ntp \
-  sync=false \
+! fakesink \
 $* |& tee ${LOG_FILE}

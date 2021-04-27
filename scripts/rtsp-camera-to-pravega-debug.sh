@@ -42,6 +42,7 @@ rtspsrc \
   rtcp-sync-send-time=false \
 ! identity name=identity-from-rtspsrc silent=false \
 ! rtph264depay \
+
 ! h264parse \
 ! "video/x-h264,alignment=au" \
 ! mpegtsmux \

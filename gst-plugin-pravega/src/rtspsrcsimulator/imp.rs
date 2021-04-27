@@ -14,23 +14,28 @@ use gst::prelude::*;
 use gst::subclass::prelude::*;
 use gst::{gst_debug, gst_error, gst_info, gst_log, gst_trace};
 
-use std::convert::{TryInto, TryFrom};
-use std::sync::{Arc, Mutex};
+use std::convert::TryInto;
+use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
 use pravega_video::timestamp::PravegaTimestamp;
 
 const PROPERTY_NAME_FIRST_PTS: &str = "first-pts";
 
+const DEFAULT_FIRST_PTS: u64 = 0;
+const DEFAULT_APPLY_OFFSET_AFTER_PTS_MSECOND: u64 = 5000;
+
 #[derive(Debug)]
 struct Settings {
     first_pts: u64,
+    apply_offset_after_pts: ClockTime,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Settings {
-            first_pts: 0,
+            first_pts: DEFAULT_FIRST_PTS,
+            apply_offset_after_pts: DEFAULT_APPLY_OFFSET_AFTER_PTS_MSECOND * gst::MSECOND,
         }
     }
 }
@@ -60,17 +65,20 @@ static CAT: Lazy<gst::DebugCategory> = Lazy::new(|| {
     gst::DebugCategory::new(
         "rtspsrcsimulator",
         gst::DebugColorFlags::empty(),
-        Some("RTSP Source Simulator"),
+        Some(
+            "RTSP Source Simulator can be used as part of a pipeline to simulate rtspsrc. \n
+            The element `rtspsrc buffer-mode=none ntp-sync=true ntp-time-source=running-time` \n
+            can be simulated with the elements \n
+            `videotestsrc is-live=true do-timestamp=true ! rtspsrcsimulator first-pts=3800000000000000000 ! \n
+            x264enc ! rtph264pay`.
+            The rtspsrcsimulator element modifies the PTS of each buffer."
+        ),
     )
 });
 
 impl RtspSrcSimulator {
     // Called whenever a new buffer is passed to our sink pad. Here buffers should be processed and
     // whenever some output buffer is available have to push it out of the source pad.
-    // Here we just pass through all buffers directly
-    //
-    // See the documentation of gst::Buffer and gst::BufferRef to see what can be done with
-    // buffers.
     fn sink_chain(
         &self,
         pad: &gst::Pad,
@@ -90,22 +98,25 @@ impl RtspSrcSimulator {
         };
         let buffer_pts = buffer.get_pts();
         if buffer_pts.is_some() {
-            let pts_offset = match pts_offset_setting.nanoseconds() {
-                Some(_) => *pts_offset_setting,
-                None => {
-                    let first_pts = ClockTime::from_nseconds(settings.first_pts);
-                    gst_log!(CAT, obj: pad, "first_pts={}", first_pts);
-                    gst_log!(CAT, obj: pad, "buffer_pts={}", buffer_pts);
-                    let new_pts_offset = first_pts - buffer_pts;
-                    gst_log!(CAT, obj: pad, "Got first buffer. PTS offset is {:?}.", new_pts_offset.nanoseconds());
-                    *pts_offset_setting = new_pts_offset;
-                    new_pts_offset
-                }
-            };
-            let new_pts = buffer_pts + pts_offset;
-            let buffer_ref = buffer.make_mut();
-            gst_log!(CAT, obj: pad, "Input PTS {}, Output PTS {}", buffer_pts, new_pts);
-            buffer_ref.set_pts(new_pts);
+            // It takes around 5 seconds for rtspsrc to receive the RTCP timestamps and set PTS to the NTP timestamp.
+            if buffer_pts >= settings.apply_offset_after_pts {
+                let pts_offset = match pts_offset_setting.nanoseconds() {
+                    Some(_) => *pts_offset_setting,
+                    None => {
+                        let first_pts = ClockTime::from_nseconds(settings.first_pts);
+                        gst_log!(CAT, obj: pad, "first_pts={}", first_pts);
+                        gst_log!(CAT, obj: pad, "buffer_pts={}", buffer_pts);
+                        let new_pts_offset = first_pts - buffer_pts;
+                        gst_log!(CAT, obj: pad, "Got first buffer. PTS offset is {:?}.", new_pts_offset.nanoseconds());
+                        *pts_offset_setting = new_pts_offset;
+                        new_pts_offset
+                    }
+                };
+                let new_pts = buffer_pts + pts_offset;
+                let buffer_ref = buffer.make_mut();
+                gst_log!(CAT, obj: pad, "Input PTS {}, Output PTS {}", buffer_pts, new_pts);
+                buffer_ref.set_pts(new_pts);
+            }
         }
 
         let timestamp = PravegaTimestamp::from_ntp_nanoseconds(buffer.get_pts().nanoseconds());
@@ -268,11 +279,11 @@ impl ObjectImpl for RtspSrcSimulator {
         static PROPERTIES: Lazy<Vec<glib::ParamSpec>> = Lazy::new(|| { vec![
             glib::ParamSpec::uint64(
                 PROPERTY_NAME_FIRST_PTS,
-                "PROPERTY_NAME_FIRST_PTS",
-                "PROPERTY_NAME_FIRST_PTS",
+                "First PTS",
+                "The first modified output buffer will have this PTS.",
                 0,
                 std::u64::MAX,
-                0,
+                DEFAULT_FIRST_PTS,
                 glib::ParamFlags::WRITABLE,
             ),
         ]});
