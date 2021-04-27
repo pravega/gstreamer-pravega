@@ -8,8 +8,9 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-// A sink that writes GStreamer buffers along with timestamps.
-// Each GstBuffer is framed.
+// A sink that writes GStreamer buffers to a Pravega stream.
+// Based on:
+//   - https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs/-/tree/master/generic/file/src/filesink
 
 use glib::subclass::prelude::*;
 use gst::prelude::*;

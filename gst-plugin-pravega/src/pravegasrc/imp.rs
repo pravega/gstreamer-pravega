@@ -8,7 +8,9 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-// A source that reads GStreamer buffers along with timestamps, as written by pravegasink.
+// A source that reads GStreamer buffers from a Pravega stream, as written by pravegasink.
+// Based on:
+//   - https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs/-/tree/master/generic/file/src/filesrc
 
 use glib::subclass::prelude::*;
 use gst::ClockTime;
