@@ -11,8 +11,8 @@
 use gst::prelude::*;
 
 fn main() {
-    eprintln!("This is main.rs");
-    // std::env::set_var("GST_DEBUG", "pravegasink:6,basesink:6,mpegtsbase:6,mpegtspacketizer:6");
+    eprintln!("main.rs: BEGIN");
+    std::env::set_var("GST_DEBUG", "pravegasink:6,basesink:6,mpegtsbase:6,mpegtspacketizer:6");
 
     // Initialize GStreamer
     gst::init().unwrap();
@@ -38,7 +38,7 @@ fn main() {
         .expect("Unable to set the pipeline to the `Playing` state");
 
     // Wait until error or EOS
-    let bus = pipeline.bus().unwrap();
+    let bus = pipeline.get_bus().unwrap();
     for msg in bus.iter_timed(gst::CLOCK_TIME_NONE) {
         use gst::MessageView;
 
@@ -47,9 +47,9 @@ fn main() {
             MessageView::Error(err) => {
                 println!(
                     "Error from {:?}: {} ({:?})",
-                    err.src().map(|s| s.path_string()),
-                    err.error(),
-                    err.debug()
+                    err.get_src().map(|s| s.get_path_string()),
+                    err.get_error(),
+                    err.get_debug()
                 );
                 break;
             }
@@ -61,4 +61,6 @@ fn main() {
     pipeline
         .set_state(gst::State::Null)
         .expect("Unable to set the pipeline to the `Null` state");
-}
+
+    eprintln!("main.rs: END");
+    }
