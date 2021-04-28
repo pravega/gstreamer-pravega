@@ -110,8 +110,8 @@ impl PravegaService for PravegaStandaloneService {
     }
 
     fn stop(&mut self) -> Result<(), std::io::Error> {
-        info!("Stopping Pravega");
         if self.check_status()? {
+            info!("Stopping Pravega");
             return self.pravega.kill();
         }
         Ok(())

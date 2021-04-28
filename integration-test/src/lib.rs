@@ -24,7 +24,9 @@ extern crate derive_new;
 fn wait_for_standalone_with_timeout(expected_status: bool, timeout_second: i32) {
     for _i in 0..timeout_second {
         if expected_status == check_standalone_status() {
-            info!("Pravega is running.");
+            if expected_status {
+                info!("Pravega is running.");
+            }
             return;
         }
         thread::sleep(time::Duration::from_secs(1));
@@ -106,11 +108,13 @@ mod test {
         );
         info!("test_config={:?}", test_config);
 
+        {
         let span = info_span!("test_playback_truncated_stream", auth = config.auth, tls = config.tls);
         span.in_scope(|| {
             info!("Running test_playback_truncated_stream");
             gst_plugin_pravega_tests::test_playback_truncated_stream(test_config.clone());
         });
+        }
 
         // Shut down Pravega standalone.
         pravega.stop().unwrap();
