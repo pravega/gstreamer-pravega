@@ -62,6 +62,13 @@ pub enum TimestampMode {
         nick = "ntp"
     )]
     Ntp = 1,
+    #[genum(
+        name = "Input buffer timestamps are nanoseconds \
+                since 1970-01-01 00:00:00 TAI International Atomic Time, including leap seconds. \
+                Use this for pravegasrc (start-pts-at-zero=false).",
+        nick = "tai"
+    )]
+    Tai = 2,
 }
 
 const DEFAULT_CONTROLLER: &str = "127.0.0.1:9090";
@@ -609,6 +616,9 @@ impl BaseSinkImpl for PravegaSink {
                 // Note: base_time is the value of the pipeline clock at the beginning of play. It is ignored.
                 PravegaTimestamp::from_ntp_nanoseconds(pts.nseconds())
             },
+            TimestampMode::Tai => {
+                PravegaTimestamp::from_nanoseconds(pts.nseconds())
+            }
         };
 
         gst_log!(CAT, obj: element, "render: timestamp={}, pts={}, base_time={}, duration={}, size={}",
