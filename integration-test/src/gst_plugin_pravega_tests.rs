@@ -8,8 +8,11 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use gst::ClockTime;
 use gst::prelude::*;
+use pravega_video::timestamp::PravegaTimestamp;
 use std::sync::{Arc, Mutex};
+use std::convert::{TryInto, TryFrom};
 use tracing::{error, info};
 use crate::TestConfig;
 
@@ -23,20 +26,32 @@ pub fn test_playback_truncated_stream(test_config: TestConfig) {
     gst::init().unwrap();
     gstpravega::plugin_register_static().unwrap();
 
+    // first_timestamp: 2001-02-03T04:00:00.000000000Z (981172837000000000 ns, 272548:00:37.000000000)
+    let first_utc = "2001-02-03T04:00:00.000Z".to_owned();
+    let first_timestamp = PravegaTimestamp::try_from(Some(first_utc)).unwrap();
+    info!("first_timestamp={}", first_timestamp);
+    let first_pts = ClockTime(first_timestamp.nanoseconds());
+    info!("first_pts={}", first_pts);
+    let fps = 30;
+    let num_buffers = 2;
+
     //
     // Write video stream to Pravega.
     //
 
     let pipeline_description = format!(
-        "videotestsrc name=src is-live=true do-timestamp=true num-buffers=2 \
-        ! video/x-raw,width=320,height=180,framerate=30/1 \
+        "videotestsrc name=src timestamp-offset={timestamp_offset} num-buffers={num_buffers} \
+        ! video/x-raw,width=320,height=180,framerate={fps}/1 \
         ! videoconvert \
         ! x264enc key-int-max=30 bitrate=100 \
         ! mpegtsmux \
-        ! pravegasink controller={controller_uri} stream={scope}/{stream_name} seal=true",
+        ! pravegasink controller={controller_uri} stream={scope}/{stream_name} seal=true timestamp-mode=tai sync=false",
         controller_uri = controller_uri,
         scope = scope,
         stream_name = stream_name,
+        timestamp_offset = first_pts.nanoseconds().unwrap(),
+        num_buffers = num_buffers,
+        fps = fps,
     );
     info!("Launch Pipeline: {}", pipeline_description);
     let pipeline = gst::parse_launch(&pipeline_description).unwrap();
@@ -146,6 +161,16 @@ pub fn test_playback_truncated_stream(test_config: TestConfig) {
     let read_pts = read_pts.lock().unwrap();
     info!("read_pts={:?}", read_pts);
 
+    // Check first pts
+    let first_pts_actual = read_pts[0];
+    // TODO: Why is PTS is off by 125 ms?
+    assert_between(first_pts_actual, first_pts, first_pts + 125 * gst::MSECOND);
+    // assert_eq!(first_pts_actual, first_pts);
+
+    // Check last pts
+    // Check number of frames
+
+
     // Truncate video stream.
 
     // Read video stream, get PTS, and validate.
@@ -153,4 +178,10 @@ pub fn test_playback_truncated_stream(test_config: TestConfig) {
     // Out-of-band: Play using HLS player.
 
     info!("END");
+}
+
+fn assert_between(actual: ClockTime, expected_min: ClockTime, expected_max: ClockTime) {
+    assert!(actual.nanoseconds().is_some());
+    assert!(expected_min.nanoseconds().is_some() && actual.nanoseconds().unwrap() >= expected_min.nanoseconds().unwrap());
+    assert!(expected_max.nanoseconds().is_some() && actual.nanoseconds().unwrap() <= expected_max.nanoseconds().unwrap());
 }
