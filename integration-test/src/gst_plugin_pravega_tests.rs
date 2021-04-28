@@ -28,7 +28,7 @@ pub fn test_playback_truncated_stream(test_config: TestConfig) {
     //
 
     let pipeline_description = format!(
-        "videotestsrc name=src is-live=true do-timestamp=true num-buffers=1 \
+        "videotestsrc name=src is-live=true do-timestamp=true num-buffers=2 \
         ! video/x-raw,width=320,height=180,framerate=30/1 \
         ! videoconvert \
         ! x264enc key-int-max=30 bitrate=100 \
@@ -94,19 +94,19 @@ pub fn test_playback_truncated_stream(test_config: TestConfig) {
         .unwrap()
         .downcast::<gst_app::AppSink>()
         .unwrap();
-
     sink.set_property("sync", &false).unwrap();
 
-    let samples = Arc::new(Mutex::new(Vec::new()));
-
-    let samples_clone = samples.clone();
+    let read_pts = Arc::new(Mutex::new(Vec::new()));
+    let read_pts_clone = read_pts.clone();
     sink.set_callbacks(
         gst_app::AppSinkCallbacks::builder()
             .new_sample(move |sink| {
                 let sample = sink.pull_sample().unwrap();
                 info!("sample={:?}", sample);
-                let mut samples = samples_clone.lock().unwrap();
-                samples.push(sample);
+                let pts = sample.get_buffer().unwrap().get_pts();
+                info!("pts={}", pts);
+                let mut read_timestamps = read_pts_clone.lock().unwrap();
+                read_timestamps.push(pts);
                 Ok(gst::FlowSuccess::Ok)
             })
             .build(),
@@ -143,7 +143,8 @@ pub fn test_playback_truncated_stream(test_config: TestConfig) {
         .expect("Unable to set the pipeline to the `Null` state");
     assert!(eos);
 
-    let samples = samples.lock().unwrap();
+    let read_pts = read_pts.lock().unwrap();
+    info!("read_pts={:?}", read_pts);
 
     // Truncate video stream.
 
