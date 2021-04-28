@@ -47,7 +47,7 @@ COPY pravega-client-rust pravega-client-rust
 COPY pravega-video pravega-video
 
 RUN cd gst-plugin-pravega && \
-    cargo build --release --jobs ${RUST_JOBS} && \
+    cargo build --locked --release --jobs ${RUST_JOBS} && \
     mv -v target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 
 ## Build pravega-video-server
@@ -55,14 +55,14 @@ RUN cd gst-plugin-pravega && \
 COPY pravega-video-server pravega-video-server
 
 RUN cd pravega-video-server && \
-    cargo install --jobs ${RUST_JOBS} --path .
+    cargo install --locked --jobs ${RUST_JOBS} --path .
 
 ## Build misc. Rust apps
 
 COPY apps apps
 
 RUN cd apps && \
-    cargo install --jobs ${RUST_JOBS} --path . --bin \
+    cargo install --locked --jobs ${RUST_JOBS} --path . --bin \
       rtsp-camera-simulator
 
 ## Install Python apps
