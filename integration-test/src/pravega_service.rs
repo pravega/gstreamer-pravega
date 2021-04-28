@@ -10,8 +10,6 @@
 
 use java_properties::read;
 use java_properties::write;
-use java_properties::PropertiesIter;
-use java_properties::PropertiesWriter;
 use std::fs::{create_dir, File};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::net::IpAddr;
@@ -64,6 +62,11 @@ pub trait PravegaService {
     fn get_grpc_details(&self) -> SocketAddr;
 
     /**
+     * Get grpc host:port URI where the service is running.
+     */
+     fn get_controller_uri(&self) -> String;
+
+    /**
      * Get rest host:port URI where the service is running.
      */
     fn get_rest_details(&self) -> SocketAddr;
@@ -92,12 +95,14 @@ impl PravegaService for PravegaStandaloneService {
         PravegaStandaloneService::enable_tls(config.tls);
         let _ = create_dir("./log");
         let output = File::create("./log/output.log").expect("creating file for standalone log");
+        let stderr = File::create("./log/stderr.log").expect("creating file for standalone log");
         info!(
-            "start running pravega under path {} with config {:?}",
+            "Starting Pravega under path {} with config {:?}.",
             PATH, config
         );
         let pravega = Command::new(PATH)
             .stdout(Stdio::from(output))
+            .stderr(Stdio::from(stderr))
             .spawn()
             .expect("failed to start pravega standalone");
         info!("child pid: {}", pravega.id());
@@ -105,6 +110,7 @@ impl PravegaService for PravegaStandaloneService {
     }
 
     fn stop(&mut self) -> Result<(), std::io::Error> {
+        info!("Stopping Pravega");
         if self.check_status()? {
             return self.pravega.kill();
         }
@@ -126,6 +132,10 @@ impl PravegaService for PravegaStandaloneService {
 
     fn get_rest_details(&self) -> SocketAddr {
         SocketAddr::new(IpAddr::V4(Self::ADDRESS), Self::REST_PORT)
+    }
+
+    fn get_controller_uri(&self) -> String {
+        format!("{}:{}", Self::ADDRESS, Self::CONTROLLER_PORT)
     }
 
     fn enable_debug_log(enable: bool) {
