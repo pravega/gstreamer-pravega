@@ -20,6 +20,7 @@ edition = "2018"
 chrono = "0.4"
 derive-new = "0.5"
 gst = { package = "gstreamer", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
+gst-app = { package = "gstreamer-app", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
 gst-plugin-pravega = { path = "../gst-plugin-pravega" }
 java-properties = "1.2"
 lazy_static = "1.4"

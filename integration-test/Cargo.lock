@@ -988,6 +988,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "gstreamer-app"
+version = "0.17.0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#762450bb5335d8c79cc29a6111874d89bd3b5c00"
+dependencies = [
+ "bitflags",
+ "futures-core",
+ "futures-sink",
+ "glib",
+ "gstreamer",
+ "gstreamer-app-sys",
+ "gstreamer-base",
+ "libc",
+ "once_cell",
+]
+
+[[package]]
+name = "gstreamer-app-sys"
+version = "0.17.0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#762450bb5335d8c79cc29a6111874d89bd3b5c00"
+dependencies = [
+ "glib-sys",
+ "gstreamer-base-sys",
+ "gstreamer-sys",
+ "libc",
+ "system-deps",
+]
+
+[[package]]
 name = "gstreamer-base"
 version = "0.17.0"
 source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#762450bb5335d8c79cc29a6111874d89bd3b5c00"
@@ -1021,6 +1049,7 @@ dependencies = [
  "flate2",
  "gst-plugin-pravega",
  "gstreamer",
+ "gstreamer-app",
  "java-properties",
  "lazy_static",
  "pkg-config",
