@@ -58,14 +58,14 @@ pub enum TimestampMode {
     #[genum(
         name = "Input buffer timestamps are nanoseconds \
                 since the NTP epoch 1900-01-01 00:00:00 UTC, not including leap seconds. \
-                Use this for rtspsrc (ntp-sync=true ntp-time-source=running-time).",
+                Use this for buffers from rtspsrc (ntp-sync=true ntp-time-source=running-time).",
         nick = "ntp"
     )]
     Ntp = 1,
     #[genum(
         name = "Input buffer timestamps are nanoseconds \
                 since 1970-01-01 00:00:00 TAI International Atomic Time, including leap seconds. \
-                Use this for pravegasrc (start-pts-at-zero=false).",
+                Use this for buffers from pravegasrc (start-pts-at-zero=false).",
         nick = "tai"
     )]
     Tai = 2,
