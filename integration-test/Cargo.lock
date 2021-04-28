@@ -958,26 +958,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gst-plugin-pravega-integration-test"
-version = "0.7.0"
-dependencies = [
- "derive-new",
- "flate2",
- "gst-plugin-pravega",
- "gstreamer",
- "java-properties",
- "lazy_static",
- "pkg-config",
- "pravega-client",
- "pravega-client-config",
- "pravega-client-shared",
- "reqwest",
- "tar",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "gst-plugin-version-helper"
 version = "0.6.0"
 source = "git+https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs#81f9d334e81d337bd93cd14a3ec8f2cb7783ba3d"
@@ -1030,6 +1010,28 @@ dependencies = [
  "gstreamer-sys",
  "libc",
  "system-deps",
+]
+
+[[package]]
+name = "gstreamer-pravega-integration-test"
+version = "0.7.0"
+dependencies = [
+ "chrono",
+ "derive-new",
+ "flate2",
+ "gst-plugin-pravega",
+ "gstreamer",
+ "java-properties",
+ "lazy_static",
+ "pkg-config",
+ "pravega-client",
+ "pravega-client-config",
+ "pravega-client-shared",
+ "pravega-video",
+ "reqwest",
+ "tar",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

@@ -1,46 +1,34 @@
+#
+# Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
 [package]
-name = "gst-plugin-pravega-integration-test"
+name = "gstreamer-pravega-integration-test"
 version = "0.7.0"
 authors = ["Claudio Fahey <claudio.fahey@dell.com>"]
 repository = "https://github.com/pravega/gstreamer-pravega"
 license = "Apache-2.0"
-description = "The integration test for gst-plugin-pravega."
+description = "The integration test for gstreamer-pravega."
 edition = "2018"
 
 [dependencies]
-# anyhow = "1"
-# byte-slice-cast = "0.3"
-# chrono = "0.4"
-# clap = "3.0.0-beta.2"
-# derive_more = "0.99.5"
+chrono = "0.4"
 derive-new = "0.5"
-# gdk = { git = "https://github.com/gtk-rs/gtk-rs" }
-# glib = { git = "https://github.com/gtk-rs/gtk-rs" }
 gst = { package = "gstreamer", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
-# gstreamer-app = { git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
-# gstreamer-audio = { git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
 gst-plugin-pravega = { path = "../gst-plugin-pravega" }
-# gst-rtsp = { package = "gstreamer-rtsp", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
-# gst-rtsp-server = { package = "gstreamer-rtsp-server", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
-# gst-sdp = { package = "gstreamer-sdp", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
-# gstreamer-video = { git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
-# gtk = { git = "https://github.com/gtk-rs/gtk-rs" }
 java-properties = "1.2"
 lazy_static = "1.4"
 pravega-client = { path = "../pravega-client-rust" }
 pravega-client-config = { path = "../pravega-client-rust/config"}
 pravega-client-shared = { path = "../pravega-client-rust/shared"}
-# pravega-video = { path = "../pravega-video" }
-# log = "0.4"
-# serde = "1"
-# serde_json = "1"
-# tokio = { version = "1.1", features = ["full"] }
+pravega-video = { path = "../pravega-video" }
 tracing = { version = "0.1", default-features = false, features = ["log", "std"] }
 tracing-subscriber = "0.2"
-# url = "2.1"
-# uuid = "0.8"
-
-[dev-dependencies]
 
 [build-dependencies]
 flate2 = "1.0"
