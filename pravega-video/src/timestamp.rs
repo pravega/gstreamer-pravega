@@ -96,6 +96,22 @@ impl PravegaTimestamp {
         }
     }
 
+    /// Convert to format h:mm:ss.fffffffff
+    /// Based on https://gstreamer.freedesktop.org/documentation/gstreamer/gstclock.html?gi-language=c#GST_STIME_ARGS.
+    pub fn to_hms(&self) -> Option<String> {
+        match self.nanoseconds() {
+            Some(ns) => {
+                const SECOND: u64 = 1_000_000_000;
+                let h = ns / (SECOND * 60 * 60);
+                let mm = (ns / (SECOND * 60)) % 60;
+                let ss = (ns / SECOND) % 60;
+                let f = ns % SECOND;
+                Some(format!("{}:{:02}:{:02}.{:09}", h, mm, ss, f))
+                },
+            None => None,
+        }
+    }
+
     pub fn or(self, optb: PravegaTimestamp) -> PravegaTimestamp {
         match self.0 {
             Some(_) => self,
@@ -139,7 +155,7 @@ impl TryFrom<Option<String>> for PravegaTimestamp {
     type Error = anyhow::Error;
 
     fn try_from(t: Option<String>) -> Result<Self, Self::Error> {
-        match t {            
+        match t {
             Some(t) => {
                 let dt = chrono::DateTime::parse_from_rfc3339(&t[..])?;
                 let nanos = u64::try_from(dt.timestamp_nanos())?;
@@ -157,7 +173,7 @@ impl fmt::Display for PravegaTimestamp {
                 let system_time: SystemTime = (*self).into();
                 let datetime: chrono::DateTime<chrono::offset::Utc> = system_time.into();
                 let formatted_time = datetime.format("%Y-%m-%dT%T.%9fZ");
-                f.write_fmt(format_args!("{} ({} ns)", formatted_time, nanoseconds))
+                f.write_fmt(format_args!("{} ({} ns, {})", formatted_time, nanoseconds, self.to_hms().unwrap_or_default()))
                 },
             None => f.write_str("None"),
         }
@@ -171,7 +187,7 @@ impl fmt::Debug for PravegaTimestamp {
                 let system_time: SystemTime = (*self).into();
                 let datetime: chrono::DateTime<chrono::offset::Utc> = system_time.into();
                 let formatted_time = datetime.format("%Y-%m-%dT%T.%9fZ");
-                f.write_fmt(format_args!("{} ({} ns)", formatted_time, nanoseconds))
+                f.write_fmt(format_args!("{} ({} ns, {})", formatted_time, nanoseconds, self.to_hms().unwrap_or_default()))
                 },
             None => f.write_str("None"),
         }
