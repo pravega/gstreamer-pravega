@@ -47,4 +47,3 @@ docker build -t pravega/gstreamer:pravega-dev \
     --build-arg RUST_JOBS=${RUST_JOBS} \
     -f ${ROOT_DIR}/docker/pravega-dev.Dockerfile ${ROOT_DIR}
 
-#CARGO_TARGET_DIR environment /cache/build/rust

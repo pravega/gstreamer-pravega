@@ -40,7 +40,7 @@ fn main() {
     let config = ClientConfigBuilder::default()
         .controller_uri(controller_uri)
         .build()
-        .expect("creating config ok");
+        .expect("creating config");
     let client_factory = ClientFactory::new(config);
     let client_factory_db = client_factory.clone();
     let runtime = client_factory.get_runtime();

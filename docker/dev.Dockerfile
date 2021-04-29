@@ -14,7 +14,6 @@ COPY docker/build-gstreamer/install-dependencies /
 
 RUN ["/install-dependencies"]
 
-# DON'T DO CA YET // TODO FIXME
 COPY ca-certificates /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
