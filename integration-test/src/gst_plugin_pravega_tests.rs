@@ -33,7 +33,7 @@ pub fn test_playback_truncated_stream(test_config: TestConfig) {
     let first_pts = ClockTime(first_timestamp.nanoseconds());
     info!("first_pts={}", first_pts);
     let fps = 30;
-    let num_buffers = 2;
+    let num_buffers = 3 * fps;
 
     //
     // Write video stream to Pravega.
@@ -160,18 +160,21 @@ pub fn test_playback_truncated_stream(test_config: TestConfig) {
 
     let read_pts = read_pts.lock().unwrap();
     info!("read_pts={:?}", read_pts);
-
-    // Check first pts
+    let num_buffers_actual = read_pts.len() as u64;
     let first_pts_actual = read_pts[0];
+    let last_pts_actual = *read_pts.last().unwrap();
+    let delta_pts_expected = (num_buffers - 1) * gst::SECOND / fps;
+    let last_pts_expected = first_pts + delta_pts_expected;
+    info!("delta_pts_expected={}", delta_pts_expected);
+    info!("Expected: num_buffers={}, first_pts={}, last_pts={}", num_buffers, first_pts, last_pts_expected);
+    info!("Actual:   num_buffers={}, first_pts={}, last_pts={}", num_buffers_actual, first_pts_actual, last_pts_actual);
     // TODO: Why is PTS is off by 125 ms?
-    assert_between(first_pts_actual, first_pts, first_pts + 125 * gst::MSECOND);
-    // assert_eq!(first_pts_actual, first_pts);
-
-    // Check last pts
-    // Check number of frames
-
+    assert_between("first_pts_actual", first_pts_actual, first_pts, first_pts + 126 * gst::MSECOND);
+    assert_between("last_pts_actual", last_pts_actual, last_pts_expected, last_pts_expected + 126 * gst::MSECOND);
+    assert_eq!(num_buffers_actual, num_buffers);
 
     // Truncate video stream.
+
 
     // Read video stream, get PTS, and validate.
 
@@ -180,8 +183,14 @@ pub fn test_playback_truncated_stream(test_config: TestConfig) {
     info!("END");
 }
 
-fn assert_between(actual: ClockTime, expected_min: ClockTime, expected_max: ClockTime) {
-    assert!(actual.nanoseconds().is_some());
-    assert!(expected_min.nanoseconds().is_some() && actual.nanoseconds().unwrap() >= expected_min.nanoseconds().unwrap());
-    assert!(expected_max.nanoseconds().is_some() && actual.nanoseconds().unwrap() <= expected_max.nanoseconds().unwrap());
+fn assert_between(name: &str, actual: ClockTime, expected_min: ClockTime, expected_max: ClockTime) {
+    if !actual.nanoseconds().is_some() {
+        panic!("{} is None", name);
+    }
+    if expected_min.nanoseconds().is_some() && actual.nanoseconds().unwrap() < expected_min.nanoseconds().unwrap() {
+        panic!("{}: actual value {} is less than expected minimum {}", name, actual, expected_min);
+    }
+    if expected_max.nanoseconds().is_some() && actual.nanoseconds().unwrap() > expected_max.nanoseconds().unwrap() {
+        panic!("{}: actual value {} is greater than expected maximum {}", name, actual, expected_max);
+    }
 }
