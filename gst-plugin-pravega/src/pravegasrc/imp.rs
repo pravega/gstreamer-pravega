@@ -680,8 +680,9 @@ impl BaseSrcImpl for PravegaSrc {
             reader: Arc::new(Mutex::new(buf_reader)),
             index_searcher: Arc::new(Mutex::new(index_searcher)),
         };
-        // We must unlock the state so that seek does not deadlock.
+        // We must drop locks so that seek does not deadlock.
         drop(state);
+        drop(settings);
         gst_info!(CAT, obj: element, "Started");
 
         if let Some(seek_pos) = start_timestamp.nanoseconds() {
