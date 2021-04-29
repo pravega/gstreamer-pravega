@@ -17,6 +17,7 @@ description = "The integration test for gstreamer-pravega."
 edition = "2018"
 
 [dependencies]
+anyhow = "1"
 chrono = "0.4"
 derive-new = "0.5"
 gst = { package = "gstreamer", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
