@@ -8,15 +8,108 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-// use anyhow::{anyhow, Error};
 use gst::ClockTime;
 use gst::prelude::*;
 use pravega_video::timestamp::PravegaTimestamp;
-// use std::sync::{Arc, Mutex};
 use std::convert::TryFrom;
 use tracing::{error, info, debug};
 use crate::TestConfig;
 use crate::utils::*;
+
+/// Test pravegasink and pravegasrc with raw video (uncompressed).
+/// This avoids any complexities caused by video encoding and decoding.
+pub fn test_raw_video(test_config: TestConfig) {
+    let controller_uri = test_config.client_config.clone().controller_uri.0;
+    let scope = test_config.scope.clone();
+    let stream_name = format!("test-raw-video-{}", test_config.test_id);
+
+    // Initialize GStreamer
+    std::env::set_var("GST_DEBUG", "pravegasrc:LOG,pravegasink:LOG,basesink:INFO");
+    gst::init().unwrap();
+    gstpravega::plugin_register_static().unwrap();
+
+    // first_timestamp: 2001-02-03T04:00:00.000000000Z (981172837000000000 ns, 272548:00:37.000000000)
+    let first_utc = "2001-02-03T04:00:00.000Z".to_owned();
+    let first_timestamp = PravegaTimestamp::try_from(Some(first_utc)).unwrap();
+    info!("first_timestamp={}", first_timestamp);
+    let first_pts_written = ClockTime(first_timestamp.nanoseconds());
+    info!("first_pts_written={}", first_pts_written);
+    let fps = 30;
+    let num_buffers_written = 3 * fps;
+
+    info!("#### Write video stream to Pravega");
+    // Since raw video does not have delta frames, we force an index record every 1 second.
+    let pipeline_description = format!(
+        "videotestsrc name=src timestamp-offset={timestamp_offset} num-buffers={num_buffers} \
+        ! video/x-raw,width=100,height=100,framerate={fps}/1 \
+        ! pravegasink controller={controller_uri} stream={scope}/{stream_name} \
+          seal=true timestamp-mode=tai sync=false index-min-sec=1.0",
+        controller_uri = controller_uri,
+        scope = scope.clone(),
+        stream_name = stream_name.clone(),
+        timestamp_offset = first_pts_written.nanoseconds().unwrap(),
+        num_buffers = num_buffers_written,
+        fps = fps,
+    );
+    launch_pipeline(pipeline_description).unwrap();
+
+    info!("#### Read video stream from beginning");
+    let pipeline_description = format!(
+        "pravegasrc controller={controller_uri} stream={scope}/{stream_name} \
+        ! appsink name=sink sync=false",
+        controller_uri = controller_uri,
+        scope = scope.clone(),
+        stream_name = stream_name.clone(),
+    );
+    let read_pts = launch_pipeline_and_get_pts(pipeline_description).unwrap();
+    debug!("read_pts={:?}", read_pts);
+    let num_buffers_actual = read_pts.len() as u64;
+    let first_pts_actual = read_pts[0];
+    let last_pts_actual = *read_pts.last().unwrap();
+    let delta_pts_expected = (num_buffers_written - 1) * gst::SECOND / fps;
+    let last_pts_expected = first_pts_written + delta_pts_expected;
+    info!("delta_pts_expected={}", delta_pts_expected);
+    info!("Expected: num_buffers={}, first_pts={}, last_pts={}", num_buffers_written, first_pts_written, last_pts_expected);
+    info!("Actual:   num_buffers={}, first_pts={}, last_pts={}", num_buffers_actual, first_pts_actual, last_pts_actual);
+    assert_between("first_pts_actual", first_pts_actual, first_pts_written, first_pts_written);
+    assert_between("last_pts_actual", last_pts_actual, last_pts_expected, last_pts_expected);
+    assert_eq!(num_buffers_actual, num_buffers_written);
+
+    info!("#### Truncate at 1 second");
+    let truncate_sec = 1;
+    let truncate_before_pts = first_pts_written + truncate_sec * gst::SECOND;
+    let truncate_before_timestamp = PravegaTimestamp::from_nanoseconds((truncate_before_pts).nanoseconds());
+    truncate_stream(test_config.client_config, scope.clone(), stream_name.clone(), truncate_before_timestamp);
+
+    info!("#### Read video from truncated position");
+    let pipeline_description = format!(
+        "pravegasrc controller={controller_uri} stream={scope}/{stream_name} \
+        ! appsink name=sink sync=false",
+        controller_uri = controller_uri,
+        scope = scope.clone(),
+        stream_name = stream_name.clone(),
+    );
+    let read_pts = launch_pipeline_and_get_pts(pipeline_description).unwrap();
+    debug!("read_pts={:?}", read_pts);
+    let num_buffers_actual = read_pts.len() as u64;
+    let first_pts_actual = read_pts[0];
+    let last_pts_actual = *read_pts.last().unwrap();
+    let first_pts_expected = truncate_before_pts;
+    let num_buffers_expected = num_buffers_written - truncate_sec * fps;
+    info!("Expected: num_buffers={}, first_pts={}, last_pts={}", num_buffers_expected, first_pts_expected, last_pts_expected);
+    info!("Actual:   num_buffers={}, first_pts={}, last_pts={}", num_buffers_actual, first_pts_actual, last_pts_actual);
+    assert_between("first_pts_actual", first_pts_actual, first_pts_expected - 0 * gst::MSECOND, first_pts_expected + 0 * gst::MSECOND);
+    assert_between("last_pts_actual", last_pts_actual, last_pts_expected, last_pts_expected + 0 * gst::MSECOND);
+    assert_eq!(num_buffers_actual, num_buffers_expected);
+
+    // Read video stream, get PTS, and validate.
+
+    // TODO: Test pravegasrc start-mode=timestamp start-timestamp={start_timestamp}
+
+    // Out-of-band: Play using HLS player.
+
+    info!("#### END");
+}
 
 pub fn test_playback_truncated_stream(test_config: TestConfig) {
     let controller_uri = test_config.client_config.clone().controller_uri.0;
@@ -64,7 +157,7 @@ pub fn test_playback_truncated_stream(test_config: TestConfig) {
         stream_name = stream_name.clone(),
     );
     let read_pts = launch_pipeline_and_get_pts(pipeline_description).unwrap();
-    info!("read_pts={:?}", read_pts);
+    debug!("read_pts={:?}", read_pts);
     let num_buffers_actual = read_pts.len() as u64;
     let first_pts_actual = read_pts[0];
     let last_pts_actual = *read_pts.last().unwrap();
@@ -80,7 +173,8 @@ pub fn test_playback_truncated_stream(test_config: TestConfig) {
 
     // Read video from 1st indexed position.
     // let src_start_pts = first_pts + 1 * gst::SECOND;
-    let truncate_before_timestamp = PravegaTimestamp::from_nanoseconds((first_pts + 1 * gst::SECOND).nanoseconds());
+    let truncate_before_pts = first_pts + 1 * gst::SECOND;
+    let truncate_before_timestamp = PravegaTimestamp::from_nanoseconds((truncate_before_pts).nanoseconds());
     truncate_stream(test_config.client_config, scope.clone(), stream_name.clone(), truncate_before_timestamp);
     let pipeline_description = format!(
         "pravegasrc controller={controller_uri} stream={scope}/{stream_name} \
@@ -91,19 +185,19 @@ pub fn test_playback_truncated_stream(test_config: TestConfig) {
         // start_timestamp = src_start_pts.nanoseconds().unwrap(),
     );
     let read_pts = launch_pipeline_and_get_pts(pipeline_description).unwrap();
-    info!("read_pts={:?}", read_pts);
-    // let num_buffers_actual = read_pts.len() as u64;
-    // let first_pts_actual = read_pts[0];
-    // let last_pts_actual = *read_pts.last().unwrap();
-    // let first_pts_expected = src_start_pts;
+    debug!("read_pts={:?}", read_pts);
+    let num_buffers_actual = read_pts.len() as u64;
+    let first_pts_actual = read_pts[0];
+    let last_pts_actual = *read_pts.last().unwrap();
+    let first_pts_expected = truncate_before_pts;
     // // let delta_pts_expected = (num_buffers - 1) * gst::SECOND / fps;
     // // let last_pts_expected = first_pts + delta_pts_expected;
     // info!("delta_pts_expected={}", delta_pts_expected);
-    // info!("Expected: num_buffers={}, first_pts={}, last_pts={}", "??", first_pts_expected, last_pts_expected);
-    // info!("Actual:   num_buffers={}, first_pts={}, last_pts={}", num_buffers_actual, first_pts_actual, last_pts_actual);
+    info!("Expected: num_buffers={}, first_pts={}, last_pts={}", "??", first_pts_expected, last_pts_expected);
+    info!("Actual:   num_buffers={}, first_pts={}, last_pts={}", num_buffers_actual, first_pts_actual, last_pts_actual);
     // // TODO: Why is PTS is off by 125 ms?
-    // assert_between("first_pts_actual", first_pts_actual, first_pts_expected, first_pts_expected + 126 * gst::MSECOND);
-    // assert_between("last_pts_actual", last_pts_actual, last_pts_expected, last_pts_expected + 126 * gst::MSECOND);
+    assert_between("first_pts_actual", first_pts_actual, first_pts_expected - 126 * gst::MSECOND, first_pts_expected + 126 * gst::MSECOND);
+    assert_between("last_pts_actual", last_pts_actual, last_pts_expected, last_pts_expected + 126 * gst::MSECOND);
     // // assert_eq!(num_buffers_actual, num_buffers);
 
     // Read video stream, get PTS, and validate.

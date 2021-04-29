@@ -108,12 +108,16 @@ mod test {
         );
         info!("test_config={:?}", test_config);
 
-        {
-        let span = info_span!("test_playback_truncated_stream", auth = config.auth, tls = config.tls);
-        span.in_scope(|| {
-            info!("Running test_playback_truncated_stream");
-            gst_plugin_pravega_tests::test_playback_truncated_stream(test_config.clone());
-        });
+        let tests = vec![
+            (gst_plugin_pravega_tests::test_raw_video, "test_raw_video"),
+        ];
+
+        for test in tests.iter() {
+            let span = info_span!("test", test = test.1, auth = config.auth, tls = config.tls);
+            span.in_scope(|| {
+                info!("Running {}", test.1);
+                test.0(test_config.clone());
+            });
         }
 
         // Shut down Pravega standalone.

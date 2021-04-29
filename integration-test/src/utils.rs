@@ -18,7 +18,7 @@ use pravega_video::index::{IndexSearcher, SearchMethod, get_index_stream_name};
 use pravega_video::timestamp::PravegaTimestamp;
 use std::sync::{Arc, Mutex};
 // use std::convert::TryFrom;
-use tracing::{error, info, debug};
+use tracing::{error, info, debug, trace};
 
 pub fn assert_between(name: &str, actual: ClockTime, expected_min: ClockTime, expected_max: ClockTime) {
     if !actual.nanoseconds().is_some() {
@@ -54,9 +54,9 @@ pub fn launch_pipeline_and_get_pts(pipeline_description: String) -> Result<Vec<C
         gst_app::AppSinkCallbacks::builder()
             .new_sample(move |sink| {
                 let sample = sink.pull_sample().unwrap();
-                debug!("sample={:?}", sample);
+                trace!("sample={:?}", sample);
                 let pts = sample.get_buffer().unwrap().get_pts();
-                debug!("pts={}", pts);
+                trace!("pts={}", pts);
                 let mut read_timestamps = read_pts_clone.lock().unwrap();
                 read_timestamps.push(pts);
                 Ok(gst::FlowSuccess::Ok)
