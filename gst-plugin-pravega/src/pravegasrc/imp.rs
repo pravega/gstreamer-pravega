@@ -581,7 +581,9 @@ impl BaseSrcImpl for PravegaSrc {
         // Create scope.
         gst_info!(CAT, obj: element, "allow_create_scope={}", settings.allow_create_scope);
         if settings.allow_create_scope {
-            runtime.block_on(controller_client.create_scope(&scope)).unwrap();
+            runtime.block_on(controller_client.create_scope(&scope)).map_err(|error| {
+                gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega scope: {:?}", error])
+            })?;
         }
 
         // Create data stream.
@@ -597,7 +599,9 @@ impl BaseSrcImpl for PravegaSrc {
             },
             retention: Default::default(),
         };
-        runtime.block_on(controller_client.create_stream(&stream_config)).unwrap();
+        runtime.block_on(controller_client.create_stream(&stream_config)).map_err(|error| {
+            gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega data stream: {:?}", error])
+        })?;
 
         // Create index stream.
         let index_stream_config = StreamConfiguration {
@@ -612,7 +616,9 @@ impl BaseSrcImpl for PravegaSrc {
             },
             retention: Default::default(),
         };
-        runtime.block_on(controller_client.create_stream(&index_stream_config)).unwrap();
+        runtime.block_on(controller_client.create_stream(&index_stream_config)).map_err(|error| {
+            gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega index stream: {:?}", error])
+        })?;
 
         let scoped_segment = ScopedSegment {
             scope: scope.clone(),

@@ -491,7 +491,9 @@ impl BaseSinkImpl for PravegaSink {
         // Create scope.
         gst_info!(CAT, obj: element, "allow_create_scope={}", settings.allow_create_scope);
         if settings.allow_create_scope {
-            runtime.block_on(controller_client.create_scope(&scope)).unwrap();
+            runtime.block_on(controller_client.create_scope(&scope)).map_err(|error| {
+                gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega scope: {:?}", error])
+            })?;
         }
 
         // Create data stream.
@@ -507,7 +509,9 @@ impl BaseSinkImpl for PravegaSink {
             },
             retention: Default::default(),
         };
-        runtime.block_on(controller_client.create_stream(&stream_config)).unwrap();
+        runtime.block_on(controller_client.create_stream(&stream_config)).map_err(|error| {
+            gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega data stream: {:?}", error])
+        })?;
 
         // Create index stream.
         let index_stream_config = StreamConfiguration {
@@ -522,7 +526,9 @@ impl BaseSinkImpl for PravegaSink {
             },
             retention: Default::default(),
         };
-        runtime.block_on(controller_client.create_stream(&index_stream_config)).unwrap();
+        runtime.block_on(controller_client.create_stream(&index_stream_config)).map_err(|error| {
+            gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega index stream: {:?}", error])
+        })?;
 
         let scoped_segment = ScopedSegment {
             scope: scope.clone(),
@@ -787,7 +793,9 @@ impl BaseSinkImpl for PravegaSink {
             }
         };
 
-        writer.flush().unwrap();
+        writer.flush().map_err(|error| {
+            gst::error_msg!(gst::ResourceError::Write, ["Failed to flush Pravega data stream: {}", error])
+        })?;
 
         // Write final index record.
         // The timestamp will be the the buffer timestamp + duration of the final buffer.
@@ -796,17 +804,25 @@ impl BaseSinkImpl for PravegaSink {
             let index_record = IndexRecord::new(*final_timestamp, final_offset,
                 false, false);
             let mut index_record_writer = IndexRecordWriter::new();
-            index_record_writer.write(&index_record, index_writer).unwrap();
+            index_record_writer.write(&index_record, index_writer).map_err(|error| {
+                gst::error_msg!(gst::ResourceError::Write, ["Failed to write Pravega index stream: {}", error])
+            })?;
             gst_info!(CAT, obj: element, "Wrote final index record {:?}", index_record);
         }
 
-        index_writer.flush().unwrap();
+        index_writer.flush().map_err(|error| {
+            gst::error_msg!(gst::ResourceError::Write, ["Failed to flush Pravega index stream: {}", error])
+        })?;
 
         if seal {
             gst_info!(CAT, obj: element, "Sealing streams");
             let writer = writer.get_mut();
-            client_factory.get_runtime().block_on(writer.seal()).unwrap();
-            client_factory.get_runtime().block_on(index_writer.seal()).unwrap();
+            client_factory.get_runtime().block_on(writer.seal()).map_err(|error| {
+                gst::error_msg!(gst::ResourceError::Write, ["Failed to seal Pravega data stream: {}", error])
+            })?;
+            client_factory.get_runtime().block_on(index_writer.seal()).map_err(|error| {
+                gst::error_msg!(gst::ResourceError::Write, ["Failed to seal Pravega index stream: {}", error])
+            })?;
             gst_info!(CAT, obj: element, "Streams sealed");
         }
 
