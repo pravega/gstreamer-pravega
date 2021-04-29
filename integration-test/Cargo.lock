@@ -1062,6 +1062,7 @@ dependencies = [
  "tar",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]

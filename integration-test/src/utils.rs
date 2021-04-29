@@ -20,7 +20,7 @@ use std::sync::{Arc, Mutex};
 // use std::convert::TryFrom;
 use tracing::{error, info, debug, trace};
 
-pub fn assert_between(name: &str, actual: ClockTime, expected_min: ClockTime, expected_max: ClockTime) {
+pub fn assert_between_clocktime(name: &str, actual: ClockTime, expected_min: ClockTime, expected_max: ClockTime) {
     if !actual.nanoseconds().is_some() {
         panic!("{} is None", name);
     }
@@ -28,6 +28,15 @@ pub fn assert_between(name: &str, actual: ClockTime, expected_min: ClockTime, ex
         panic!("{}: actual value {} is less than expected minimum {}", name, actual, expected_min);
     }
     if expected_max.nanoseconds().is_some() && actual.nanoseconds().unwrap() > expected_max.nanoseconds().unwrap() {
+        panic!("{}: actual value {} is greater than expected maximum {}", name, actual, expected_max);
+    }
+}
+
+pub fn assert_between_u64(name: &str, actual: u64, expected_min: u64, expected_max: u64) {
+    if actual < expected_min {
+        panic!("{}: actual value {} is less than expected minimum {}", name, actual, expected_min);
+    }
+    if actual > expected_max {
         panic!("{}: actual value {} is greater than expected maximum {}", name, actual, expected_max);
     }
 }

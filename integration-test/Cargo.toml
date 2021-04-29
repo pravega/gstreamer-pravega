@@ -31,6 +31,7 @@ pravega-client-shared = { path = "../pravega-client-rust/shared"}
 pravega-video = { path = "../pravega-video" }
 tracing = { version = "0.1", default-features = false, features = ["log", "std"] }
 tracing-subscriber = "0.2"
+uuid = "0.8"
 
 [build-dependencies]
 flate2 = "1.0"

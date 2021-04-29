@@ -109,7 +109,8 @@ mod test {
         info!("test_config={:?}", test_config);
 
         let tests = vec![
-            (gst_plugin_pravega_tests::test_raw_video, "test_raw_video"),
+            (gst_plugin_pravega_tests::test_raw_video as fn(TestConfig), "test_raw_video"),
+            (gst_plugin_pravega_tests::test_compressed_video as fn(TestConfig), "test_compressed_video"),
         ];
 
         for test in tests.iter() {
