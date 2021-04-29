@@ -14,18 +14,13 @@ set -ex
 
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
 GSTREAMER_CHECKOUT=${GSTREAMER_CHECKOUT:-1.18.4}
-RUST_JOBS=${RUST_JOBS:-1}
-
-pushd ${ROOT_DIR}/docker
+RUST_JOBS=${RUST_JOBS:-4}
 
 # Make sure to always have fresh base image
 #docker pull ubuntu:20.10
+pushd ${ROOT_DIR}/docker
 
-# Install dev dependencies
-docker build -t pravega/gstreamer:dev-dependencies -f Dockerfile-dev-dependencies .
-
-# Download source code
-docker build -t pravega/gstreamer:dev-downloaded \
+docker build -t pravega/gstreamer:${GSTREAMER_CHECKOUT}-dev-with-source \
     --build-arg GSTREAMER_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gstreamer.git \
     --build-arg GSTREAMER_CHECKOUT=${GSTREAMER_CHECKOUT} \
     --build-arg GST_PLUGINS_BASE_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gst-plugins-base.git \
@@ -41,26 +36,14 @@ docker build -t pravega/gstreamer:dev-downloaded \
     --build-arg GST_RTSP_SERVER_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gst-rtsp-server.git \
     --build-arg GST_RTSP_SERVER_CHECKOUT=${GSTREAMER_CHECKOUT} \
     --build-arg RUST_JOBS=${RUST_JOBS} \
-    -f Dockerfile-dev-downloaded .
-
-# Build dev image with source code included
-docker build -t pravega/gstreamer:${GSTREAMER_CHECKOUT}-dev-with-source -f Dockerfile-dev-with-source .
-
-# Build dev image with just binaries
-#docker build -t pravega/gstreamer:${GSTREAMER_CHECKOUT}-dev -f Dockerfile-dev .
-
-# Build base production image with necessary dependencies
-#docker build -t pravega/gstreamer:prod-base -f Dockerfile-prod-base .
-
-# Build production image optimized binaries and no debug symbols (-O3 LTO)
-#docker build -t pravega/gstreamer:${GSTREAMER_CHECKOUT}-prod -f Dockerfile-prod .
-
-# Build production image optimized binaries and debug symbols
-#docker build -t pravega/gstreamer:${GSTREAMER_CHECKOUT}-prod-dbg -f Dockerfile-prod-dbg .
-
+    --target dev-with-source \
+    -f dev.Dockerfile \
+    .
 popd
 
 # Build pravega-dev image which includes the source code and binaries for all applications.
 docker build -t pravega/gstreamer:pravega-dev \
     --build-arg FROM_IMAGE=pravega/gstreamer:${GSTREAMER_CHECKOUT}-dev-with-source \
+    --build-arg RUST_JOBS=${RUST_JOBS} \
     -f ${ROOT_DIR}/docker/pravega-dev.Dockerfile ${ROOT_DIR}
+

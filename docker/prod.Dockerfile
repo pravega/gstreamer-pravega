@@ -8,7 +8,9 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
-FROM ubuntu:20.10
+FROM pravega/gstreamer:dev-downloaded as dev-downloaded
+
+FROM ubuntu:20.10 as prod-base
 
 RUN \
     apt-get update && \
@@ -125,3 +127,20 @@ RUN \
     && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+
+FROM dev-downloaded as debug-prod-compile
+ENV DEBUG=true
+ENV OPTIMIZATIONS=true
+RUN ["/compile"]
+
+FROM pravega/gstreamer:prod-base as debug-prod
+COPY --from=debug-prod-compile /compiled-binaries /
+
+FROM dev-downloaded as prod-compile
+ENV DEBUG=false
+ENV OPTIMIZATIONS=true
+RUN ["/compile"]
+
+FROM pravega/gstreamer:prod-base as prod
+COPY --from=prod-compile /compiled-binaries /
