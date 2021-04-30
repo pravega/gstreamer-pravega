@@ -8,7 +8,9 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
-FROM ubuntu:20.10 as base
+ARG DOCKER_REPOSITORY=""
+
+FROM "${DOCKER_REPOSITORY}ubuntu:20.10" as base
 
 COPY docker/build-gstreamer/install-dependencies /
 

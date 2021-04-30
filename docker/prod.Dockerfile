@@ -8,9 +8,11 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
+ARG DOCKER_REPOSITORY=""
+
 FROM pravega/gstreamer:dev-downloaded as dev-downloaded
 
-FROM ubuntu:20.10 as prod-base
+FROM "${DOCKER_REPOSITORY}ubuntu:20.10" as prod-base
 
 RUN \
     apt-get update && \
