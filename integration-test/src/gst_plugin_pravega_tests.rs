@@ -126,6 +126,19 @@ mod test {
         test_compressed_video(test_config, compression_pipeline, pts_margin, random_start_pts_margin)
     }
 
+    #[test]
+    fn test_mp4_video() {
+        let test_config = get_test_config();
+        info!("test_config={:?}", test_config);
+        let compression_pipeline = format!(
+            "x264enc key-int-max=30 bitrate=100 \
+            ! mp4mux streamable=true fragment-duration=100",
+        );
+        let pts_margin = 126 * gst::MSECOND;
+        let random_start_pts_margin = 1000 * gst::MSECOND;
+        test_compressed_video(test_config, compression_pipeline, pts_margin, random_start_pts_margin)
+    }
+
     fn test_compressed_video(test_config: TestConfig, compression_pipeline: String, pts_margin: ClockTime, random_start_pts_margin:ClockTime) {
         let controller_uri = test_config.client_config.clone().controller_uri.0;
         let scope = test_config.scope.clone();
