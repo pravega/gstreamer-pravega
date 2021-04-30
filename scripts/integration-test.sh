@@ -13,6 +13,6 @@
 set -ex
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
 pushd ${ROOT_DIR}/integration-test
-export RUST_BACKTRACE=1
-cargo test \
+export RUST_BACKTRACE=0
+cargo test $* -- --nocapture \
 |& tee /tmp/integration-test.log

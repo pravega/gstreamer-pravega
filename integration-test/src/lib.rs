@@ -12,14 +12,84 @@ mod gst_plugin_pravega_tests;
 mod pravega_service;
 mod utils;
 
+use lazy_static::lazy_static;
+// use once_cell::sync::OnceCell;
 use pravega_client_config::ClientConfig;
 use pravega_client_config::ClientConfigBuilder;
 use std::process::Command;
+// use std::sync::Arc;
+use std::sync::Mutex;
 use std::{thread, time};
 use tracing::{error, info, info_span, warn};
+use tracing_subscriber::fmt::format::FmtSpan;
+use crate::pravega_service::{PravegaService, PravegaStandaloneService, PravegaStandaloneServiceConfig};
 
 #[macro_use]
 extern crate derive_new;
+
+#[derive(Clone, Debug)]
+pub struct TestConfig {
+    pub client_config: ClientConfig,
+    pub scope: String,
+    pub test_id: String,
+}
+
+/// Get test configuration for all integration tests.
+/// This will start a Pravega standalone server by default.
+pub fn get_test_config() -> TestConfig {
+    TestConfig {
+        client_config: get_client_config(),
+        scope: get_scope(),
+        test_id: get_test_id(),
+    }
+}
+
+fn get_test_id() -> String {
+    chrono::Utc::now().format("%Y-%m-%dT%H-%M-%S").to_string()
+}
+
+fn get_scope() -> String {
+    "test".to_owned()
+}
+
+/// Get the Pravega ClientConfig for all integration tests.
+/// If the environment variable PRAVEGA_CONTROLLER_URI is set, it will be used.
+/// Otherwise, it will start a Pravega standalone server.
+/// The Pravega standalone server will be stopped in the shutdown() function.
+fn get_client_config() -> ClientConfig {
+    let controller_uri = match std::env::var("PRAVEGA_CONTROLLER_URI") {
+        Ok(controller_uri) => {
+            info!("Using external Pravega server with controller {}", controller_uri);
+            controller_uri
+        },
+        Err(_) => {
+            let mut pravega_service_opt = PRAVEGA_SERVICE.lock().unwrap();
+            // Start Pravega standalone if we haven't started it yet.
+            match &mut *pravega_service_opt {
+                Some(_) => (),
+                None => {
+                    let config = PravegaStandaloneServiceConfig::new(false, false, false);
+                    let pravega_service = Some(PravegaStandaloneService::start(config));
+                    wait_for_standalone_with_timeout(true, 30);
+                    *pravega_service_opt = pravega_service;
+                },
+            };
+            let pravega_service = match &mut *pravega_service_opt {
+                Some(pravega_service) => pravega_service,
+                None => unreachable!(),
+                };
+            pravega_service.get_controller_uri()
+        }
+    };
+    let client_config = ClientConfigBuilder::default()
+        .controller_uri(controller_uri)
+        .is_auth_enabled(false)
+        .is_tls_enabled(false)
+        .build()
+        .unwrap();
+    info!("Pravega client config: {:?}", client_config);
+    client_config
+}
 
 fn wait_for_standalone_with_timeout(expected_status: bool, timeout_second: i32) {
     for _i in 0..timeout_second {
@@ -47,82 +117,37 @@ fn check_standalone_status() -> bool {
     !output.stdout.is_empty()
 }
 
-#[derive(new, Clone, Debug)]
-pub struct TestConfig {
-    pub client_config: ClientConfig,
-    pub scope: String,
-    pub test_id: String,
+lazy_static! {
+    static ref PRAVEGA_SERVICE: Mutex<Option<PravegaStandaloneService>> = Mutex::new(None);
 }
 
+/// Initialize tracing in the module constructor so that tracing is available in all tests.
+/// Tracing can be customized by setting the environment variable GST_PRAVEGA_INTEGRATION_TEST_LOG.
 #[cfg(test)]
-mod test {
-    use std::env;
-    use tracing::{error, info, info_span, warn};
-    use tracing_subscriber::fmt::format::FmtSpan;
-    use crate::pravega_service::{PravegaService, PravegaStandaloneService, PravegaStandaloneServiceConfig};
-    use super::*;
-
-    #[test]
-    fn integration_test() {
-        // Valid log levels: error,warn,info,debug,trace
-        let filter = std::env::var("GST_PRAVEGA_INTEGRATION_TEST_LOG")
-            .unwrap_or_else(|_| "gstreamer_pravega_integration_test=debug,warn".to_owned());
-        if !filter.is_empty() {
-            tracing_subscriber::fmt()
-                .with_env_filter(filter)
-                .with_span_events(FmtSpan::CLOSE)
-                .try_init()
-                .unwrap();
-        }
-        info!("Running gstreamer-pravega integration tests");
-        let config = PravegaStandaloneServiceConfig::new(false, false, false);
-        run_tests(config);
-    }
-
-    fn run_tests(config: PravegaStandaloneServiceConfig) {
-        let test_id = chrono::Utc::now().format("%Y-%m-%dT%H-%M-%S").to_string();
-        info!("test_id={}", test_id);
-
-        // Start Pravega standalone.
-        let mut pravega = PravegaStandaloneService::start(config.clone());
-        wait_for_standalone_with_timeout(true, 30);
-
-        // Configure Pravega client.
-        if config.auth {
-            env::set_var("pravega_client_auth_method", "Basic");
-            env::set_var("pravega_client_auth_username", "admin");
-            env::set_var("pravega_client_auth_password", "1111_aaaa");
-        }
-        let controller_uri = pravega.get_controller_uri();
-        let client_config = ClientConfigBuilder::default()
-            .controller_uri(controller_uri)
-            .is_auth_enabled(config.auth)
-            .is_tls_enabled(config.tls)
-            .build()
+#[ctor::ctor]
+fn init() {
+    let filter = std::env::var("GST_PRAVEGA_INTEGRATION_TEST_LOG")
+        .unwrap_or_else(|_| "gstreamer_pravega_integration_test=debug,warn".to_owned());
+    if !filter.is_empty() {
+        tracing_subscriber::fmt()
+            .with_env_filter(filter)
+            .with_span_events(FmtSpan::CLOSE)
+            .try_init()
             .unwrap();
-        let scope = "examples".to_owned();
-        let test_config = TestConfig::new(
-            client_config,
-            scope,
-            test_id,
-        );
-        info!("test_config={:?}", test_config);
-
-        let tests = vec![
-            (gst_plugin_pravega_tests::test_raw_video as fn(TestConfig), "test_raw_video"),
-            (gst_plugin_pravega_tests::test_mpeg_ts_video as fn(TestConfig), "test_mpeg_ts_video"),
-        ];
-
-        for test in tests.iter() {
-            let span = info_span!("test", test = test.1, auth = config.auth, tls = config.tls);
-            span.in_scope(|| {
-                info!("Running {}", test.1);
-                test.0(test_config.clone());
-            });
-        }
-
-        // Shut down Pravega standalone.
-        pravega.stop().unwrap();
-        wait_for_standalone_with_timeout(false, 30);
     }
+}
+
+/// If Pravega standalone was started, it will be stopped when this process exits.
+/// The shutdown function must not use println or tracing or a panic will occur.
+#[cfg(test)]
+#[ctor::dtor]
+unsafe fn shutdown_pravega_standalone() {
+    let mut pravega_service_opt = PRAVEGA_SERVICE.lock().unwrap();
+    match &mut *pravega_service_opt {
+        Some(pravega_service) => {
+            pravega_service.stop().unwrap();
+            wait_for_standalone_with_timeout(false, 30);
+        },
+        None => (),
+    };
 }

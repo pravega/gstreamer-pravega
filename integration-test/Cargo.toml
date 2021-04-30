@@ -19,12 +19,14 @@ edition = "2018"
 [dependencies]
 anyhow = "1"
 chrono = "0.4"
+ctor = "0.1.20"
 derive-new = "0.5"
 gst = { package = "gstreamer", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
 gst-app = { package = "gstreamer-app", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
 gst-plugin-pravega = { path = "../gst-plugin-pravega" }
 java-properties = "1.2"
 lazy_static = "1.4"
+once_cell = "1.7.2"
 pravega-client = { path = "../pravega-client-rust" }
 pravega-client-config = { path = "../pravega-client-rust/config"}
 pravega-client-shared = { path = "../pravega-client-rust/shared"}
@@ -32,6 +34,9 @@ pravega-video = { path = "../pravega-video" }
 tracing = { version = "0.1", default-features = false, features = ["log", "std"] }
 tracing-subscriber = "0.2"
 uuid = "0.8"
+
+# [dev-dependencies]
+# rstest = "0.8.0"
 
 [build-dependencies]
 flate2 = "1.0"

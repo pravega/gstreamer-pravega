@@ -75,7 +75,8 @@ pub trait PravegaService {
 /**
  * Create a PravegaStandalone Service, where path is underlying path to Pravega directory.
  */
-pub struct PravegaStandaloneService {
+ #[derive(Debug)]
+ pub struct PravegaStandaloneService {
     pravega: Child,
 }
 
@@ -111,7 +112,6 @@ impl PravegaService for PravegaStandaloneService {
 
     fn stop(&mut self) -> Result<(), std::io::Error> {
         if self.check_status()? {
-            info!("Stopping Pravega");
             return self.pravega.kill();
         }
         Ok(())
