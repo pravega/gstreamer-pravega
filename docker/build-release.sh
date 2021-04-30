@@ -15,9 +15,10 @@ set -ex
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
 GSTREAMER_CHECKOUT=${GSTREAMER_CHECKOUT:-1.18.4}
 RUST_JOBS=${RUST_JOBS:-4}
+DOCKER_REPOSITORY=${DOCKER_REPOSITORY}
 
 # Make sure to always have fresh base image
-#docker pull ubuntu:20.10
+#docker pull ${DOCKER_REPOSITORY}ubuntu:20.10
 pushd ${ROOT_DIR}/docker
 
 docker build -t pravega/gstreamer:${GSTREAMER_CHECKOUT}-dev-with-source \
@@ -36,6 +37,7 @@ docker build -t pravega/gstreamer:${GSTREAMER_CHECKOUT}-dev-with-source \
     --build-arg GST_RTSP_SERVER_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gst-rtsp-server.git \
     --build-arg GST_RTSP_SERVER_CHECKOUT=${GSTREAMER_CHECKOUT} \
     --build-arg RUST_JOBS=${RUST_JOBS} \
+    --build-arg DOCKER_REPOSITORY=${DOCKER_REPOSITORY} \
     --target dev-with-source \
     -f dev.Dockerfile \
     .
@@ -45,5 +47,6 @@ popd
 docker build -t pravega/gstreamer:pravega-dev \
     --build-arg FROM_IMAGE=pravega/gstreamer:${GSTREAMER_CHECKOUT}-dev-with-source \
     --build-arg RUST_JOBS=${RUST_JOBS} \
+    --build-arg DOCKER_REPOSITORY=${DOCKER_REPOSITORY} \
     -f ${ROOT_DIR}/docker/pravega-dev.Dockerfile ${ROOT_DIR}
 
