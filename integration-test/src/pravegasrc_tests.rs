@@ -24,11 +24,7 @@ mod test {
     use crate::utils::*;
 
     fn pravega_src_test_data_gen(test_config: &TestConfig, stream_name: &str) -> Result<BufferListSummary, Error> {
-        // Initialize GStreamer
-        std::env::set_var("GST_DEBUG", "pravegasrc:TRACE,pravegasink:TRACE,basesink:INFO");
-        gst::init().unwrap();
-        gstpravega::plugin_register_static().unwrap();
-
+        gst_init();
         // first_timestamp: 2001-02-03T04:00:00.000000000Z (981172837000000000 ns, 272548:00:37.000000000)
         let first_utc = "2001-02-03T04:00:00.000Z".to_owned();
         let first_timestamp = PravegaTimestamp::try_from(Some(first_utc)).unwrap();
@@ -96,7 +92,7 @@ mod test {
         let pipeline_description = format!(
             "pravegasrc {pravega_plugin_properties} \
               start-mode=earliest \
-            ! queue max-size-buffers=10000 max-size-time=0 max-size-bytes=1000000000 \
+            ! queue max-size-buffers=1 max-size-time=0 max-size-bytes=1000000000 \
             ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );

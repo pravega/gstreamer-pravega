@@ -21,6 +21,18 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use tracing::{error, warn, info, debug, trace};
 
+/// Initialize GStreamer.
+/// See log levels: https://gstreamer.freedesktop.org/documentation/tutorials/basic/debugging-tools.html?gi-language=c#the-debug-log
+pub fn gst_init() {
+    match std::env::var("GST_DEBUG") {
+        Ok(_) => (),
+        Err(_) => std::env::set_var("GST_DEBUG", "pravegasrc:TRACE,pravegasink:TRACE,basesink:INFO,INFO"),
+    };
+    info!("GST_DEBUG={}", std::env::var("GST_DEBUG").unwrap_or_default());
+    gst::init().unwrap();
+    gstpravega::plugin_register_static().unwrap();
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct BufferSummary {
     pub pts: PravegaTimestamp,
@@ -75,6 +87,14 @@ impl BufferListSummary {
         }
     }
 
+    /// Returns last PTS that is not None.
+    pub fn last_valid_pts(&self) -> PravegaTimestamp {
+        match self.valid_pts().last() {
+            Some(t) => t.to_owned(),
+            None => PravegaTimestamp::none(),
+        }
+    }
+
     /// Returns list of PTSs of all non-delta frames.
     pub fn non_delta_pts(&self) -> Vec<PravegaTimestamp> {
         self.buffer_summary_list
@@ -92,8 +112,8 @@ impl BufferListSummary {
 
 impl fmt::Display for BufferListSummary {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("BufferListSummary {{ num_buffers: {}, first_pts: {}, first_valid_pts: {} }}",
-            self.num_buffers(), self.first_pts(), self.first_valid_pts()))
+        f.write_fmt(format_args!("BufferListSummary {{ num_buffers: {}, first_pts: {}, first_valid_pts: {}, last_valid_pts: {} }}",
+            self.num_buffers(), self.first_pts(), self.first_valid_pts(), self.last_valid_pts()))
     }
 }
 

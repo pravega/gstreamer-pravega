@@ -25,14 +25,10 @@ mod test {
     /// This avoids any complexities caused by video encoding and decoding.
     #[test]
     fn test_raw_video() {
+        gst_init();
         let test_config = get_test_config();
         info!("test_config={:?}", test_config);
         let stream_name = &format!("test-raw-video-{}-{}", test_config.test_id, Uuid::new_v4())[..];
-
-        // Initialize GStreamer
-        std::env::set_var("GST_DEBUG", "pravegasrc:LOG,pravegasink:LOG,basesink:INFO");
-        gst::init().unwrap();
-        gstpravega::plugin_register_static().unwrap();
 
         // first_timestamp: 2001-02-03T04:00:00.000000000Z (981172837000000000 ns, 272548:00:37.000000000)
         let first_utc = "2001-02-03T04:00:00.000Z".to_owned();
@@ -127,12 +123,8 @@ mod test {
     }
 
     fn test_compressed_video(test_config: TestConfig, compression_pipeline: String, pts_margin: ClockTime, random_start_pts_margin:ClockTime) {
+        gst_init();
         let stream_name = &format!("test-compressed-video-{}-{}", test_config.test_id, Uuid::new_v4())[..];
-
-        // Initialize GStreamer
-        std::env::set_var("GST_DEBUG", "pravegasrc:LOG,pravegasink:LOG,basesink:INFO");
-        gst::init().unwrap();
-        gstpravega::plugin_register_static().unwrap();
 
         // first_timestamp: 2001-02-03T04:00:00.000000000Z (981172837000000000 ns, 272548:00:37.000000000)
         let first_utc = "2001-02-03T04:00:00.000Z".to_owned();
