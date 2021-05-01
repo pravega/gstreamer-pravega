@@ -693,12 +693,12 @@ impl BaseSrcImpl for PravegaSrc {
             drop(settings);
             gst_info!(CAT, obj: element, "start: Started");
 
-            if let Some(seek_pos) = start_timestamp.nanoseconds() {
-                element.seek_simple(
-                    gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT,
-                    seek_pos * gst::NSECOND,
-                ).unwrap();
-            }
+            // if let Some(seek_pos) = start_timestamp.nanoseconds() {
+            //     element.seek_simple(
+            //         gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT,
+            //         seek_pos * gst::NSECOND,
+            //     ).unwrap();
+            // }
 
             Ok(())
         })();
