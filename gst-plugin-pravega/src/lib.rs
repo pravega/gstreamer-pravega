@@ -12,6 +12,7 @@ mod numeric;
 mod pravegasink;
 mod pravegasrc;
 mod seekable_take;
+pub mod utils;
 
 fn plugin_init(plugin: &gst::Plugin) -> Result<(), glib::BoolError> {
     pravegasink::register(plugin)?;
