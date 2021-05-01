@@ -77,6 +77,8 @@ mod test {
         );
         let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
         debug!("summary={}", summary);
+        info!("Expected: summary={}", summary_written);
+        info!("Actual:   summary={}", summary);
         assert_eq!(summary, summary_written);
     }
 
@@ -124,7 +126,7 @@ mod test {
             "pravegasrc {pravega_plugin_properties} \
               start-mode=timestamp \
               start-timestamp={start_timestamp} \
-            ! queue max-size-buffers=10000 max-size-time=0 max-size-bytes=1000000000 \
+            ! queue max-size-buffers=1 max-size-time=0 max-size-bytes=1000000000 \
             ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
             start_timestamp = start_timestamp.nanoseconds().unwrap(),
@@ -173,7 +175,7 @@ mod test {
         let pipeline_description = format!(
             "pravegasrc {pravega_plugin_properties} \
               start-mode=earliest \
-              ! queue max-size-buffers=10000 max-size-time=0 max-size-bytes=1000000000 \
+              ! queue max-size-buffers=1 max-size-time=0 max-size-bytes=1000000000 \
               ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );
