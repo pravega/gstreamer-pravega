@@ -541,6 +541,8 @@ impl ElementImpl for PravegaSrc {
 
 impl BaseSrcImpl for PravegaSrc {
     fn start(&self, element: &Self::Type) -> Result<(), gst::ErrorMessage> {
+        gst_debug!(CAT, obj: element, "start: BEGIN");
+
         let mut state = self.state.lock().unwrap();
         if let State::Started { .. } = *state {
             unreachable!("PravegaSrc already started");
@@ -557,29 +559,29 @@ impl BaseSrcImpl for PravegaSrc {
         let scope = Scope::from(scope_name);
         let stream = Stream::from(stream_name);
         let index_stream = Stream::from(index_stream_name);
-        gst_info!(CAT, obj: element, "scope={}, stream={}, index_stream={}", scope, stream, index_stream);
-        gst_info!(CAT, obj: element, "start_mode={:?}, end_mode={:?}", settings.start_mode, settings.end_mode);
+        gst_info!(CAT, obj: element, "start: scope={}, stream={}, index_stream={}", scope, stream, index_stream);
+        gst_info!(CAT, obj: element, "start: start_mode={:?}, end_mode={:?}", settings.start_mode, settings.end_mode);
 
         let controller = settings.controller.clone().ok_or_else(|| {
             gst::error_msg!(gst::ResourceError::Settings, ["Controller is not defined"])
         })?;
-        gst_info!(CAT, obj: element, "controller={}", controller);
+        gst_info!(CAT, obj: element, "start: controller={}", controller);
         let keycloak_file = settings.keycloak_file.clone();
-        gst_info!(CAT, obj: element, "keycloak_file={:?}", keycloak_file);
+        gst_info!(CAT, obj: element, "start: keycloak_file={:?}", keycloak_file);
         let config = utils::create_client_config(controller, keycloak_file).map_err(|error| {
             gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega client config: {}", error])
         })?;
-        gst_debug!(CAT, obj: element, "config={:?}", config);
-        gst_info!(CAT, obj: element, "controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
-        gst_info!(CAT, obj: element, "is_tls_enabled={}", config.is_tls_enabled);
-        gst_info!(CAT, obj: element, "is_auth_enabled={}", config.is_auth_enabled);
+        gst_debug!(CAT, obj: element, "start: config={:?}", config);
+        gst_info!(CAT, obj: element, "start: controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
+        gst_info!(CAT, obj: element, "start: is_tls_enabled={}", config.is_tls_enabled);
+        gst_info!(CAT, obj: element, "start: is_auth_enabled={}", config.is_auth_enabled);
 
         let client_factory = ClientFactory::new(config);
         let controller_client = client_factory.get_controller_client();
         let runtime = client_factory.get_runtime();
 
         // Create scope.
-        gst_info!(CAT, obj: element, "allow_create_scope={}", settings.allow_create_scope);
+        gst_info!(CAT, obj: element, "start: allow_create_scope={}", settings.allow_create_scope);
         if settings.allow_create_scope {
             runtime.block_on(controller_client.create_scope(&scope)).map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega scope: {:?}", error])
@@ -626,7 +628,7 @@ impl BaseSrcImpl for PravegaSrc {
             segment: Segment::from(0),
         };
         let mut reader = client_factory.create_byte_stream_reader(scoped_segment);
-        gst_info!(CAT, obj: element, "Opened Pravega reader");
+        gst_info!(CAT, obj: element, "start: Opened Pravega reader");
 
         let index_scoped_segment = ScopedSegment {
             scope: scope.clone(),
@@ -634,14 +636,14 @@ impl BaseSrcImpl for PravegaSrc {
             segment: Segment::from(0),
         };
         let index_reader = client_factory.create_byte_stream_reader(index_scoped_segment);
-        gst_info!(CAT, obj: element, "Opened Pravega reader for index");
+        gst_info!(CAT, obj: element, "start: Opened Pravega reader for index");
 
         let mut index_searcher = IndexSearcher::new(index_reader);
 
         let start_timestamp = match settings.start_mode {
             StartMode::NoSeek => PravegaTimestamp::NONE,
             StartMode::Earliest => {
-                // When start at Earliest, the index will be used to find to the first random-access point.
+                // When starting at Earliest, the index will be used to find to the first random-access point.
                 PravegaTimestamp::MIN
             },
             StartMode::Latest => {
@@ -653,7 +655,7 @@ impl BaseSrcImpl for PravegaSrc {
                 PravegaTimestamp::from_nanoseconds(Some(settings.start_timestamp))
             },
         };
-        gst_info!(CAT, obj: element, "start_timestamp={}", start_timestamp);
+        gst_info!(CAT, obj: element, "start: start_timestamp={}", start_timestamp);
 
         // end_offset is the byte offset in the data stream.
         // The data stream reader will be configured to never read beyond this offset.
@@ -666,18 +668,18 @@ impl BaseSrcImpl for PravegaSrc {
             EndMode::LatestIndexed => {
                 // Determine Pravega stream offset for this timestamp by searching the index.
                 let index_record = index_searcher.get_last_record().unwrap();
-                gst_info!(CAT, obj: element, "end index_record={:?}", index_record);
+                gst_info!(CAT, obj: element, "start: end index_record={:?}", index_record);
                 index_record.offset
             },
             EndMode::Timestamp => {
                 let end_timestamp = PravegaTimestamp::from_nanoseconds(Some(settings.end_timestamp));
                 // Determine Pravega stream offset for this timestamp by searching the index.
                 let index_record = index_searcher.search_timestamp_after(end_timestamp).unwrap();
-                gst_info!(CAT, obj: element, "end index_record={:?}", index_record);
+                gst_info!(CAT, obj: element, "start: end index_record={:?}", index_record);
                 index_record.offset
             },
         };
-        gst_info!(CAT, obj: element, "end_offset={}", end_offset);
+        gst_info!(CAT, obj: element, "start: end_offset={}", end_offset);
 
         let limited_reader = SeekableTake::new(reader, end_offset).unwrap();
         let buf_reader = BufReader::with_capacity(settings.buffer_size, limited_reader);
@@ -689,7 +691,7 @@ impl BaseSrcImpl for PravegaSrc {
         // We must drop locks so that seek does not deadlock.
         drop(state);
         drop(settings);
-        gst_info!(CAT, obj: element, "Started");
+        gst_info!(CAT, obj: element, "start: Started");
 
         if let Some(seek_pos) = start_timestamp.nanoseconds() {
             element.seek_simple(
@@ -698,6 +700,7 @@ impl BaseSrcImpl for PravegaSrc {
             ).unwrap();
         }
 
+        gst_debug!(CAT, obj: element, "start: END");
         Ok(())
     }
 
@@ -768,6 +771,7 @@ impl BaseSrcImpl for PravegaSrc {
                 true
             },
             Err(_) => {
+                gst_info!(CAT, obj: src, "do_seek: END");
                 false
             }
         }
