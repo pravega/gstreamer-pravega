@@ -26,7 +26,7 @@ use tracing::{error, warn, info, debug, trace};
 pub fn gst_init() {
     match std::env::var("GST_DEBUG") {
         Ok(_) => (),
-        Err(_) => std::env::set_var("GST_DEBUG", "pravegasrc:MEMDUMP,pravegasink:MEMDUMP,basesink:INFO,INFO"),
+        Err(_) => std::env::set_var("GST_DEBUG", "pravegasrc:TRACE,pravegasink:TRACE,basesink:INFO,INFO"),
     };
     info!("GST_DEBUG={}", std::env::var("GST_DEBUG").unwrap_or_default());
     gst::init().unwrap();
