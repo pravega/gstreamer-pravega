@@ -12,6 +12,8 @@
 
 set -ex
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
+# If PRAVEGA_CONTROLLER_URI is not set, then Pravega standalone will be started and stopped by the integration test.
+export PRAVEGA_CONTROLLER_URI=127.0.0.1:9090
 pushd ${ROOT_DIR}/integration-test
 export RUST_BACKTRACE=0
 cargo test $* -- --nocapture \

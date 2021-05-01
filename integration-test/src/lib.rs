@@ -9,6 +9,7 @@
 //
 
 mod gst_plugin_pravega_tests;
+mod pravegasrc_tests;
 mod pravega_service;
 mod utils;
 
@@ -32,6 +33,16 @@ pub struct TestConfig {
     pub client_config: ClientConfig,
     pub scope: String,
     pub test_id: String,
+}
+
+impl TestConfig {
+    pub fn pravega_plugin_properties(&self, stream_name: &str) -> String {
+        format!("controller={controller_uri} stream={scope}/{stream_name}",
+            controller_uri = self.client_config.clone().controller_uri.0,
+            scope = self.scope,
+            stream_name = stream_name,
+        )
+    }
 }
 
 /// Get test configuration for all integration tests.

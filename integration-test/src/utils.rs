@@ -18,7 +18,48 @@ use pravega_video::index::{IndexSearcher, SearchMethod, get_index_stream_name};
 use pravega_video::timestamp::PravegaTimestamp;
 use std::sync::{Arc, Mutex};
 // use std::convert::TryFrom;
-use tracing::{error, info, debug, trace};
+use tracing::{error, warn, info, debug, trace};
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BufferSummary {
+    pub pts: ClockTime,
+    pub size: u64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BufferListSummary {
+    pub buffer_summary_list: Vec<BufferSummary>,
+}
+
+impl BufferListSummary {
+    /// Returns PTS of first buffer.
+    pub fn first_pts(&self) -> ClockTime {
+        match self.buffer_summary_list.first() {
+            Some(s) => s.pts,
+            None => ClockTime::none(),
+        }
+    }
+
+    pub fn first_timestamp(&self) -> PravegaTimestamp {
+        PravegaTimestamp::from_nanoseconds(self.first_pts().nanoseconds())
+    }
+
+    pub fn valid_pts(&self) -> Vec<ClockTime> {
+        self.buffer_summary_list.iter().map(|s| s.pts).filter(|c| c.is_some()).collect()
+    }
+
+    /// Returns first PTS that is not None.
+    pub fn first_valid_pts(&self) -> ClockTime {
+        match self.valid_pts().first() {
+            Some(t) => t.to_owned(),
+            None => ClockTime::none(),
+        }
+    }
+
+    pub fn first_valid_timestamp(&self) -> PravegaTimestamp {
+        PravegaTimestamp::from_nanoseconds(self.first_valid_pts().nanoseconds())
+    }
+}
 
 pub fn assert_between_clocktime(name: &str, actual: ClockTime, expected_min: ClockTime, expected_max: ClockTime) {
     if !actual.nanoseconds().is_some() {
@@ -48,7 +89,11 @@ pub fn launch_pipeline(pipeline_description: String) -> Result<(), Error> {
     run_pipeline_until_eos(pipeline)
 }
 
+// TODO: replace usage with launch_pipeline_and_get_summary
 pub fn launch_pipeline_and_get_pts(pipeline_description: String) -> Result<Vec<ClockTime>, Error> {
+    // let summary = launch_pipeline_and_get_summary(pipeline_description).map(|s| {
+    //     s.
+    // });
     info!("Launch Pipeline: {}", pipeline_description);
     let pipeline = gst::parse_launch(&pipeline_description)?;
     let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
@@ -75,6 +120,45 @@ pub fn launch_pipeline_and_get_pts(pipeline_description: String) -> Result<Vec<C
     run_pipeline_until_eos(pipeline)?;
     let read_pts = read_pts.lock().unwrap().clone();
     Ok(read_pts)
+}
+
+pub fn launch_pipeline_and_get_summary(pipeline_description: String) -> Result<BufferListSummary, Error> {
+    info!("Launch Pipeline: {}", pipeline_description);
+    let pipeline = gst::parse_launch(&pipeline_description)?;
+    let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
+    let summary_list = Arc::new(Mutex::new(Vec::new()));
+    let summary_list_clone = summary_list.clone();
+    let sink = pipeline
+        .get_by_name("sink");
+    match sink {
+        Some(sink) => {
+            let sink = sink.downcast::<gst_app::AppSink>().unwrap();
+            sink.set_callbacks(
+                gst_app::AppSinkCallbacks::builder()
+                    .new_sample(move |sink| {
+                        let sample = sink.pull_sample().unwrap();
+                        debug!("sample={:?}", sample);
+                        let buffer = sample.get_buffer().unwrap();
+                        let summary = BufferSummary {
+                            pts: buffer.get_pts(),
+                            size: buffer.get_size() as u64,
+                        };
+                        let mut summary_list = summary_list_clone.lock().unwrap();
+                        summary_list.push(summary);
+                        debug!("done");
+                        Ok(gst::FlowSuccess::Ok)
+                    })
+                    .build()
+            );
+        },
+        None => warn!("Element named 'sink' not found"),
+    };
+    run_pipeline_until_eos(pipeline)?;
+    let summary_list = summary_list.lock().unwrap().clone();
+    let summary = BufferListSummary {
+        buffer_summary_list: summary_list,
+    };
+    Ok(summary)
 }
 
 fn run_pipeline_until_eos(pipeline: gst::Pipeline) -> Result<(), Error> {
