@@ -15,7 +15,7 @@
 use glib::subclass::prelude::*;
 use gst::prelude::*;
 use gst::subclass::prelude::*;
-use gst::{gst_debug, gst_error, gst_fixme, gst_info, gst_log, gst_trace};
+use gst::{gst_debug, gst_error, gst_fixme, gst_info, gst_log, gst_trace, gst_memdump};
 use gst_base::subclass::prelude::*;
 
 use std::cmp;
@@ -727,6 +727,7 @@ impl BaseSinkImpl for PravegaSink {
             // Write buffer to Pravega byte stream.
             let event = EventWithHeader::new(payload, timestamp,
                 include_in_index, random_access, discontinuity);
+            gst_memdump!(CAT, obj: element, "render: writing event={:?}", event);
             let mut event_writer = EventWriter::new();
             event_writer.write(&event, writer).map_err(|err| {
                 gst::element_error!(
