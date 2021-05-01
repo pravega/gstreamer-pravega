@@ -160,13 +160,6 @@ mod test {
         let last_pts_written = first_pts_written + (num_buffers_written - 1) * gst::SECOND / fps;
         info!("last_pts_written={}", last_pts_written);
 
-        // let compression_pipeline = format!(
-        //     "x264enc key-int-max=30 bitrate=100 \
-        //     ! mpegtsmux",
-        // );
-        // let pts_margin = 126 * gst::MSECOND;
-        // let random_start_pts_margin = 1000 * gst::MSECOND;
-
         info!("#### Write video stream to Pravega");
         let pipeline_description = format!(
             "videotestsrc name=src timestamp-offset={timestamp_offset} num-buffers={num_buffers} \

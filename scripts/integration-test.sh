@@ -16,5 +16,7 @@ ROOT_DIR=$(readlink -f $(dirname $0)/..)
 export PRAVEGA_CONTROLLER_URI=127.0.0.1:9090
 pushd ${ROOT_DIR}/integration-test
 export RUST_BACKTRACE=0
-cargo test $* -- --nocapture \
+# Multiple test threads should work but troubleshooting is easier with just 1 thread.
+TEST_THREADS=${TEST_THREADS:-1}
+cargo test $* -- --nocapture --test-threads=${TEST_THREADS} \
 |& tee /tmp/integration-test.log

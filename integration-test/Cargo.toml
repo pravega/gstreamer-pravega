@@ -35,8 +35,8 @@ tracing = { version = "0.1", default-features = false, features = ["log", "std"]
 tracing-subscriber = "0.2"
 uuid = "0.8"
 
-# [dev-dependencies]
-# rstest = "0.8.0"
+[dev-dependencies]
+rstest = "0.8.0"
 
 [build-dependencies]
 flate2 = "1.0"

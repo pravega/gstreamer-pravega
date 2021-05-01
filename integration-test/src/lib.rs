@@ -66,7 +66,7 @@ fn get_scope() -> String {
 /// Get the Pravega ClientConfig for all integration tests.
 /// If the environment variable PRAVEGA_CONTROLLER_URI is set, it will be used.
 /// Otherwise, it will start a Pravega standalone server.
-/// The Pravega standalone server will be stopped in the shutdown() function.
+/// The Pravega standalone server will be stopped when the process terminates by shutdown_pravega_standalone().
 fn get_client_config() -> ClientConfig {
     let controller_uri = match std::env::var("PRAVEGA_CONTROLLER_URI") {
         Ok(controller_uri) => {

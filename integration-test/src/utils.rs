@@ -9,8 +9,9 @@
 //
 
 use anyhow::{anyhow, Error};
-use gst::ClockTime;
+use gst::{BufferFlags, ClockTime};
 use gst::prelude::*;
+use gstpravega::utils::clocktime_to_pravega;
 use pravega_client_config::ClientConfig;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client_shared::{Scope, Stream, Segment, ScopedSegment};
@@ -22,8 +23,9 @@ use tracing::{error, warn, info, debug, trace};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BufferSummary {
-    pub pts: ClockTime,
+    pub pts: PravegaTimestamp,
     pub size: u64,
+    pub flags: BufferFlags,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -33,34 +35,42 @@ pub struct BufferListSummary {
 
 impl BufferListSummary {
     /// Returns PTS of first buffer.
-    pub fn first_pts(&self) -> ClockTime {
+    pub fn first_pts(&self) -> PravegaTimestamp {
         match self.buffer_summary_list.first() {
             Some(s) => s.pts,
-            None => ClockTime::none(),
+            None => PravegaTimestamp::none(),
         }
     }
 
-    pub fn first_timestamp(&self) -> PravegaTimestamp {
-        PravegaTimestamp::from_nanoseconds(self.first_pts().nanoseconds())
-    }
-
-    pub fn valid_pts(&self) -> Vec<ClockTime> {
-        self.buffer_summary_list.iter().map(|s| s.pts).filter(|c| c.is_some()).collect()
+    /// Returns list of PTSs that are not None.
+    pub fn valid_pts(&self) -> Vec<PravegaTimestamp> {
+        self.buffer_summary_list
+            .iter()
+            .map(|s| s.pts)
+            .filter(|c| c.is_some())
+            .collect()
     }
 
     /// Returns first PTS that is not None.
-    pub fn first_valid_pts(&self) -> ClockTime {
+    pub fn first_valid_pts(&self) -> PravegaTimestamp {
         match self.valid_pts().first() {
             Some(t) => t.to_owned(),
-            None => ClockTime::none(),
+            None => PravegaTimestamp::none(),
         }
     }
 
-    pub fn first_valid_timestamp(&self) -> PravegaTimestamp {
-        PravegaTimestamp::from_nanoseconds(self.first_valid_pts().nanoseconds())
+    /// Returns list of PTSs of all non-delta frames.
+    pub fn non_delta_pts(&self) -> Vec<PravegaTimestamp> {
+        self.buffer_summary_list
+            .iter()
+            .filter(|s| s.pts.is_some())
+            .filter(|s| !s.flags.contains(gst::BufferFlags::DELTA_UNIT))
+            .map(|s|s.pts)
+            .collect()
     }
 }
 
+// TODO: Use PravegaTimestamp
 pub fn assert_between_clocktime(name: &str, actual: ClockTime, expected_min: ClockTime, expected_max: ClockTime) {
     if !actual.nanoseconds().is_some() {
         panic!("{} is None", name);
@@ -91,9 +101,6 @@ pub fn launch_pipeline(pipeline_description: String) -> Result<(), Error> {
 
 // TODO: replace usage with launch_pipeline_and_get_summary
 pub fn launch_pipeline_and_get_pts(pipeline_description: String) -> Result<Vec<ClockTime>, Error> {
-    // let summary = launch_pipeline_and_get_summary(pipeline_description).map(|s| {
-    //     s.
-    // });
     info!("Launch Pipeline: {}", pipeline_description);
     let pipeline = gst::parse_launch(&pipeline_description)?;
     let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
@@ -140,8 +147,9 @@ pub fn launch_pipeline_and_get_summary(pipeline_description: String) -> Result<B
                         debug!("sample={:?}", sample);
                         let buffer = sample.get_buffer().unwrap();
                         let summary = BufferSummary {
-                            pts: buffer.get_pts(),
+                            pts: clocktime_to_pravega(buffer.get_pts()),
                             size: buffer.get_size() as u64,
+                            flags: buffer.get_flags(),
                         };
                         let mut summary_list = summary_list_clone.lock().unwrap();
                         summary_list.push(summary);
