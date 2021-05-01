@@ -15,7 +15,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Default)]
 /// This stores the number of nanoseconds since the TAI epoch 1970-01-01 00:00 TAI (International Atomic Time).
-pub struct PravegaTimestamp(Option<u64>);
+pub struct PravegaTimestamp(pub Option<u64>);
 
 impl PravegaTimestamp {
     pub const NONE: PravegaTimestamp = PravegaTimestamp(None);
@@ -63,6 +63,18 @@ impl PravegaTimestamp {
             Some(nanoseconds) => PravegaTimestamp(Some(nanoseconds + PravegaTimestamp::UTC_TO_TAI_SECONDS * 1_000_000_000)),
             None => PravegaTimestamp(None),
         }
+    }
+
+    pub const fn none() -> Self {
+        Self(None)
+    }
+
+    pub const fn is_some(&self) -> bool {
+        matches!(self.0, Some(_))
+    }
+
+    pub const fn is_none(&self) -> bool {
+        !self.is_some()
     }
 
     // Return the number of nanoseconds since the TAI epoch 1970-01-01 00:00:00 TAI.
@@ -166,20 +178,25 @@ impl TryFrom<Option<String>> for PravegaTimestamp {
     }
 }
 
+/// Returns the timestamp in a friendly human-readable format.
+/// This is currently the same format as to_iso_8601() but may change in the future.
+/// For example: 2001-02-03T04:00:04.200000000Z
 impl fmt::Display for PravegaTimestamp {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self.nanoseconds() {
-            Some(nanoseconds) => {
+            Some(_) => {
                 let system_time: SystemTime = (*self).into();
                 let datetime: chrono::DateTime<chrono::offset::Utc> = system_time.into();
                 let formatted_time = datetime.format("%Y-%m-%dT%T.%9fZ");
-                f.write_fmt(format_args!("{} ({} ns, {})", formatted_time, nanoseconds, self.to_hms().unwrap_or_default()))
+                f.write_fmt(format_args!("{}", formatted_time))
                 },
             None => f.write_str("None"),
         }
     }
 }
 
+/// Returns the timestamp in a variety of formats useful for debugging.
+/// For example: 2001-02-03T04:00:04.100000000Z (981172841100000000 ns, 272548:00:41.100000000)
 impl fmt::Debug for PravegaTimestamp {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self.nanoseconds() {
