@@ -655,7 +655,7 @@ impl BaseSrcImpl for PravegaSrc {
                 PravegaTimestamp::from_nanoseconds(Some(settings.start_timestamp))
             },
         };
-        gst_info!(CAT, obj: element, "start: start_timestamp={}", start_timestamp);
+        gst_info!(CAT, obj: element, "start: start_timestamp={:?}", start_timestamp);
 
         // end_offset is the byte offset in the data stream.
         // The data stream reader will be configured to never read beyond this offset.
@@ -828,7 +828,7 @@ impl BaseSrcImpl for PravegaSrc {
     }
 
     fn stop(&self, element: &Self::Type) -> Result<(), gst::ErrorMessage> {
-        gst_info!(CAT, obj: element, "Stopping");
+        gst_info!(CAT, obj: element, "stop: Stopping");
         let mut state = self.state.lock().unwrap();
         if let State::Stopped = *state {
             return Err(gst::error_msg!(
@@ -837,7 +837,7 @@ impl BaseSrcImpl for PravegaSrc {
             ));
         }
         *state = State::Stopped;
-        gst_info!(CAT, obj: element, "Stopped");
+        gst_info!(CAT, obj: element, "stop: Stopped");
         Ok(())
     }
 }
@@ -898,7 +898,7 @@ impl PushSrcImpl for PravegaSrc {
             // If start_pts_at_zero=false (default), segment.get_time() equals 0 so the PTS will equal
             // the timestamp stored in the Pravega timestamp.
             let pts = ClockTime(event.header.timestamp.nanoseconds()) - segment.get_time();
-            gst_log!(CAT, obj: element, "create: timestamp={}, pts={}, payload_len={}",
+            gst_log!(CAT, obj: element, "create: timestamp={:?}, pts={}, payload_len={}",
                 event.header.timestamp, pts, event.payload.len());
 
             buffer_ref.set_pts(pts);

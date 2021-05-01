@@ -439,20 +439,22 @@ impl ElementImpl for PravegaSink {
         let clock_type = gst::ClockType::Realtime;
         clock.set_property("clock-type", &clock_type).unwrap();
         let time = clock.get_time();
-        gst_info!(CAT, obj: element, "Using clock_type={:?}, time={}, ({} ns)", clock_type, time, time.nanoseconds().unwrap());
+        gst_info!(CAT, obj: element, "provide_clock: Using clock_type={:?}, time={}, ({} ns)", clock_type, time, time.nanoseconds().unwrap());
         Some(clock)
     }
 }
 
 impl BaseSinkImpl for PravegaSink {
     fn start(&self, element: &Self::Type) -> Result<(), gst::ErrorMessage> {
+        gst_debug!(CAT, obj: element, "start: BEGIN");
+
         let mut state = self.state.lock().unwrap();
         if let State::Started { .. } = *state {
             unreachable!("PravegaSink already started");
         }
 
         let settings = self.settings.lock().unwrap();
-        gst_info!(CAT, obj: element, "index_min_nanos={}, index_max_nanos={}", settings.index_min_nanos, settings.index_max_nanos);
+        gst_info!(CAT, obj: element, "start: index_min_nanos={}, index_max_nanos={}", settings.index_min_nanos, settings.index_max_nanos);
         if !(settings.index_min_nanos <= settings.index_max_nanos) {
             return Err(gst::error_msg!(gst::ResourceError::Settings,
                 ["{} must be <= {}", PROPERTY_NAME_INDEX_MIN_SEC, PROPERTY_NAME_INDEX_MAX_SEC]))
@@ -467,29 +469,29 @@ impl BaseSinkImpl for PravegaSink {
         let scope = Scope::from(scope_name);
         let stream = Stream::from(stream_name);
         let index_stream = Stream::from(index_stream_name);
-        gst_info!(CAT, obj: element, "scope={}, stream={}, index_stream={}", scope, stream, index_stream);
-        gst_info!(CAT, obj: element, "timestamp_mode={:?}", settings.timestamp_mode);
+        gst_info!(CAT, obj: element, "start: scope={}, stream={}, index_stream={}", scope, stream, index_stream);
+        gst_info!(CAT, obj: element, "start: timestamp_mode={:?}", settings.timestamp_mode);
 
         let controller = settings.controller.clone().ok_or_else(|| {
             gst::error_msg!(gst::ResourceError::Settings, ["Controller is not defined"])
         })?;
-        gst_info!(CAT, obj: element, "controller={}", controller);
+        gst_info!(CAT, obj: element, "start: controller={}", controller);
         let keycloak_file = settings.keycloak_file.clone();
-        gst_info!(CAT, obj: element, "keycloak_file={:?}", keycloak_file);
+        gst_info!(CAT, obj: element, "start: keycloak_file={:?}", keycloak_file);
         let config = utils::create_client_config(controller, keycloak_file).map_err(|error| {
             gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega client config: {}", error])
         })?;
-        gst_debug!(CAT, obj: element, "config={:?}", config);
-        gst_info!(CAT, obj: element, "controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
-        gst_info!(CAT, obj: element, "is_tls_enabled={}", config.is_tls_enabled);
-        gst_info!(CAT, obj: element, "is_auth_enabled={}", config.is_auth_enabled);
+        gst_debug!(CAT, obj: element, "start: config={:?}", config);
+        gst_info!(CAT, obj: element, "start: controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
+        gst_info!(CAT, obj: element, "start: is_tls_enabled={}", config.is_tls_enabled);
+        gst_info!(CAT, obj: element, "start: is_auth_enabled={}", config.is_auth_enabled);
 
         let client_factory = ClientFactory::new(config);
         let controller_client = client_factory.get_controller_client();
         let runtime = client_factory.get_runtime();
 
         // Create scope.
-        gst_info!(CAT, obj: element, "allow_create_scope={}", settings.allow_create_scope);
+        gst_info!(CAT, obj: element, "start: allow_create_scope={}", settings.allow_create_scope);
         if settings.allow_create_scope {
             runtime.block_on(controller_client.create_scope(&scope)).map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega scope: {:?}", error])
@@ -536,7 +538,7 @@ impl BaseSinkImpl for PravegaSink {
             segment: Segment::from(0),
         };
         let mut writer = client_factory.create_byte_stream_writer(scoped_segment);
-        gst_info!(CAT, obj: element, "Opened Pravega writer for data");
+        gst_info!(CAT, obj: element, "start: Opened Pravega writer for data");
         writer.seek_to_tail();
 
         let index_scoped_segment = ScopedSegment {
@@ -545,10 +547,10 @@ impl BaseSinkImpl for PravegaSink {
             segment: Segment::from(0),
         };
         let mut index_writer = client_factory.create_byte_stream_writer(index_scoped_segment);
-        gst_info!(CAT, obj: element, "Opened Pravega writer for index");
+        gst_info!(CAT, obj: element, "start: Opened Pravega writer for index");
         index_writer.seek_to_tail();
 
-        gst_info!(CAT, obj: element, "Buffer size is {}", settings.buffer_size);
+        gst_info!(CAT, obj: element, "start: Buffer size is {}", settings.buffer_size);
         let buf_writer = BufWriter::with_capacity(settings.buffer_size, writer);
 
         *state = State::Started {
@@ -559,7 +561,8 @@ impl BaseSinkImpl for PravegaSink {
             final_timestamp: PravegaTimestamp::NONE,
             final_offset: None,
         };
-        gst_info!(CAT, obj: element, "Started");
+        gst_info!(CAT, obj: element, "start: Started");
+        gst_debug!(CAT, obj: element, "start: END");
         Ok(())
     }
 
@@ -627,7 +630,7 @@ impl BaseSinkImpl for PravegaSink {
             }
         };
 
-        gst_log!(CAT, obj: element, "render: timestamp={}, pts={}, base_time={}, duration={}, size={}",
+        gst_log!(CAT, obj: element, "render: timestamp={:?}, pts={}, base_time={}, duration={}, size={}",
             timestamp, pts, element.get_base_time(), buffer.get_duration(), buffer.get_size());
 
         // We only want to include key frames (non-delta units) in the index.
@@ -644,7 +647,7 @@ impl BaseSinkImpl for PravegaSink {
                         if is_delta_unit {
                             if timestamp > last_index_time + index_max_nanos {
                                 gst_fixme!(CAT, obj: element,
-                                    "Forcing index record at delta unit because no key frame has been received for {} sec", interval_sec);
+                                    "render: Forcing index record at delta unit because no key frame has been received for {} sec", interval_sec);
                                 true
                             } else {
                                 false
@@ -653,11 +656,11 @@ impl BaseSinkImpl for PravegaSink {
                             // We are at a key frame.
                             if timestamp < last_index_time + index_min_nanos {
                                 gst_debug!(CAT, obj: element,
-                                    "Skipping creation of index record because an index record was created {} sec ago", interval_sec);
+                                    "render: Skipping creation of index record because an index record was created {} sec ago", interval_sec);
                                 false
                             } else {
                                 gst_debug!(CAT, obj: element,
-                                    "Creating index record at key frame; last index record was created {} sec ago", interval_sec);
+                                    "render: Creating index record at key frame; last index record was created {} sec ago", interval_sec);
                                 true
                             }
                         }
@@ -715,7 +718,7 @@ impl BaseSinkImpl for PravegaSink {
                 );
                 gst::FlowError::Error
             })?;
-            gst_debug!(CAT, obj: element, "Wrote index record {:?}", index_record);
+            gst_debug!(CAT, obj: element, "render: Wrote index record {:?}", index_record);
             *last_index_time = timestamp;
         }
 
@@ -743,7 +746,7 @@ impl BaseSinkImpl for PravegaSink {
                 gst::element_error!(element, gst::CoreError::Failed, ["Failed to flush Pravega index stream: {}", error]);
                 gst::FlowError::Error
             })?;
-            gst_debug!(CAT, obj: element, "Streams flushed because SYNC_AFTER flag was set");
+            gst_debug!(CAT, obj: element, "render: Streams flushed because SYNC_AFTER flag was set");
         }
 
         // Maintain values that may be written to the index on end-of-stream.
@@ -761,7 +764,7 @@ impl BaseSinkImpl for PravegaSink {
     }
 
     fn stop(&self, element: &Self::Type) -> Result<(), gst::ErrorMessage> {
-        gst_info!(CAT, obj: element, "Stopping");
+        gst_info!(CAT, obj: element, "stop: Stopping");
         let seal = {
             let settings = self.settings.lock().unwrap();
             settings.seal
@@ -807,7 +810,7 @@ impl BaseSinkImpl for PravegaSink {
             index_record_writer.write(&index_record, index_writer).map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Write, ["Failed to write Pravega index stream: {}", error])
             })?;
-            gst_info!(CAT, obj: element, "Wrote final index record {:?}", index_record);
+            gst_info!(CAT, obj: element, "stop: Wrote final index record {:?}", index_record);
         }
 
         index_writer.flush().map_err(|error| {
@@ -815,7 +818,7 @@ impl BaseSinkImpl for PravegaSink {
         })?;
 
         if seal {
-            gst_info!(CAT, obj: element, "Sealing streams");
+            gst_info!(CAT, obj: element, "stop: Sealing streams");
             let writer = writer.get_mut();
             client_factory.get_runtime().block_on(writer.seal()).map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Write, ["Failed to seal Pravega data stream: {}", error])
@@ -823,11 +826,11 @@ impl BaseSinkImpl for PravegaSink {
             client_factory.get_runtime().block_on(index_writer.seal()).map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Write, ["Failed to seal Pravega index stream: {}", error])
             })?;
-            gst_info!(CAT, obj: element, "Streams sealed");
+            gst_info!(CAT, obj: element, "stop: Streams sealed");
         }
 
         *state = State::Stopped;
-        gst_info!(CAT, obj: element, "Stopped");
+        gst_info!(CAT, obj: element, "stop: Stopped");
         Ok(())
     }
 }
