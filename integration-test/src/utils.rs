@@ -11,14 +11,13 @@
 use anyhow::{anyhow, Error};
 use gst::{BufferFlags, ClockTime};
 use gst::prelude::*;
-use gstpravega::utils::clocktime_to_pravega;
+use gstpravega::utils::{clocktime_to_pravega, pravega_to_clocktime};
 use pravega_client_config::ClientConfig;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client_shared::{Scope, Stream, Segment, ScopedSegment};
 use pravega_video::index::{IndexSearcher, SearchMethod, get_index_stream_name};
 use pravega_video::timestamp::PravegaTimestamp;
 use std::sync::{Arc, Mutex};
-// use std::convert::TryFrom;
 use tracing::{error, warn, info, debug, trace};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -34,9 +33,25 @@ pub struct BufferListSummary {
 }
 
 impl BufferListSummary {
+    /// Returns list of PTSs.
+    pub fn pts(&self) -> Vec<PravegaTimestamp> {
+        self.buffer_summary_list
+            .iter()
+            .map(|s| s.pts)
+            .collect()
+    }
+
     /// Returns PTS of first buffer.
     pub fn first_pts(&self) -> PravegaTimestamp {
         match self.buffer_summary_list.first() {
+            Some(s) => s.pts,
+            None => PravegaTimestamp::none(),
+        }
+    }
+
+    /// Returns PTS of last buffer.
+    pub fn last_pts(&self) -> PravegaTimestamp {
+        match self.buffer_summary_list.last() {
             Some(s) => s.pts,
             None => PravegaTimestamp::none(),
         }
@@ -68,9 +83,12 @@ impl BufferListSummary {
             .map(|s|s.pts)
             .collect()
     }
+
+    pub fn num_buffers(&self) -> u64 {
+        self.buffer_summary_list.len() as u64
+    }
 }
 
-// TODO: Use PravegaTimestamp
 pub fn assert_between_clocktime(name: &str, actual: ClockTime, expected_min: ClockTime, expected_max: ClockTime) {
     if !actual.nanoseconds().is_some() {
         panic!("{} is None", name);
@@ -81,6 +99,27 @@ pub fn assert_between_clocktime(name: &str, actual: ClockTime, expected_min: Clo
     if expected_max.nanoseconds().is_some() && actual.nanoseconds().unwrap() > expected_max.nanoseconds().unwrap() {
         panic!("{}: actual value {} is greater than expected maximum {}", name, actual, expected_max);
     }
+}
+
+pub fn assert_between_timestamp(name: &str, actual: PravegaTimestamp, expected_min: PravegaTimestamp, expected_max: PravegaTimestamp) {
+    if !actual.nanoseconds().is_some() {
+        panic!("{} is None", name);
+    }
+    if expected_min.nanoseconds().is_some() && actual.nanoseconds().unwrap() < expected_min.nanoseconds().unwrap() {
+        panic!("{}: actual value {} is less than expected minimum {}", name, actual, expected_min);
+    }
+    if expected_max.nanoseconds().is_some() && actual.nanoseconds().unwrap() > expected_max.nanoseconds().unwrap() {
+        panic!("{}: actual value {} is greater than expected maximum {}", name, actual, expected_max);
+    }
+}
+
+pub fn assert_timestamp_approx_eq(name: &str, actual: PravegaTimestamp, expected: PravegaTimestamp, lower_margin: ClockTime, upper_margin: ClockTime) {
+    assert_between_timestamp(
+        name,
+        actual,
+        clocktime_to_pravega(pravega_to_clocktime(expected) - lower_margin),
+        clocktime_to_pravega(pravega_to_clocktime(expected) + upper_margin),
+    )
 }
 
 pub fn assert_between_u64(name: &str, actual: u64, expected_min: u64, expected_max: u64) {
@@ -99,36 +138,7 @@ pub fn launch_pipeline(pipeline_description: String) -> Result<(), Error> {
     run_pipeline_until_eos(pipeline)
 }
 
-// TODO: replace usage with launch_pipeline_and_get_summary
-pub fn launch_pipeline_and_get_pts(pipeline_description: String) -> Result<Vec<ClockTime>, Error> {
-    info!("Launch Pipeline: {}", pipeline_description);
-    let pipeline = gst::parse_launch(&pipeline_description)?;
-    let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
-    let sink = pipeline
-        .get_by_name("sink")
-        .unwrap()
-        .downcast::<gst_app::AppSink>()
-        .unwrap();
-    let read_pts = Arc::new(Mutex::new(Vec::new()));
-    let read_pts_clone = read_pts.clone();
-    sink.set_callbacks(
-        gst_app::AppSinkCallbacks::builder()
-            .new_sample(move |sink| {
-                let sample = sink.pull_sample().unwrap();
-                trace!("sample={:?}", sample);
-                let pts = sample.get_buffer().unwrap().get_pts();
-                trace!("pts={}", pts);
-                let mut read_timestamps = read_pts_clone.lock().unwrap();
-                read_timestamps.push(pts);
-                Ok(gst::FlowSuccess::Ok)
-            })
-            .build(),
-    );
-    run_pipeline_until_eos(pipeline)?;
-    let read_pts = read_pts.lock().unwrap().clone();
-    Ok(read_pts)
-}
-
+/// Run a pipeline until end-of-stream and return a summary of buffers sent to the AppSink named 'sink'.
 pub fn launch_pipeline_and_get_summary(pipeline_description: String) -> Result<BufferListSummary, Error> {
     info!("Launch Pipeline: {}", pipeline_description);
     let pipeline = gst::parse_launch(&pipeline_description)?;
