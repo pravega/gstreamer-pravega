@@ -640,23 +640,6 @@ impl BaseSrcImpl for PravegaSrc {
 
             let mut index_searcher = IndexSearcher::new(index_reader);
 
-            let start_timestamp = match settings.start_mode {
-                StartMode::NoSeek => PravegaTimestamp::NONE,
-                StartMode::Earliest => {
-                    // When starting at Earliest, the index will be used to find to the first random-access point.
-                    PravegaTimestamp::MIN
-                },
-                StartMode::Latest => {
-                    // When starting at Latest, the index will be used to find the last random-access point.
-                    PravegaTimestamp::MAX
-                },
-                StartMode::Timestamp => {
-                    // The index will be used to find a last random-access point before or on the specified timestamp.
-                    PravegaTimestamp::from_nanoseconds(Some(settings.start_timestamp))
-                },
-            };
-            gst_info!(CAT, obj: element, "start: start_timestamp={:?}", start_timestamp);
-
             // end_offset is the byte offset in the data stream.
             // The data stream reader will be configured to never read beyond this offset.
             let end_offset = match settings.end_mode {
@@ -688,18 +671,7 @@ impl BaseSrcImpl for PravegaSrc {
                 reader: Arc::new(Mutex::new(buf_reader)),
                 index_searcher: Arc::new(Mutex::new(index_searcher)),
             };
-            // We must drop locks so that seek does not deadlock.
-            drop(state);
-            drop(settings);
             gst_info!(CAT, obj: element, "start: Started");
-
-            // if let Some(seek_pos) = start_timestamp.nanoseconds() {
-            //     element.seek_simple(
-            //         gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT,
-            //         seek_pos * gst::NSECOND,
-            //     ).unwrap();
-            // }
-
             Ok(())
         })();
         gst_debug!(CAT, obj: element, "start: END: result={:?}", result);
@@ -710,21 +682,37 @@ impl BaseSrcImpl for PravegaSrc {
         true
     }
 
-    // This method is called in the following scenarios:
-    // 1) It is first called right after we initialize the Pravega reader.
-    //    The input segment time will be 0.
-    //    This method will read the first index record.
-    // 2) It will be called when an GStreamer application performs a seek using GstElement.seek_simple().
-    //    The input segment time will be the number of nanoseconds since 1970-01-01 0:00:00 TAI.
-    //    This method will find the last index record before or equal to the desired time.
-    // In either case, the Pravega reader offset and the segment time will be set using
-    // the values from the located index record.
+    /// This method is called in the following scenarios:
+    /// 1) initial_seek=true: It is first called right after start() returns.
+    ///    The input segment time will be 0.
+    ///    This method should seek according to the start-mode parameter.
+    /// 2) initial_seek=false: It will be called when an GStreamer application performs a seek using GstElement.seek_simple().
+    ///    The input segment time will be the number of nanoseconds since 1970-01-01 0:00:00 TAI.
+    ///    This method will find the last index record before or equal to the desired time.
+    /// Unless start-mode=no-seek, the Pravega reader offset and the segment time will be set using
+    /// the values from the located index record.
     fn do_seek(&self, src: &Self::Type, segment: &mut gst::Segment) -> bool {
         gst_info!(CAT, obj: src, "do_seek: BEGIN: segment={:?}", segment);
         let result = (|| {
-            let start_pts_at_zero = {
+            // Get needed settings, then release lock.
+            let (start_timestamp, start_pts_at_zero) = {
                 let settings = self.settings.lock().unwrap();
-                settings.start_pts_at_zero
+                let start_timestamp = match settings.start_mode {
+                    StartMode::NoSeek => PravegaTimestamp::NONE,
+                    StartMode::Earliest => {
+                        // When starting at Earliest, the index will be used to find to the first random-access point.
+                        PravegaTimestamp::MIN
+                    },
+                    StartMode::Latest => {
+                        // When starting at Latest, the index will be used to find the last random-access point.
+                        PravegaTimestamp::MAX
+                    },
+                    StartMode::Timestamp => {
+                        // The index will be used to find a last random-access point before or on the specified timestamp.
+                        PravegaTimestamp::from_nanoseconds(Some(settings.start_timestamp))
+                    },
+                };
+                (start_timestamp, settings.start_pts_at_zero)
             };
 
             let mut state = self.state.lock().unwrap();
@@ -747,35 +735,54 @@ impl BaseSrcImpl for PravegaSrc {
             let mut index_searcher = index_searcher.lock().unwrap();
 
             let segment = segment.downcast_mut::<gst::format::Time>().unwrap();
+
             // In the input segment parameter, start, position, and time are all set to the desired timestamp.
             // If this is the initial seek, these will be all 0, and we will seek to the first record in the index.
-            segment.set_start(0);
-            segment.set_position(0);
-            let timestamp = segment.get_time().nseconds().unwrap();
-            let timestamp = PravegaTimestamp::from_nanoseconds(Some(timestamp));
-            // Determine Pravega stream offset for this timestamp by searching the index.
-            let index_record = index_searcher.search_timestamp(timestamp);
-            gst_info!(CAT, obj: src, "do_seek: index_record={:?}", index_record);
-            match index_record {
-                Ok(index_record) => {
-                    if start_pts_at_zero {
-                        segment.set_time(ClockTime(index_record.timestamp.nanoseconds()));
-                        gst_info!(CAT, obj: src, "do_seek: starting PTS at zero; segment={:?}", segment);
+            let initial_seek =
+                segment.get_time().nseconds().unwrap() == 0 &&
+                segment.get_start().nseconds().unwrap() == 0 &&
+                segment.get_position().nseconds().unwrap() == 0;
+            gst_info!(CAT, obj: src, "do_seek: initial_seek={}", initial_seek);
+
+            let timestamp = if initial_seek {
+                gst_info!(CAT, obj: src, "do_seek: start_timestamp={:?}", start_timestamp);
+                if start_pts_at_zero { unimplemented!() };
+                start_timestamp
+            } else {
+                segment.set_start(0);
+                segment.set_position(0);
+                PravegaTimestamp::from_nanoseconds(segment.get_time().nseconds())
+            };
+            gst_info!(CAT, obj: src, "do_seek: seeking to timestamp={:?}", start_timestamp);
+
+            if timestamp.is_some() {
+                // Determine Pravega stream offset for this timestamp by searching the index.
+                let index_record = index_searcher.search_timestamp(timestamp);
+                gst_info!(CAT, obj: src, "do_seek: index_record={:?}", index_record);
+                match index_record {
+                    Ok(index_record) => {
+                        if start_pts_at_zero {
+                            segment.set_time(ClockTime(index_record.timestamp.nanoseconds()));
+                            gst_info!(CAT, obj: src, "do_seek: starting PTS at zero; segment={:?}", segment);
+                        }
+                        reader.seek(SeekFrom::Start(index_record.offset)).unwrap();
+                        gst_info!(CAT, obj: src, "do_seek: seeked to indexed position; segment={:?}", segment);
+                        true
+                    },
+                    Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+                        // This will happen if the index has no records.
+                        let head_offset = reader.get_ref().get_ref().current_head().unwrap();
+                        reader.seek(SeekFrom::Start(head_offset)).unwrap();
+                        gst_info!(CAT, obj: src, "do_seek: seeked to head because index is empty; segment={:?}", segment);
+                        true
+                    },
+                    Err(_) => {
+                        false
                     }
-                    reader.seek(SeekFrom::Start(index_record.offset)).unwrap();
-                    gst_info!(CAT, obj: src, "do_seek: seeked to indexed position; segment={:?}", segment);
-                    true
-                },
-                Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
-                    // This will happen if the index has no records.
-                    let head_offset = reader.get_ref().get_ref().current_head().unwrap();
-                    reader.seek(SeekFrom::Start(head_offset)).unwrap();
-                    gst_info!(CAT, obj: src, "do_seek: seeked to head because index is empty; segment={:?}", segment);
-                    true
-                },
-                Err(_) => {
-                    false
                 }
+            } else {
+                gst_info!(CAT, obj: src, "do_seek: not performing initial seek because start-mode=no-seek; segment={:?}", segment);
+                true
             }
         })();
         gst_info!(CAT, obj: src, "do_seek: END: result={:?}", result);
