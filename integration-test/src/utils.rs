@@ -17,6 +17,7 @@ use pravega_client::client_factory::ClientFactory;
 use pravega_client_shared::{Scope, Stream, Segment, ScopedSegment};
 use pravega_video::index::{IndexSearcher, SearchMethod, get_index_stream_name};
 use pravega_video::timestamp::PravegaTimestamp;
+use std::fmt;
 use std::sync::{Arc, Mutex};
 use tracing::{error, warn, info, debug, trace};
 
@@ -86,6 +87,13 @@ impl BufferListSummary {
 
     pub fn num_buffers(&self) -> u64 {
         self.buffer_summary_list.len() as u64
+    }
+}
+
+impl fmt::Display for BufferListSummary {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_fmt(format_args!("BufferListSummary {{ num_buffers: {}, first_pts: {}, first_valid_pts: {} }}",
+            self.num_buffers(), self.first_pts(), self.first_valid_pts()))
     }
 }
 
@@ -163,7 +171,6 @@ pub fn launch_pipeline_and_get_summary(pipeline_description: String) -> Result<B
                         };
                         let mut summary_list = summary_list_clone.lock().unwrap();
                         summary_list.push(summary);
-                        debug!("done");
                         Ok(gst::FlowSuccess::Ok)
                     })
                     .build()
@@ -179,6 +186,7 @@ pub fn launch_pipeline_and_get_summary(pipeline_description: String) -> Result<B
     Ok(summary)
 }
 
+// TODO: Use monitor_pipeline_until_eos
 fn run_pipeline_until_eos(pipeline: gst::Pipeline) -> Result<(), Error> {
     pipeline.set_state(gst::State::Playing)?;
     let bus = pipeline.get_bus().unwrap();
@@ -199,6 +207,27 @@ fn run_pipeline_until_eos(pipeline: gst::Pipeline) -> Result<(), Error> {
         }
     }
     pipeline.set_state(gst::State::Null)?;
+    Ok(())
+}
+
+pub fn monitor_pipeline_until_eos(pipeline: &gst::Pipeline) -> Result<(), Error> {
+    let bus = pipeline.get_bus().unwrap();
+    while let Some(msg) = bus.timed_pop(gst::CLOCK_TIME_NONE) {
+        match msg.view() {
+            gst::MessageView::Eos(..) => break,
+            gst::MessageView::Error(err) => {
+                let msg = format!(
+                    "Error from {:?}: {} ({:?})",
+                    err.get_src().map(|s| s.get_path_string()),
+                    err.get_error(),
+                    err.get_debug()
+                );
+                let _ = pipeline.set_state(gst::State::Null);
+                return Err(anyhow!(msg));
+            },
+            _ => (),
+        }
+    }
     Ok(())
 }
 
