@@ -234,7 +234,7 @@ mod test {
             launch_pipeline(pipeline_description).unwrap();
         }
 
-        info!("#### Read video from truncated position");
+        info!("#### Read video from truncated position with decoding");
         let pipeline_description = format!(
             "pravegasrc {pravega_plugin_properties} \
             ! decodebin \
@@ -257,8 +257,6 @@ mod test {
         assert_timestamp_approx_eq("last_pts_actual", last_pts_actual, last_pts_written,
                                    ClockTime::zero(), pts_margin);
         assert_between_u64("num_buffers_actual", num_buffers_actual, num_buffers_expected - fps, num_buffers_expected);
-
-        // TODO: Out-of-band: Play using HLS player.
 
         info!("#### END");
     }

@@ -22,7 +22,6 @@ mod test {
     use crate::*;
     use crate::utils::*;
 
-    // TODO: Test variation with truncation.
     fn pravega_src_test_data_gen(test_config: &TestConfig, stream_name: &str) -> Result<BufferListSummary, Error> {
         // Initialize GStreamer
         std::env::set_var("GST_DEBUG", "pravegasrc:LOG,pravegasink:LOG,basesink:INFO");
@@ -40,7 +39,7 @@ mod test {
         let length_sec = 5;
         let num_buffers_written = length_sec * fps;
 
-        // We write an MP4 stream because the first few buffers have no timestamp and will not be index.
+        // We write an MP4 stream because the first few buffers have no timestamp and will not be indexed.
         // This allows us to distinguish between starting at the first buffer in the data stream vs. the first indexed buffer.
         info!("#### Write video stream to Pravega");
         let pipeline_description = format!(
