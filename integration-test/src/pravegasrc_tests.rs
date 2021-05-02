@@ -168,14 +168,15 @@ mod test {
             ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );
-        // TODO: panic: gst_element_seek_simple: assertion 'seek_pos >= 0' failed
         let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
         debug!("summary={}", summary);
         assert!(summary.buffer_summary_list.is_empty());
     }
 
     /// Based on https://gitlab.freedesktop.org/gstreamer/gstreamer-rs/-/blob/master/tutorials/src/bin/basic-tutorial-4.rs
+    // TODO: Test incomplete.
     #[test]
+    #[ignore]
     fn test_pravegasrc_seek() {
         let test_config = &get_test_config();
         info!("test_config={:?}", test_config);
@@ -186,11 +187,9 @@ mod test {
 
         info!("#### Read video stream");
         info!("### Build pipeline");
-        // TODO: Should not need to use queue.
         let pipeline_description = format!(
             "pravegasrc {pravega_plugin_properties} \
               start-mode=earliest \
-              ! queue max-size-buffers=1 max-size-time=0 max-size-bytes=1000000000 \
               ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );
