@@ -755,11 +755,13 @@ impl BaseSinkImpl for PravegaSink {
             // Maintain values that may be written to the index on end-of-stream.
             // Per the index constraints defined in index.rs, the timestamp in the index record must
             // be strictly greater than the timestamp in the data stream.
-            // If duration of the buffer is reported as 0, we record it as if it had a 1 nanosecond duration.
-            let duration = cmp::max(1, duration.nanoseconds().unwrap_or_default());
-            // we must flush any data writes prior to this buffer, so that reads do not block waiting on this writer.
-            *final_timestamp = PravegaTimestamp::from_nanoseconds(
-                timestamp.nanoseconds().map(|t| t + duration));
+            if timestamp.is_some() {
+                // If duration of the buffer is reported as 0, we record it as if it had a 1 nanosecond duration.
+                let duration = cmp::max(1, duration.nanoseconds().unwrap_or_default());
+                // we must flush any data writes prior to this buffer, so that reads do not block waiting on this writer.
+                *final_timestamp = PravegaTimestamp::from_nanoseconds(
+                    timestamp.nanoseconds().map(|t| t + duration));
+            }
             *final_offset = Some(writer.get_mut().current_write_offset() as u64);
 
             Ok(gst::FlowSuccess::Ok)
@@ -810,13 +812,15 @@ impl BaseSinkImpl for PravegaSink {
             // The timestamp will be the the buffer timestamp + duration of the final buffer.
             // The offset will be current write position.
             if let Some(final_offset) = *final_offset {
-                let index_record = IndexRecord::new(*final_timestamp, final_offset,
-                    false, false);
-                let mut index_record_writer = IndexRecordWriter::new();
-                index_record_writer.write(&index_record, index_writer).map_err(|error| {
-                    gst::error_msg!(gst::ResourceError::Write, ["Failed to write Pravega index stream: {}", error])
-                })?;
-                gst_info!(CAT, obj: element, "stop: Wrote final index record {:?}", index_record);
+                if final_timestamp.is_some() {
+                    let index_record = IndexRecord::new(*final_timestamp, final_offset,
+                        false, false);
+                    let mut index_record_writer = IndexRecordWriter::new();
+                    index_record_writer.write(&index_record, index_writer).map_err(|error| {
+                        gst::error_msg!(gst::ResourceError::Write, ["Failed to write Pravega index stream: {}", error])
+                    })?;
+                    gst_info!(CAT, obj: element, "stop: Wrote final index record {:?}", index_record);
+                }
             }
 
             index_writer.flush().map_err(|error| {
