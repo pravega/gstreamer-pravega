@@ -888,6 +888,7 @@ impl PushSrcImpl for PravegaSrc {
             let reader = &mut (*reader);
 
             let mut event_reader = EventReader::new();
+            // TODO: This likely flushes the BufReader.
             let offset = reader.stream_position().unwrap();
             let required_buffer_length = event_reader.read_required_buffer_length(reader).map_err(|err| {
                 if err.kind() == ErrorKind::UnexpectedEof {
