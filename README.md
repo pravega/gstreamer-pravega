@@ -382,6 +382,18 @@ export LD_LIBRARY_PATH=/usr/local/gstreamer/lib/x86_64-linux-gnu:${LD_LIBRARY_PA
 #sudo ldconfig
 ```
 
+# Testing
+
+## Automated Tests
+
+This will run unit and integration tests. It will start and stop a temporary Pravega standalone instance.
+
+```bash
+scripts/test-all.sh
+...
+test-all.sh: All tests completed successfully.
+```
+
 # Implementation Details
 
 ## Data Stream Frame Format
