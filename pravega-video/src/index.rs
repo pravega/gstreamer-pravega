@@ -16,7 +16,7 @@ use crate::utils::CurrentHead;
 use enumflags2::BitFlags;
 use std::convert::TryInto;
 use std::io::{BufReader, Error, ErrorKind, Read, Write, Seek, SeekFrom};
-use tracing::debug;
+use tracing::{debug, trace};
 
 pub fn get_index_stream_name(stream_name: &str) -> String {
     format!("{}-index", stream_name)
@@ -81,13 +81,15 @@ impl IndexRecord {
       These may be utilized in the future for other purposes.
    DIS - discontinuity indicator
    RAN - random access indicator
+   timestamp:
+      A timestamp value of 0 is not allowed in the index.
 
    See event_serde.rs for definitions of common fields.
 
    The index and related data stream must satisfy the following constraints.
 
    1. If the first record in the index has timestamp T1 and offset O1 (T1, O1),
-      and the last record in the index has timestamp TN and offset TN (TN, ON), 
+      and the last record in the index has timestamp TN and offset TN (TN, ON),
       then the data stream can be read from offset O1 inclusive to ON exclusive.
       The bytes prior to O1 have not been truncated.
       All bytes between O1 and ON have been written to the Pravega server and,
@@ -121,9 +123,13 @@ impl IndexRecordWriter {
         if record.discontinuity {
             flags |= EventHeaderFlags::DiscontinuityIndicator;
         }
+        let timestamp_nanos = record.timestamp.nanoseconds().unwrap_or_default();
+        if timestamp_nanos == 0 {
+            return Err(Error::new(ErrorKind::InvalidInput, "Timestamp is none or 0"));
+        }
         let mut bytes_to_write: Vec<u8> = vec![0; IndexRecord::RECORD_SIZE];
         bytes_to_write[3..4].copy_from_slice(&flags.bits().to_be_bytes()[..]);
-        bytes_to_write[4..12].copy_from_slice(&record.timestamp.nanoseconds().unwrap_or_default().to_be_bytes()[..]);
+        bytes_to_write[4..12].copy_from_slice(&timestamp_nanos.to_be_bytes()[..]);
         bytes_to_write[12..20].copy_from_slice(&record.offset.to_be_bytes()[..]);
         writer.write(&bytes_to_write).unwrap();
         Ok(())
@@ -149,6 +155,7 @@ impl IndexRecordReader {
         let random_access = flags.contains(EventHeaderFlags::RandomAccessIndicator);
         let discontinuity = flags.contains(EventHeaderFlags::DiscontinuityIndicator);
         let timestamp = u64::from_be_bytes(buffer[4..12].try_into().unwrap());
+        // A timestamp of 0 is not allowed but if is read, it will be converted to None.
         let timestamp = if timestamp == 0 { None } else { Some(timestamp) };
         let offset = u64::from_be_bytes(buffer[12..20].try_into().unwrap());
         Ok(IndexRecord {
@@ -194,52 +201,56 @@ impl<R: Read + Seek + CurrentHead> IndexSearcher<R> {
     pub fn search_timestamp_and_return_index_offset(&mut self, timestamp: PravegaTimestamp, method: SearchMethod)
             -> Result<(IndexRecord, u64), Error> {
 
-        let mut index_record_reader = IndexRecordReader::new();
+        let result = (|| {
+            let mut index_record_reader = IndexRecordReader::new();
 
-        let first_index_offset = self.reader.get_ref().current_head()?;
-        let tail_offset = self.reader.seek(SeekFrom::End(0))?;
-        if tail_offset < first_index_offset + IndexRecord::RECORD_SIZE as u64 {
-            return Err(Error::new(ErrorKind::UnexpectedEof, "Index has no records"));
-        }
-
-        // Get last record.
-        if timestamp > PravegaTimestamp::MIN {
-            let index_offset = self.reader.seek(SeekFrom::Start(tail_offset - IndexRecord::RECORD_SIZE as u64))?;
-            // TODO: Below may fail due to https://github.com/pravega/pravega-client-rust/issues/163.
-            let index_record = index_record_reader.read(&mut self.reader)?;
-            // Return last record if desired timestamp is after or equal to it.
-            if index_record.timestamp <= timestamp {
-                return Ok((index_record, index_offset));
+            let first_index_offset = self.reader.get_ref().current_head()?;
+            let tail_offset = self.reader.seek(SeekFrom::End(0))?;
+            if tail_offset < first_index_offset + IndexRecord::RECORD_SIZE as u64 {
+                return Err(Error::new(ErrorKind::UnexpectedEof, "Index has no records"));
             }
-        }
 
-        // Read first record.
-        let mut prev_index_offset = self.reader.seek(SeekFrom::Start(first_index_offset))?;
-        let mut prev_index_record = index_record_reader.read(&mut self.reader)?;
-        // Return first record if desired timestamp is before or equal to it.
-        if timestamp <= prev_index_record.timestamp {
-            return Ok((prev_index_record, prev_index_offset));
-        }
-
-        // Read index from the beginning until we find a timestamp greater or equal to the desired timestamp.
-        // TODO: Use binary search or Newton's method.
-        loop {
-            let index_record = index_record_reader.read(&mut self.reader)?;
-            let index_offset = prev_index_offset + IndexRecord::RECORD_SIZE as u64;
-            debug!("IndexSearcher::search_timestamp_and_return_index_offset: index_record={:?}", index_record);
-            if timestamp < index_record.timestamp {
-                // Approximate match returns index record before or after desired timestamp, depending on method.
-                return match method {
-                    SearchMethod::Before => Ok((prev_index_record, prev_index_offset)),
-                    SearchMethod::After => Ok((index_record, index_offset)),
+            // Get last record.
+            if timestamp > PravegaTimestamp::MIN {
+                let index_offset = self.reader.seek(SeekFrom::Start(tail_offset - IndexRecord::RECORD_SIZE as u64))?;
+                // TODO: Below may fail due to https://github.com/pravega/pravega-client-rust/issues/163.
+                let index_record = index_record_reader.read(&mut self.reader)?;
+                // Return last record if desired timestamp is after or equal to it.
+                if index_record.timestamp <= timestamp {
+                    return Ok((index_record, index_offset));
                 }
-            } else if timestamp == index_record.timestamp {
-                // Exact match
-                return Ok((index_record, index_offset));
             }
-            prev_index_offset = index_offset;
-            prev_index_record = index_record;
-        }
+
+            // Read first record.
+            let mut prev_index_offset = self.reader.seek(SeekFrom::Start(first_index_offset))?;
+            let mut prev_index_record = index_record_reader.read(&mut self.reader)?;
+            // Return first record if desired timestamp is before or equal to it.
+            if timestamp <= prev_index_record.timestamp {
+                return Ok((prev_index_record, prev_index_offset));
+            }
+
+            // Read index from the beginning until we find a timestamp greater or equal to the desired timestamp.
+            // TODO: Use binary search or Newton's method.
+            loop {
+                let index_record = index_record_reader.read(&mut self.reader)?;
+                let index_offset = prev_index_offset + IndexRecord::RECORD_SIZE as u64;
+                trace!("IndexSearcher::search_timestamp_and_return_index_offset: index_record={:?}", index_record);
+                if timestamp < index_record.timestamp {
+                    // Approximate match returns index record before or after desired timestamp, depending on method.
+                    return match method {
+                        SearchMethod::Before => Ok((prev_index_record, prev_index_offset)),
+                        SearchMethod::After => Ok((index_record, index_offset)),
+                    }
+                } else if timestamp == index_record.timestamp {
+                    // Exact match
+                    return Ok((index_record, index_offset));
+                }
+                prev_index_offset = index_offset;
+                prev_index_record = index_record;
+            }
+        })();
+        debug!("IndexSearcher::search_timestamp_and_return_index_offset({}, {:?}) = {:?}", timestamp, method, result);
+        result
     }
 
     /// If a non-exact match is found, return the index record immediately before the desired timestamp.
@@ -247,7 +258,7 @@ impl<R: Read + Seek + CurrentHead> IndexSearcher<R> {
     /// TODO: This should only consider index records with random_access=true.
     pub fn search_timestamp(&mut self, timestamp: PravegaTimestamp) -> Result<IndexRecord, Error> {
         let result = self.search_timestamp_and_return_index_offset(timestamp, SearchMethod::Before);
-        debug!("IndexSearcher::search_timestamp(timestamp={}) = {:?}", timestamp, result);
+        debug!("IndexSearcher::search_timestamp({}) = {:?}", timestamp, result);
         result.map(|x| x.0)
     }
 
@@ -256,7 +267,7 @@ impl<R: Read + Seek + CurrentHead> IndexSearcher<R> {
     /// This is expected to be used to determine the offset at which to stop reading.
     pub fn search_timestamp_after(&mut self, timestamp: PravegaTimestamp) -> Result<IndexRecord, Error> {
         let result = self.search_timestamp_and_return_index_offset(timestamp, SearchMethod::After);
-        debug!("IndexSearcher::search_timestamp_after(timestamp={}) = {:?}", timestamp, result);
+        debug!("IndexSearcher::search_timestamp_after({}) = {:?}", timestamp, result);
         result.map(|x| x.0)
     }
 
@@ -275,6 +286,23 @@ impl<R: Read + Seek + CurrentHead> IndexSearcher<R> {
     /// Unwraps this `IndexSearcher<R>`, returning the underlying reader.
     pub fn into_inner(self) -> R {
         self.reader.into_inner()
+    }
+
+    /// Returns a list of all index records.
+    /// This should only be used for debugging and testing.
+    pub fn get_index_records(&mut self) -> Result<Vec<(IndexRecord, u64)>, Error> {
+        let mut records = Vec::new();
+        let index_begin_offset = self.reader.get_ref().current_head()?;
+        let index_end_offset = self.reader.seek(SeekFrom::End(0))?;
+        self.reader.seek(SeekFrom::Start(index_begin_offset))?;
+        let mut index_record_reader = IndexRecordReader::new();
+        let mut index_offset = index_begin_offset;
+        while index_offset < index_end_offset {
+            let index_record = index_record_reader.read(&mut self.reader)?;
+            records.push((index_record, index_offset));
+            index_offset += IndexRecord::RECORD_SIZE as u64;
+        }
+        Ok(records)
     }
 }
 
