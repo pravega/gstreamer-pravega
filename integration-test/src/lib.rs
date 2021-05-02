@@ -14,11 +14,9 @@ mod pravega_service;
 mod utils;
 
 use lazy_static::lazy_static;
-// use once_cell::sync::OnceCell;
 use pravega_client_config::ClientConfig;
 use pravega_client_config::ClientConfigBuilder;
 use std::process::Command;
-// use std::sync::Arc;
 use std::sync::Mutex;
 use std::{thread, time};
 use tracing::{error, info, info_span, warn};

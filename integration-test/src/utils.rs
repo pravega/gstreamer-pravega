@@ -174,7 +174,7 @@ pub fn launch_pipeline(pipeline_description: String) -> Result<(), Error> {
     info!("Launch Pipeline: {}", pipeline_description);
     let pipeline = gst::parse_launch(&pipeline_description)?;
     let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
-    run_pipeline_until_eos(pipeline)
+    run_pipeline_until_eos(&pipeline)
 }
 
 /// Run a pipeline until end-of-stream and return a summary of buffers sent to the AppSink named 'sink'.
@@ -209,7 +209,7 @@ pub fn launch_pipeline_and_get_summary(pipeline_description: String) -> Result<B
         },
         None => warn!("Element named 'sink' not found"),
     };
-    run_pipeline_until_eos(pipeline)?;
+    run_pipeline_until_eos(&pipeline)?;
     let summary_list = summary_list.lock().unwrap().clone();
     let summary = BufferListSummary {
         buffer_summary_list: summary_list,
@@ -217,26 +217,9 @@ pub fn launch_pipeline_and_get_summary(pipeline_description: String) -> Result<B
     Ok(summary)
 }
 
-// TODO: Use monitor_pipeline_until_eos
-fn run_pipeline_until_eos(pipeline: gst::Pipeline) -> Result<(), Error> {
+fn run_pipeline_until_eos(pipeline: &gst::Pipeline) -> Result<(), Error> {
     pipeline.set_state(gst::State::Playing)?;
-    let bus = pipeline.get_bus().unwrap();
-    while let Some(msg) = bus.timed_pop(gst::CLOCK_TIME_NONE) {
-        match msg.view() {
-            gst::MessageView::Eos(..) => break,
-            gst::MessageView::Error(err) => {
-                let msg = format!(
-                    "Error from {:?}: {} ({:?})",
-                    err.get_src().map(|s| s.get_path_string()),
-                    err.get_error(),
-                    err.get_debug()
-                );
-                let _ = pipeline.set_state(gst::State::Null);
-                return Err(anyhow!(msg));
-            },
-            _ => (),
-        }
-    }
+    monitor_pipeline_until_eos(pipeline)?;
     pipeline.set_state(gst::State::Null)?;
     Ok(())
 }
