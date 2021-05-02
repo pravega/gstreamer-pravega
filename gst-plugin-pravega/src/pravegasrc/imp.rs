@@ -786,7 +786,9 @@ impl BaseSrcImpl for PravegaSrc {
                     }
                 }
             } else {
-                gst_info!(CAT, obj: src, "do_seek: not performing initial seek because start-mode=no-seek; segment={:?}", segment);
+                let head_offset = reader.get_ref().get_ref().get_ref().current_head().unwrap();
+                reader.seek(SeekFrom::Start(head_offset)).unwrap();
+                gst_info!(CAT, obj: src, "do_seek: Seeking to head of data stream because start-mode=no-seek; segment={:?}", segment);
                 true
             }
         })();
