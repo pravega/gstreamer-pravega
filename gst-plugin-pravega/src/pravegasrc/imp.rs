@@ -628,7 +628,7 @@ impl BaseSrcImpl for PravegaSrc {
                 segment: Segment::from(0),
             };
             let mut reader = client_factory.create_byte_stream_reader(scoped_segment);
-            gst_info!(CAT, obj: element, "start: Opened Pravega reader");
+            gst_info!(CAT, obj: element, "start: Opened Pravega reader for data");
 
             let index_scoped_segment = ScopedSegment {
                 scope: scope.clone(),
@@ -639,6 +639,9 @@ impl BaseSrcImpl for PravegaSrc {
             gst_info!(CAT, obj: element, "start: Opened Pravega reader for index");
 
             let mut index_searcher = IndexSearcher::new(index_reader);
+
+            // TODO: Run below based on CAT threshold.
+            // gst_debug!(CAT, obj: element, "index_records={:?}", index_searcher.get_index_records());
 
             // end_offset is the byte offset in the data stream.
             // The data stream reader will be configured to never read beyond this offset.
@@ -885,6 +888,7 @@ impl PushSrcImpl for PravegaSrc {
             let reader = &mut (*reader);
 
             let mut event_reader = EventReader::new();
+            let offset = reader.stream_position().unwrap();
             let required_buffer_length = event_reader.read_required_buffer_length(reader).map_err(|err| {
                 if err.kind() == ErrorKind::UnexpectedEof {
                     gst_info!(CAT, obj: element, "create: reached EOF when trying to read event length");
@@ -907,6 +911,7 @@ impl PushSrcImpl for PravegaSrc {
                 }
             })?;
             gst_memdump!(CAT, obj: element, "create: event={:?}", event);
+            let offset_end = reader.stream_position().unwrap();
 
             let mut gst_buffer = gst::Buffer::with_size(event.payload.len()).unwrap();
             {
@@ -924,6 +929,8 @@ impl PushSrcImpl for PravegaSrc {
                     event.header.timestamp, pts, event.payload.len());
 
                 buffer_ref.set_pts(pts);
+                buffer_ref.set_offset(offset);
+                buffer_ref.set_offset_end(offset_end);
                 if event.header.random_access {
                     buffer_ref.unset_flags(gst::BufferFlags::DELTA_UNIT);
                 } else {
