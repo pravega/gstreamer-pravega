@@ -20,7 +20,7 @@ use gst_base::subclass::prelude::*;
 
 use std::cmp;
 use std::convert::TryInto;
-use std::io::{BufWriter, Write};
+use std::io::{BufWriter, Seek, SeekFrom, Write};
 use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
@@ -33,7 +33,9 @@ use pravega_video::index::{IndexRecord, IndexRecordWriter, get_index_stream_name
 use pravega_video::timestamp::PravegaTimestamp;
 use pravega_video::utils;
 
+use crate::counting_writer::CountingWriter;
 use crate::numeric::u64_to_i64_saturating_sub;
+use crate::seekable_byte_stream_writer::SeekableByteStreamWriter;
 
 const PROPERTY_NAME_STREAM: &str = "stream";
 const PROPERTY_NAME_CONTROLLER: &str = "controller";
@@ -112,7 +114,7 @@ enum State {
     Stopped,
     Started {
         client_factory: ClientFactory,
-        writer: BufWriter<ByteStreamWriter>,
+        writer: CountingWriter<BufWriter<SeekableByteStreamWriter>>,
         index_writer: ByteStreamWriter,
         last_index_time: PravegaTimestamp,
         // The timestamp that will be written to the index upon end-of-stream.
@@ -550,12 +552,14 @@ impl BaseSinkImpl for PravegaSink {
             gst_info!(CAT, obj: element, "start: Opened Pravega writer for index");
             index_writer.seek_to_tail();
 
+            let seekable_writer = SeekableByteStreamWriter::new(writer).unwrap();
             gst_info!(CAT, obj: element, "start: Buffer size is {}", settings.buffer_size);
-            let buf_writer = BufWriter::with_capacity(settings.buffer_size, writer);
+            let buf_writer = BufWriter::with_capacity(settings.buffer_size, seekable_writer);
+            let counting_writer = CountingWriter::new(buf_writer).unwrap();
 
             *state = State::Started {
                 client_factory,
-                writer: buf_writer,
+                writer: counting_writer,
                 index_writer,
                 last_index_time: PravegaTimestamp::NONE,
                 final_timestamp: PravegaTimestamp::NONE,
@@ -632,8 +636,11 @@ impl BaseSinkImpl for PravegaSink {
                 }
             };
 
-            gst_log!(CAT, obj: element, "render: timestamp={:?}, pts={}, base_time={}, duration={}, size={}",
-                timestamp, pts, element.get_base_time(), buffer.get_duration(), buffer.get_size());
+            // Get the writer offset before writing. This offset will be used in the index.
+            let writer_offset = writer.seek(SeekFrom::Current(0)).unwrap();
+
+            gst_log!(CAT, obj: element, "render: timestamp={:?}, pts={}, base_time={}, duration={}, size={}, writer_offset={}",
+                timestamp, pts, element.get_base_time(), buffer.get_duration(), buffer.get_size(), writer_offset);
 
             // We only want to include key frames (non-delta units) in the index.
             // However, if no key frame has been received in a while, force an index record.
@@ -689,16 +696,6 @@ impl BaseSinkImpl for PravegaSink {
                 })?;
             }
 
-            // If we are writing an index record now, get the current offset.
-            // This offset will be used in the index.
-            // Since we are using a BufWriter, it is critical that it has been flushed prior to this.
-            let stream_position0 = if include_in_index {
-                assert!(flush);
-                Some(writer.get_mut().current_write_offset() as u64)
-            } else {
-                None
-            };
-
             // Record a discontinuity if upstream has indicated one or if this will be
             // the first index record emitted from this instance.
             let discontinuity = buffer_flags.contains(gst::BufferFlags::DISCONT)
@@ -709,7 +706,7 @@ impl BaseSinkImpl for PravegaSink {
             // We write the index record before the buffer so that any readers blocked on reading the
             // index will unblock as soon as possible.
             if include_in_index {
-                let index_record = IndexRecord::new(timestamp, stream_position0.unwrap(),
+                let index_record = IndexRecord::new(timestamp, writer_offset,
                     random_access, discontinuity);
                 let mut index_record_writer = IndexRecordWriter::new();
                 index_record_writer.write(&index_record, index_writer).map_err(|err| {
@@ -738,6 +735,11 @@ impl BaseSinkImpl for PravegaSink {
                 gst::FlowError::Error
             })?;
 
+            // Get the writer offset after writing.
+            let writer_offset_end = writer.seek(SeekFrom::Current(0)).unwrap();
+            gst_trace!(CAT, obj: element, "render: wrote {} bytes from offset {} to {}",
+                writer_offset_end - writer_offset, writer_offset, writer_offset_end);
+
             // Flush after writing if the buffer contains the SYNC_AFTER flag. This is normally not used.
             let sync_after = buffer_flags.contains(gst::BufferFlags::SYNC_AFTER);
             if sync_after {
@@ -762,7 +764,7 @@ impl BaseSinkImpl for PravegaSink {
                 *final_timestamp = PravegaTimestamp::from_nanoseconds(
                     timestamp.nanoseconds().map(|t| t + duration));
             }
-            *final_offset = Some(writer.get_mut().current_write_offset() as u64);
+            *final_offset = Some(writer_offset_end);
 
             Ok(gst::FlowSuccess::Ok)
         })();
@@ -829,7 +831,7 @@ impl BaseSinkImpl for PravegaSink {
 
             if seal {
                 gst_info!(CAT, obj: element, "stop: Sealing streams");
-                let writer = writer.get_mut();
+                let writer = writer.get_mut().get_mut().get_mut();
                 client_factory.get_runtime().block_on(writer.seal()).map_err(|error| {
                     gst::error_msg!(gst::ResourceError::Write, ["Failed to seal Pravega data stream: {}", error])
                 })?;
