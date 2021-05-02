@@ -8,6 +8,9 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+// RTSP Source Simulator can be used as part of a pipeline to simulate rtspsrc.
+// TODO: This is not yet included in lib.rs because it may not be useful.
+
 use glib::subclass::prelude::*;
 use gst::ClockTime;
 use gst::prelude::*;
@@ -65,14 +68,7 @@ static CAT: Lazy<gst::DebugCategory> = Lazy::new(|| {
     gst::DebugCategory::new(
         "rtspsrcsimulator",
         gst::DebugColorFlags::empty(),
-        Some(
-            "RTSP Source Simulator can be used as part of a pipeline to simulate rtspsrc. \n
-            The element `rtspsrc buffer-mode=none ntp-sync=true ntp-time-source=running-time` \n
-            can be simulated with the elements \n
-            `videotestsrc is-live=true do-timestamp=true ! rtspsrcsimulator first-pts=3800000000000000000 ! \n
-            x264enc ! rtph264pay`.
-            The rtspsrcsimulator element modifies the PTS of each buffer."
-        ),
+        Some("RTSP Source Simulator"),
     )
 });
 
@@ -322,7 +318,12 @@ impl ElementImpl for RtspSrcSimulator {
             gst::subclass::ElementMetadata::new(
                 "RTSP Source Simulator",
                 "Generic",
-                "RTSP Source Simulator",
+                "RTSP Source Simulator can be used as part of a pipeline to simulate rtspsrc. \n
+                The element `rtspsrc buffer-mode=none ntp-sync=true ntp-time-source=running-time` \n
+                can be simulated with the elements \n
+                `videotestsrc is-live=true do-timestamp=true ! rtspsrcsimulator first-pts=3800000000000000000 ! \n
+                x264enc ! rtph264pay`.
+                The rtspsrcsimulator element modifies the PTS of each buffer.",
                 "Claudio Fahey <claudio.fahey@dell.com>",
                 )
         });
