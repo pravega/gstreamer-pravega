@@ -110,6 +110,7 @@ mod test {
 
     // TODO: MP4 support is not yet working. See scripts/mp4-test*.sh.
     #[test]
+    #[ignore]
     fn test_mp4_video() {
         let test_config = get_test_config();
         info!("test_config={:?}", test_config);
