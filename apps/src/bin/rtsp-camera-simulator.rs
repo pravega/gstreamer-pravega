@@ -9,7 +9,9 @@
 //
 
 // Simulate an RTSP camera.
-// Based on gstreamer-rs/examples/src/bin/rtsp-server.rs and rtsp-server-record.rs.
+// Based on:
+//   - https://gitlab.freedesktop.org/gstreamer/gstreamer-rs/-/blob/master/examples/src/bin/rtsp-server.rs
+//   - https://gitlab.freedesktop.org/gstreamer/gstreamer-rs/-/blob/master/examples/src/bin/rtsp-server-record.rs
 
 use anyhow::Error;
 use clap::Clap;

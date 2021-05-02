@@ -8,10 +8,14 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+mod counting_reader;
+mod counting_writer;
 mod numeric;
 mod pravegasink;
 mod pravegasrc;
+mod seekable_byte_stream_writer;
 mod seekable_take;
+pub mod utils;
 
 fn plugin_init(plugin: &gst::Plugin) -> Result<(), glib::BoolError> {
     pravegasink::register(plugin)?;

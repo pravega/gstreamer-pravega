@@ -8,18 +8,19 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-// A sink that writes GStreamer buffers along with timestamps.
-// Each GstBuffer is framed.
+// A sink that writes GStreamer buffers to a Pravega stream.
+// Based on:
+//   - https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs/-/tree/master/generic/file/src/filesink
 
 use glib::subclass::prelude::*;
 use gst::prelude::*;
 use gst::subclass::prelude::*;
-use gst::{gst_debug, gst_error, gst_fixme, gst_info, gst_log, gst_trace};
+use gst::{gst_debug, gst_error, gst_fixme, gst_info, gst_log, gst_trace, gst_memdump};
 use gst_base::subclass::prelude::*;
 
 use std::cmp;
 use std::convert::TryInto;
-use std::io::{BufWriter, Write};
+use std::io::{BufWriter, Seek, SeekFrom, Write};
 use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
@@ -32,7 +33,9 @@ use pravega_video::index::{IndexRecord, IndexRecordWriter, get_index_stream_name
 use pravega_video::timestamp::PravegaTimestamp;
 use pravega_video::utils;
 
+use crate::counting_writer::CountingWriter;
 use crate::numeric::u64_to_i64_saturating_sub;
+use crate::seekable_byte_stream_writer::SeekableByteStreamWriter;
 
 const PROPERTY_NAME_STREAM: &str = "stream";
 const PROPERTY_NAME_CONTROLLER: &str = "controller";
@@ -57,10 +60,17 @@ pub enum TimestampMode {
     #[genum(
         name = "Input buffer timestamps are nanoseconds \
                 since the NTP epoch 1900-01-01 00:00:00 UTC, not including leap seconds. \
-                Use this for rtspsrc (ntp-sync=true ntp-time-source=running-time).",
+                Use this for buffers from rtspsrc (ntp-sync=true ntp-time-source=running-time).",
         nick = "ntp"
     )]
     Ntp = 1,
+    #[genum(
+        name = "Input buffer timestamps are nanoseconds \
+                since 1970-01-01 00:00:00 TAI International Atomic Time, including leap seconds. \
+                Use this for buffers from pravegasrc (start-pts-at-zero=false).",
+        nick = "tai"
+    )]
+    Tai = 2,
 }
 
 const DEFAULT_CONTROLLER: &str = "127.0.0.1:9090";
@@ -104,7 +114,7 @@ enum State {
     Stopped,
     Started {
         client_factory: ClientFactory,
-        writer: BufWriter<ByteStreamWriter>,
+        writer: CountingWriter<BufWriter<SeekableByteStreamWriter>>,
         index_writer: ByteStreamWriter,
         last_index_time: PravegaTimestamp,
         // The timestamp that will be written to the index upon end-of-stream.
@@ -431,122 +441,135 @@ impl ElementImpl for PravegaSink {
         let clock_type = gst::ClockType::Realtime;
         clock.set_property("clock-type", &clock_type).unwrap();
         let time = clock.get_time();
-        gst_info!(CAT, obj: element, "Using clock_type={:?}, time={}, ({} ns)", clock_type, time, time.nanoseconds().unwrap());
+        gst_info!(CAT, obj: element, "provide_clock: Using clock_type={:?}, time={}, ({} ns)", clock_type, time, time.nanoseconds().unwrap());
         Some(clock)
     }
 }
 
 impl BaseSinkImpl for PravegaSink {
     fn start(&self, element: &Self::Type) -> Result<(), gst::ErrorMessage> {
-        let mut state = self.state.lock().unwrap();
-        if let State::Started { .. } = *state {
-            unreachable!("PravegaSink already started");
-        }
+        gst_debug!(CAT, obj: element, "start: BEGIN");
+        let result = (|| {
+            let mut state = self.state.lock().unwrap();
+            if let State::Started { .. } = *state {
+                unreachable!("PravegaSink already started");
+            }
 
-        let settings = self.settings.lock().unwrap();
-        gst_info!(CAT, obj: element, "index_min_nanos={}, index_max_nanos={}", settings.index_min_nanos, settings.index_max_nanos);
-        if !(settings.index_min_nanos <= settings.index_max_nanos) {
-            return Err(gst::error_msg!(gst::ResourceError::Settings,
-                ["{} must be <= {}", PROPERTY_NAME_INDEX_MIN_SEC, PROPERTY_NAME_INDEX_MAX_SEC]))
-        };
-        let scope_name: String = settings.scope.clone().ok_or_else(|| {
-            gst::error_msg!(gst::ResourceError::Settings, ["Scope is not defined"])
-        })?;
-        let stream_name = settings.stream.clone().ok_or_else(|| {
-            gst::error_msg!(gst::ResourceError::Settings, ["Stream is not defined"])
-        })?;
-        let index_stream_name = get_index_stream_name(&stream_name);
-        let scope = Scope::from(scope_name);
-        let stream = Stream::from(stream_name);
-        let index_stream = Stream::from(index_stream_name);
-        gst_info!(CAT, obj: element, "scope={}, stream={}, index_stream={}", scope, stream, index_stream);
-        gst_info!(CAT, obj: element, "timestamp_mode={:?}", settings.timestamp_mode);
+            let settings = self.settings.lock().unwrap();
+            gst_info!(CAT, obj: element, "start: index_min_nanos={}, index_max_nanos={}", settings.index_min_nanos, settings.index_max_nanos);
+            if !(settings.index_min_nanos <= settings.index_max_nanos) {
+                return Err(gst::error_msg!(gst::ResourceError::Settings,
+                    ["{} must be <= {}", PROPERTY_NAME_INDEX_MIN_SEC, PROPERTY_NAME_INDEX_MAX_SEC]))
+            };
+            let scope_name: String = settings.scope.clone().ok_or_else(|| {
+                gst::error_msg!(gst::ResourceError::Settings, ["Scope is not defined"])
+            })?;
+            let stream_name = settings.stream.clone().ok_or_else(|| {
+                gst::error_msg!(gst::ResourceError::Settings, ["Stream is not defined"])
+            })?;
+            let index_stream_name = get_index_stream_name(&stream_name);
+            let scope = Scope::from(scope_name);
+            let stream = Stream::from(stream_name);
+            let index_stream = Stream::from(index_stream_name);
+            gst_info!(CAT, obj: element, "start: scope={}, stream={}, index_stream={}", scope, stream, index_stream);
+            gst_info!(CAT, obj: element, "start: timestamp_mode={:?}", settings.timestamp_mode);
 
-        let controller = settings.controller.clone().ok_or_else(|| {
-            gst::error_msg!(gst::ResourceError::Settings, ["Controller is not defined"])
-        })?;
-        gst_info!(CAT, obj: element, "controller={}", controller);
-        let keycloak_file = settings.keycloak_file.clone();
-        gst_info!(CAT, obj: element, "keycloak_file={:?}", keycloak_file);
-        let config = utils::create_client_config(controller, keycloak_file).map_err(|error| {
-            gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega client config: {}", error])
-        })?;
-        gst_debug!(CAT, obj: element, "config={:?}", config);
-        gst_info!(CAT, obj: element, "controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
-        gst_info!(CAT, obj: element, "is_tls_enabled={}", config.is_tls_enabled);
-        gst_info!(CAT, obj: element, "is_auth_enabled={}", config.is_auth_enabled);
+            let controller = settings.controller.clone().ok_or_else(|| {
+                gst::error_msg!(gst::ResourceError::Settings, ["Controller is not defined"])
+            })?;
+            gst_info!(CAT, obj: element, "start: controller={}", controller);
+            let keycloak_file = settings.keycloak_file.clone();
+            gst_info!(CAT, obj: element, "start: keycloak_file={:?}", keycloak_file);
+            let config = utils::create_client_config(controller, keycloak_file).map_err(|error| {
+                gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega client config: {}", error])
+            })?;
+            gst_debug!(CAT, obj: element, "start: config={:?}", config);
+            gst_info!(CAT, obj: element, "start: controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
+            gst_info!(CAT, obj: element, "start: is_tls_enabled={}", config.is_tls_enabled);
+            gst_info!(CAT, obj: element, "start: is_auth_enabled={}", config.is_auth_enabled);
 
-        let client_factory = ClientFactory::new(config);
-        let controller_client = client_factory.get_controller_client();
-        let runtime = client_factory.get_runtime();
+            let client_factory = ClientFactory::new(config);
+            let controller_client = client_factory.get_controller_client();
+            let runtime = client_factory.get_runtime();
 
-        // Create scope.
-        gst_info!(CAT, obj: element, "allow_create_scope={}", settings.allow_create_scope);
-        if settings.allow_create_scope {
-            runtime.block_on(controller_client.create_scope(&scope)).unwrap();
-        }
+            // Create scope.
+            gst_info!(CAT, obj: element, "start: allow_create_scope={}", settings.allow_create_scope);
+            if settings.allow_create_scope {
+                runtime.block_on(controller_client.create_scope(&scope)).map_err(|error| {
+                    gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega scope: {:?}", error])
+                })?;
+            }
 
-        // Create data stream.
-        let stream_config = StreamConfiguration {
-            scoped_stream: ScopedStream {
+            // Create data stream.
+            let stream_config = StreamConfiguration {
+                scoped_stream: ScopedStream {
+                    scope: scope.clone(),
+                    stream: stream.clone(),
+                },
+                scaling: Scaling {
+                    scale_type: ScaleType::FixedNumSegments,
+                    min_num_segments: 1,
+                    ..Default::default()
+                },
+                retention: Default::default(),
+            };
+            runtime.block_on(controller_client.create_stream(&stream_config)).map_err(|error| {
+                gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega data stream: {:?}", error])
+            })?;
+
+            // Create index stream.
+            let index_stream_config = StreamConfiguration {
+                scoped_stream: ScopedStream {
+                    scope: scope.clone(),
+                    stream: index_stream.clone(),
+                },
+                scaling: Scaling {
+                    scale_type: ScaleType::FixedNumSegments,
+                    min_num_segments: 1,
+                    ..Default::default()
+                },
+                retention: Default::default(),
+            };
+            runtime.block_on(controller_client.create_stream(&index_stream_config)).map_err(|error| {
+                gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega index stream: {:?}", error])
+            })?;
+
+            let scoped_segment = ScopedSegment {
                 scope: scope.clone(),
                 stream: stream.clone(),
-            },
-            scaling: Scaling {
-                scale_type: ScaleType::FixedNumSegments,
-                min_num_segments: 1,
-                ..Default::default()
-            },
-            retention: Default::default(),
-        };
-        runtime.block_on(controller_client.create_stream(&stream_config)).unwrap();
+                segment: Segment::from(0),
+            };
+            let mut writer = client_factory.create_byte_stream_writer(scoped_segment);
+            gst_info!(CAT, obj: element, "start: Opened Pravega writer for data");
+            writer.seek_to_tail();
 
-        // Create index stream.
-        let index_stream_config = StreamConfiguration {
-            scoped_stream: ScopedStream {
+            let index_scoped_segment = ScopedSegment {
                 scope: scope.clone(),
                 stream: index_stream.clone(),
-            },
-            scaling: Scaling {
-                scale_type: ScaleType::FixedNumSegments,
-                min_num_segments: 1,
-                ..Default::default()
-            },
-            retention: Default::default(),
-        };
-        runtime.block_on(controller_client.create_stream(&index_stream_config)).unwrap();
+                segment: Segment::from(0),
+            };
+            let mut index_writer = client_factory.create_byte_stream_writer(index_scoped_segment);
+            gst_info!(CAT, obj: element, "start: Opened Pravega writer for index");
+            index_writer.seek_to_tail();
 
-        let scoped_segment = ScopedSegment {
-            scope: scope.clone(),
-            stream: stream.clone(),
-            segment: Segment::from(0),
-        };
-        let mut writer = client_factory.create_byte_stream_writer(scoped_segment);
-        gst_info!(CAT, obj: element, "Opened Pravega writer for data");
-        writer.seek_to_tail();
+            let seekable_writer = SeekableByteStreamWriter::new(writer).unwrap();
+            gst_info!(CAT, obj: element, "start: Buffer size is {}", settings.buffer_size);
+            let buf_writer = BufWriter::with_capacity(settings.buffer_size, seekable_writer);
+            let counting_writer = CountingWriter::new(buf_writer).unwrap();
 
-        let index_scoped_segment = ScopedSegment {
-            scope: scope.clone(),
-            stream: index_stream.clone(),
-            segment: Segment::from(0),
-        };
-        let mut index_writer = client_factory.create_byte_stream_writer(index_scoped_segment);
-        gst_info!(CAT, obj: element, "Opened Pravega writer for index");
-        index_writer.seek_to_tail();
-
-        gst_info!(CAT, obj: element, "Buffer size is {}", settings.buffer_size);
-        let buf_writer = BufWriter::with_capacity(settings.buffer_size, writer);
-
-        *state = State::Started {
-            client_factory,
-            writer: buf_writer,
-            index_writer,
-            last_index_time: PravegaTimestamp::NONE,
-            final_timestamp: PravegaTimestamp::NONE,
-            final_offset: None,
-        };
-        gst_info!(CAT, obj: element, "Started");
-        Ok(())
+            *state = State::Started {
+                client_factory,
+                writer: counting_writer,
+                index_writer,
+                last_index_time: PravegaTimestamp::NONE,
+                final_timestamp: PravegaTimestamp::NONE,
+                final_offset: None,
+            };
+            gst_info!(CAT, obj: element, "start: Started");
+            Ok(())
+        })();
+        gst_debug!(CAT, obj: element, "start: END; result={:?}", result);
+        result
     }
 
     fn render(
@@ -555,252 +578,273 @@ impl BaseSinkImpl for PravegaSink {
         buffer: &gst::Buffer,
     ) -> Result<gst::FlowSuccess, gst::FlowError> {
 
-        gst_trace!(CAT, obj: element, "render: Rendering {:?}", buffer);
-
-        let mut state = self.state.lock().unwrap();
-        let (writer,
-            index_writer,
-            last_index_time,
-            final_timestamp,
-            final_offset) = match *state {
-            State::Started {
-                ref mut writer,
-                ref mut index_writer,
-                ref mut last_index_time,
-                ref mut final_timestamp,
-                ref mut final_offset,
-                ..
-            } => (writer,
+        gst_trace!(CAT, obj: element, "render: BEGIN: Rendering {:?}", buffer);
+        let result = (|| {
+            let mut state = self.state.lock().unwrap();
+            let (writer,
                 index_writer,
                 last_index_time,
                 final_timestamp,
-                final_offset),
-            State::Stopped => {
-                gst::element_error!(element, gst::CoreError::Failed, ["Not started yet"]);
-                return Err(gst::FlowError::Error);
-            }
-        };
-
-        let pts = buffer.get_pts();
-        let duration = buffer.get_duration();
-
-        let map = buffer.map_readable().map_err(|_| {
-            gst::element_error!(element, gst::CoreError::Failed, ["Failed to map buffer"]);
-            gst::FlowError::Error
-        })?;
-        let payload = map.as_ref();
-
-        let (timestamp_mode, index_min_nanos, index_max_nanos) = {
-            let settings = self.settings.lock().unwrap();
-            (settings.timestamp_mode, settings.index_min_nanos, settings.index_max_nanos)
-        };
-
-        let timestamp = match timestamp_mode {
-            TimestampMode::RealtimeClock => {
-                // pts is time between beginning of play and beginning of this buffer.
-                // base_time is the value of the pipeline clock (time since Unix epoch) at the beginning of play.
-                PravegaTimestamp::from_unix_nanoseconds((element.get_base_time() + pts).nseconds())
-            },
-            TimestampMode::Ntp => {
-                // When receiving from rtspsrc (ntp-sync=true ntp-time-source=running-time),
-                // pts will be the number of nanoseconds since the NTP epoch 1900-01-01 00:00:00 UTC
-                // of when the video frame was observed by the camera.
-                // Note: base_time is the value of the pipeline clock at the beginning of play. It is ignored.
-                PravegaTimestamp::from_ntp_nanoseconds(pts.nseconds())
-            },
-        };
-
-        gst_log!(CAT, obj: element, "render: timestamp={}, pts={}, base_time={}, duration={}, size={}",
-            timestamp, pts, element.get_base_time(), buffer.get_duration(), buffer.get_size());
-
-        // We only want to include key frames (non-delta units) in the index.
-        // However, if no key frame has been received in a while, force an index record.
-        // This is required for nvv4l2h264enc because it identifies all buffers as DELTA_UNIT.
-        let buffer_flags = buffer.get_flags();
-        let is_delta_unit = buffer_flags.contains(gst::BufferFlags::DELTA_UNIT);
-        let random_access = !is_delta_unit;
-        let include_in_index = match timestamp.nanoseconds() {
-            Some(timestamp) => {
-                match last_index_time.nanoseconds() {
-                    Some(last_index_time) => {
-                        let interval_sec = u64_to_i64_saturating_sub(timestamp, last_index_time) as f64 * 1e-9;
-                        if is_delta_unit {
-                            if timestamp > last_index_time + index_max_nanos {
-                                gst_fixme!(CAT, obj: element,
-                                    "Forcing index record at delta unit because no key frame has been received for {} sec", interval_sec);
-                                true
-                            } else {
-                                false
-                            }
-                        } else {
-                            // We are at a key frame.
-                            if timestamp < last_index_time + index_min_nanos {
-                                gst_debug!(CAT, obj: element,
-                                    "Skipping creation of index record because an index record was created {} sec ago", interval_sec);
-                                false
-                            } else {
-                                gst_debug!(CAT, obj: element,
-                                    "Creating index record at key frame; last index record was created {} sec ago", interval_sec);
-                                true
-                            }
-                        }
-                    },
-                    None => {
-                        // An index record has not been written by this element yet.
-                        true
-                    },
+                final_offset) = match *state {
+                State::Started {
+                    ref mut writer,
+                    ref mut index_writer,
+                    ref mut last_index_time,
+                    ref mut final_timestamp,
+                    ref mut final_offset,
+                    ..
+                } => (writer,
+                    index_writer,
+                    last_index_time,
+                    final_timestamp,
+                    final_offset),
+                State::Stopped => {
+                    gst::element_error!(element, gst::CoreError::Failed, ["Not started yet"]);
+                    return Err(gst::FlowError::Error);
                 }
-            },
-            None => {
-                // Buffer has an invalid timestamp.
-                false
-            },
-        };
+            };
 
-        // Per the index constraints defined in index.rs, if we are writing an index record now,
-        // we must flush any data writes prior to this buffer, so that reads do not block waiting on this writer.
-        let flush = include_in_index;
-        if flush {
-            writer.flush().map_err(|error| {
-                gst::element_error!(element, gst::CoreError::Failed, ["Failed to flush Pravega data stream: {}", error]);
+            let pts = buffer.get_pts();
+            let duration = buffer.get_duration();
+
+            let map = buffer.map_readable().map_err(|_| {
+                gst::element_error!(element, gst::CoreError::Failed, ["Failed to map buffer"]);
                 gst::FlowError::Error
             })?;
-        }
+            let payload = map.as_ref();
 
-        // If we are writing an index record now, get the current offset.
-        // This offset will be used in the index.
-        // Since we are using a BufWriter, it is critical that it has been flushed prior to this.
-        let stream_position0 = if include_in_index {
-            assert!(flush);
-            Some(writer.get_mut().current_write_offset() as u64)
-        } else {
-            None
-        };
+            let (timestamp_mode, index_min_nanos, index_max_nanos) = {
+                let settings = self.settings.lock().unwrap();
+                (settings.timestamp_mode, settings.index_min_nanos, settings.index_max_nanos)
+            };
 
-        // Record a discontinuity if upstream has indicated one or if this will be
-        // the first index record emitted from this instance.
-        let discontinuity = buffer_flags.contains(gst::BufferFlags::DISCONT)
-            || buffer_flags.contains(gst::BufferFlags::RESYNC)
-            || (include_in_index && last_index_time.nanoseconds().is_none());
+            let timestamp = match timestamp_mode {
+                TimestampMode::RealtimeClock => {
+                    // pts is time between beginning of play and beginning of this buffer.
+                    // base_time is the value of the pipeline clock (time since Unix epoch) at the beginning of play.
+                    PravegaTimestamp::from_unix_nanoseconds((element.get_base_time() + pts).nseconds())
+                },
+                TimestampMode::Ntp => {
+                    // When receiving from rtspsrc (ntp-sync=true ntp-time-source=running-time),
+                    // pts will be the number of nanoseconds since the NTP epoch 1900-01-01 00:00:00 UTC
+                    // of when the video frame was observed by the camera.
+                    // Note: base_time is the value of the pipeline clock at the beginning of play. It is ignored.
+                    PravegaTimestamp::from_ntp_nanoseconds(pts.nseconds())
+                },
+                TimestampMode::Tai => {
+                    PravegaTimestamp::from_nanoseconds(pts.nseconds())
+                }
+            };
 
-        // Write index record.
-        // We write the index record before the buffer so that any readers blocked on reading the
-        // index will unblock as soon as possible.
-        if include_in_index {
-            let index_record = IndexRecord::new(timestamp, stream_position0.unwrap(),
-                random_access, discontinuity);
-            let mut index_record_writer = IndexRecordWriter::new();
-            index_record_writer.write(&index_record, index_writer).map_err(|err| {
+            // Get the writer offset before writing. This offset will be used in the index.
+            let writer_offset = writer.seek(SeekFrom::Current(0)).unwrap();
+
+            gst_log!(CAT, obj: element, "render: timestamp={:?}, pts={}, base_time={}, duration={}, size={}, writer_offset={}",
+                timestamp, pts, element.get_base_time(), buffer.get_duration(), buffer.get_size(), writer_offset);
+
+            // We only want to include key frames (non-delta units) in the index.
+            // However, if no key frame has been received in a while, force an index record.
+            // This is required for nvv4l2h264enc because it identifies all buffers as DELTA_UNIT.
+            let buffer_flags = buffer.get_flags();
+            let is_delta_unit = buffer_flags.contains(gst::BufferFlags::DELTA_UNIT);
+            let random_access = !is_delta_unit;
+            let include_in_index = match timestamp.nanoseconds() {
+                Some(timestamp) => {
+                    match last_index_time.nanoseconds() {
+                        Some(last_index_time) => {
+                            let interval_sec = u64_to_i64_saturating_sub(timestamp, last_index_time) as f64 * 1e-9;
+                            if is_delta_unit {
+                                if timestamp > last_index_time + index_max_nanos {
+                                    gst_fixme!(CAT, obj: element,
+                                        "render: Forcing index record at delta unit because no key frame has been received for {} sec", interval_sec);
+                                    true
+                                } else {
+                                    false
+                                }
+                            } else {
+                                // We are at a key frame.
+                                if timestamp < last_index_time + index_min_nanos {
+                                    gst_debug!(CAT, obj: element,
+                                        "render: Skipping creation of index record because an index record was created {} sec ago", interval_sec);
+                                    false
+                                } else {
+                                    gst_debug!(CAT, obj: element,
+                                        "render: Creating index record at key frame; last index record was created {} sec ago", interval_sec);
+                                    true
+                                }
+                            }
+                        },
+                        None => {
+                            // An index record has not been written by this element yet.
+                            true
+                        },
+                    }
+                },
+                None => {
+                    // Buffer has an invalid timestamp.
+                    false
+                },
+            };
+
+            // Per the index constraints defined in index.rs, if we are writing an index record now,
+            // we must flush any data writes prior to this buffer, so that reads do not block waiting on this writer.
+            let flush = include_in_index;
+            if flush {
+                writer.flush().map_err(|error| {
+                    gst::element_error!(element, gst::CoreError::Failed, ["Failed to flush Pravega data stream: {}", error]);
+                    gst::FlowError::Error
+                })?;
+            }
+
+            // Record a discontinuity if upstream has indicated one or if this will be
+            // the first index record emitted from this instance.
+            let discontinuity = buffer_flags.contains(gst::BufferFlags::DISCONT)
+                || buffer_flags.contains(gst::BufferFlags::RESYNC)
+                || (include_in_index && last_index_time.nanoseconds().is_none());
+
+            // Write index record.
+            // We write the index record before the buffer so that any readers blocked on reading the
+            // index will unblock as soon as possible.
+            if include_in_index {
+                let index_record = IndexRecord::new(timestamp, writer_offset,
+                    random_access, discontinuity);
+                let mut index_record_writer = IndexRecordWriter::new();
+                index_record_writer.write(&index_record, index_writer).map_err(|err| {
+                    gst::element_error!(
+                        element,
+                        gst::ResourceError::Write,
+                        ["Failed to write index: {}", err]
+                    );
+                    gst::FlowError::Error
+                })?;
+                gst_debug!(CAT, obj: element, "render: Wrote index record {:?}", index_record);
+                *last_index_time = timestamp;
+            }
+
+            // Write buffer to Pravega byte stream.
+            let event = EventWithHeader::new(payload, timestamp,
+                include_in_index, random_access, discontinuity);
+            gst_memdump!(CAT, obj: element, "render: writing event={:?}", event);
+            let mut event_writer = EventWriter::new();
+            event_writer.write(&event, writer).map_err(|err| {
                 gst::element_error!(
                     element,
                     gst::ResourceError::Write,
-                    ["Failed to write index: {}", err]
+                    ["Failed to write buffer: {}", err]
                 );
                 gst::FlowError::Error
             })?;
-            gst_debug!(CAT, obj: element, "Wrote index record {:?}", index_record);
-            *last_index_time = timestamp;
-        }
 
-        // Write buffer to Pravega byte stream.
-        let event = EventWithHeader::new(payload, timestamp,
-            include_in_index, random_access, discontinuity);
-        let mut event_writer = EventWriter::new();
-        event_writer.write(&event, writer).map_err(|err| {
-            gst::element_error!(
-                element,
-                gst::ResourceError::Write,
-                ["Failed to write buffer: {}", err]
-            );
-            gst::FlowError::Error
-        })?;
+            // Get the writer offset after writing.
+            let writer_offset_end = writer.seek(SeekFrom::Current(0)).unwrap();
+            gst_trace!(CAT, obj: element, "render: wrote {} bytes from offset {} to {}",
+                writer_offset_end - writer_offset, writer_offset, writer_offset_end);
 
-        // Flush after writing if the buffer contains the SYNC_AFTER flag. This is normally not used.
-        let sync_after = buffer_flags.contains(gst::BufferFlags::SYNC_AFTER);
-        if sync_after {
-            writer.flush().map_err(|error| {
-                gst::element_error!(element, gst::CoreError::Failed, ["Failed to flush Pravega data stream: {}", error]);
-                gst::FlowError::Error
-            })?;
-            index_writer.flush().map_err(|error| {
-                gst::element_error!(element, gst::CoreError::Failed, ["Failed to flush Pravega index stream: {}", error]);
-                gst::FlowError::Error
-            })?;
-            gst_debug!(CAT, obj: element, "Streams flushed because SYNC_AFTER flag was set");
-        }
+            // Flush after writing if the buffer contains the SYNC_AFTER flag. This is normally not used.
+            let sync_after = buffer_flags.contains(gst::BufferFlags::SYNC_AFTER);
+            if sync_after {
+                writer.flush().map_err(|error| {
+                    gst::element_error!(element, gst::CoreError::Failed, ["Failed to flush Pravega data stream: {}", error]);
+                    gst::FlowError::Error
+                })?;
+                index_writer.flush().map_err(|error| {
+                    gst::element_error!(element, gst::CoreError::Failed, ["Failed to flush Pravega index stream: {}", error]);
+                    gst::FlowError::Error
+                })?;
+                gst_debug!(CAT, obj: element, "render: Streams flushed because SYNC_AFTER flag was set");
+            }
 
-        // Maintain values that may be written to the index on end-of-stream.
-        // Per the index constraints defined in index.rs, the timestamp in the index record must
-        // be strictly greater than the timestamp in the data stream.
-        // If duration of the buffer is reported as 0, we record it as if it had a 1 nanosecond duration.
-        let duration = cmp::max(1, duration.nanoseconds().unwrap_or_default());
-        // we must flush any data writes prior to this buffer, so that reads do not block waiting on this writer.
-        *final_timestamp = PravegaTimestamp::from_nanoseconds(
-            timestamp.nanoseconds().map(|t| t + duration));
-        *final_offset = Some(writer.get_mut().current_write_offset() as u64);
+            // Maintain values that may be written to the index on end-of-stream.
+            // Per the index constraints defined in index.rs, the timestamp in the index record must
+            // be strictly greater than the timestamp in the data stream.
+            if timestamp.is_some() {
+                // If duration of the buffer is reported as 0, we record it as if it had a 1 nanosecond duration.
+                let duration = cmp::max(1, duration.nanoseconds().unwrap_or_default());
+                // we must flush any data writes prior to this buffer, so that reads do not block waiting on this writer.
+                *final_timestamp = PravegaTimestamp::from_nanoseconds(
+                    timestamp.nanoseconds().map(|t| t + duration));
+            }
+            *final_offset = Some(writer_offset_end);
 
-        gst_trace!(CAT, obj: element, "render: END");
-        Ok(gst::FlowSuccess::Ok)
+            Ok(gst::FlowSuccess::Ok)
+        })();
+        gst_trace!(CAT, obj: element, "render: END: result={:?}", result);
+        result
     }
 
     fn stop(&self, element: &Self::Type) -> Result<(), gst::ErrorMessage> {
-        gst_info!(CAT, obj: element, "Stopping");
-        let seal = {
-            let settings = self.settings.lock().unwrap();
-            settings.seal
-        };
+        gst_info!(CAT, obj: element, "stop: BEGIN");
+        let result = (|| {
+            let seal = {
+                let settings = self.settings.lock().unwrap();
+                settings.seal
+            };
 
-        let mut state = self.state.lock().unwrap();
-        let (writer,
-            index_writer,
-            client_factory,
-            final_timestamp,
-            final_offset) = match *state {
-            State::Started {
-                ref mut writer,
-                ref mut index_writer,
-                ref mut client_factory,
-                ref mut final_timestamp,
-                ref mut final_offset,
-                ..
-            } => (writer,
+            let mut state = self.state.lock().unwrap();
+            let (writer,
                 index_writer,
                 client_factory,
                 final_timestamp,
-                final_offset),
-            State::Stopped => {
-                return Err(gst::error_msg!(
-                    gst::ResourceError::Settings,
-                    ["PravegaSink not started"]
-                ));
+                final_offset) = match *state {
+                State::Started {
+                    ref mut writer,
+                    ref mut index_writer,
+                    ref mut client_factory,
+                    ref mut final_timestamp,
+                    ref mut final_offset,
+                    ..
+                } => (writer,
+                    index_writer,
+                    client_factory,
+                    final_timestamp,
+                    final_offset),
+                State::Stopped => {
+                    return Err(gst::error_msg!(
+                        gst::ResourceError::Settings,
+                        ["PravegaSink not started"]
+                    ));
+                }
+            };
+
+            writer.flush().map_err(|error| {
+                gst::error_msg!(gst::ResourceError::Write, ["Failed to flush Pravega data stream: {}", error])
+            })?;
+
+            // Write final index record.
+            // The timestamp will be the the buffer timestamp + duration of the final buffer.
+            // The offset will be current write position.
+            if let Some(final_offset) = *final_offset {
+                if final_timestamp.is_some() {
+                    let index_record = IndexRecord::new(*final_timestamp, final_offset,
+                        false, false);
+                    let mut index_record_writer = IndexRecordWriter::new();
+                    index_record_writer.write(&index_record, index_writer).map_err(|error| {
+                        gst::error_msg!(gst::ResourceError::Write, ["Failed to write Pravega index stream: {}", error])
+                    })?;
+                    gst_info!(CAT, obj: element, "stop: Wrote final index record {:?}", index_record);
+                }
             }
-        };
 
-        writer.flush().unwrap();
+            index_writer.flush().map_err(|error| {
+                gst::error_msg!(gst::ResourceError::Write, ["Failed to flush Pravega index stream: {}", error])
+            })?;
 
-        // Write final index record.
-        // The timestamp will be the the buffer timestamp + duration of the final buffer.
-        // The offset will be current write position.
-        if let Some(final_offset) = *final_offset {
-            let index_record = IndexRecord::new(*final_timestamp, final_offset,
-                false, false);
-            let mut index_record_writer = IndexRecordWriter::new();
-            index_record_writer.write(&index_record, index_writer).unwrap();
-            gst_info!(CAT, obj: element, "Wrote final index record {:?}", index_record);
-        }
+            if seal {
+                gst_info!(CAT, obj: element, "stop: Sealing streams");
+                let writer = writer.get_mut().get_mut().get_mut();
+                client_factory.get_runtime().block_on(writer.seal()).map_err(|error| {
+                    gst::error_msg!(gst::ResourceError::Write, ["Failed to seal Pravega data stream: {}", error])
+                })?;
+                client_factory.get_runtime().block_on(index_writer.seal()).map_err(|error| {
+                    gst::error_msg!(gst::ResourceError::Write, ["Failed to seal Pravega index stream: {}", error])
+                })?;
+                gst_info!(CAT, obj: element, "stop: Streams sealed");
+            }
 
-        index_writer.flush().unwrap();
-
-        if seal {
-            gst_info!(CAT, obj: element, "Sealing streams");
-            let writer = writer.get_mut();
-            client_factory.get_runtime().block_on(writer.seal()).unwrap();
-            client_factory.get_runtime().block_on(index_writer.seal()).unwrap();
-            gst_info!(CAT, obj: element, "Streams sealed");
-        }
-
-        *state = State::Stopped;
-        gst_info!(CAT, obj: element, "Stopped");
-        Ok(())
+            *state = State::Stopped;
+            Ok(())
+        })();
+        gst_info!(CAT, obj: element, "stop: END: result={:?}", result);
+        result
     }
 }

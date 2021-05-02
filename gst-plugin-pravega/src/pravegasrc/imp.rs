@@ -8,13 +8,15 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-// A source that reads GStreamer buffers along with timestamps, as written by pravegasink.
+// A source that reads GStreamer buffers from a Pravega stream, as written by pravegasink.
+// Based on:
+//   - https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs/-/tree/master/generic/file/src/filesrc
 
 use glib::subclass::prelude::*;
 use gst::ClockTime;
 use gst::prelude::*;
 use gst::subclass::prelude::*;
-use gst::{gst_debug, gst_error, gst_info, gst_log, gst_trace};
+use gst::{gst_debug, gst_error, gst_info, gst_log, gst_trace, gst_memdump};
 use gst_base::prelude::*;
 use gst_base::subclass::prelude::*;
 
@@ -32,6 +34,7 @@ use pravega_video::event_serde::EventReader;
 use pravega_video::index::{IndexSearcher, get_index_stream_name};
 use pravega_video::timestamp::PravegaTimestamp;
 use pravega_video::utils;
+use crate::counting_reader::CountingReader;
 use crate::seekable_take::SeekableTake;
 
 const PROPERTY_NAME_STREAM: &str = "stream";
@@ -150,7 +153,7 @@ impl Default for Settings {
 enum State {
     Stopped,
     Started {
-        reader: Arc<Mutex<BufReader<SeekableTake<ByteStreamReader>>>>,
+        reader: Arc<Mutex<CountingReader<BufReader<SeekableTake<ByteStreamReader>>>>>,
         index_searcher: Arc<Mutex<IndexSearcher<ByteStreamReader>>>,
     },
 }
@@ -539,370 +542,416 @@ impl ElementImpl for PravegaSrc {
 
 impl BaseSrcImpl for PravegaSrc {
     fn start(&self, element: &Self::Type) -> Result<(), gst::ErrorMessage> {
-        let mut state = self.state.lock().unwrap();
-        if let State::Started { .. } = *state {
-            unreachable!("PravegaSrc already started");
-        }
+        gst_debug!(CAT, obj: element, "start: BEGIN");
+        let result = (|| {
+            let mut state = self.state.lock().unwrap();
+            if let State::Started { .. } = *state {
+                unreachable!("PravegaSrc already started");
+            }
 
-        let settings = self.settings.lock().unwrap();
-        let scope_name: String = settings.scope.clone().ok_or_else(|| {
-            gst::error_msg!(gst::ResourceError::Settings, ["Scope is not defined"])
-        })?;
-        let stream_name = settings.stream.clone().ok_or_else(|| {
-            gst::error_msg!(gst::ResourceError::Settings, ["Stream is not defined"])
-        })?;
-        let index_stream_name = get_index_stream_name(&stream_name);
-        let scope = Scope::from(scope_name);
-        let stream = Stream::from(stream_name);
-        let index_stream = Stream::from(index_stream_name);
-        gst_info!(CAT, obj: element, "scope={}, stream={}, index_stream={}", scope, stream, index_stream);
-        gst_info!(CAT, obj: element, "start_mode={:?}, end_mode={:?}", settings.start_mode, settings.end_mode);
+            let settings = self.settings.lock().unwrap();
+            let scope_name: String = settings.scope.clone().ok_or_else(|| {
+                gst::error_msg!(gst::ResourceError::Settings, ["Scope is not defined"])
+            })?;
+            let stream_name = settings.stream.clone().ok_or_else(|| {
+                gst::error_msg!(gst::ResourceError::Settings, ["Stream is not defined"])
+            })?;
+            let index_stream_name = get_index_stream_name(&stream_name);
+            let scope = Scope::from(scope_name);
+            let stream = Stream::from(stream_name);
+            let index_stream = Stream::from(index_stream_name);
+            gst_info!(CAT, obj: element, "start: scope={}, stream={}, index_stream={}", scope, stream, index_stream);
+            gst_info!(CAT, obj: element, "start: start_mode={:?}, end_mode={:?}", settings.start_mode, settings.end_mode);
 
-        let controller = settings.controller.clone().ok_or_else(|| {
-            gst::error_msg!(gst::ResourceError::Settings, ["Controller is not defined"])
-        })?;
-        gst_info!(CAT, obj: element, "controller={}", controller);
-        let keycloak_file = settings.keycloak_file.clone();
-        gst_info!(CAT, obj: element, "keycloak_file={:?}", keycloak_file);
-        let config = utils::create_client_config(controller, keycloak_file).map_err(|error| {
-            gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega client config: {}", error])
-        })?;
-        gst_debug!(CAT, obj: element, "config={:?}", config);
-        gst_info!(CAT, obj: element, "controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
-        gst_info!(CAT, obj: element, "is_tls_enabled={}", config.is_tls_enabled);
-        gst_info!(CAT, obj: element, "is_auth_enabled={}", config.is_auth_enabled);
+            let controller = settings.controller.clone().ok_or_else(|| {
+                gst::error_msg!(gst::ResourceError::Settings, ["Controller is not defined"])
+            })?;
+            gst_info!(CAT, obj: element, "start: controller={}", controller);
+            let keycloak_file = settings.keycloak_file.clone();
+            gst_info!(CAT, obj: element, "start: keycloak_file={:?}", keycloak_file);
+            let config = utils::create_client_config(controller, keycloak_file).map_err(|error| {
+                gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega client config: {}", error])
+            })?;
+            gst_debug!(CAT, obj: element, "start: config={:?}", config);
+            gst_info!(CAT, obj: element, "start: controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
+            gst_info!(CAT, obj: element, "start: is_tls_enabled={}", config.is_tls_enabled);
+            gst_info!(CAT, obj: element, "start: is_auth_enabled={}", config.is_auth_enabled);
 
-        let client_factory = ClientFactory::new(config);
-        let controller_client = client_factory.get_controller_client();
-        let runtime = client_factory.get_runtime();
+            let client_factory = ClientFactory::new(config);
+            let controller_client = client_factory.get_controller_client();
+            let runtime = client_factory.get_runtime();
 
-        // Create scope.
-        gst_info!(CAT, obj: element, "allow_create_scope={}", settings.allow_create_scope);
-        if settings.allow_create_scope {
-            runtime.block_on(controller_client.create_scope(&scope)).unwrap();
-        }
+            // Create scope.
+            gst_info!(CAT, obj: element, "start: allow_create_scope={}", settings.allow_create_scope);
+            if settings.allow_create_scope {
+                runtime.block_on(controller_client.create_scope(&scope)).map_err(|error| {
+                    gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega scope: {:?}", error])
+                })?;
+            }
 
-        // Create data stream.
-        let stream_config = StreamConfiguration {
-            scoped_stream: ScopedStream {
+            // Create data stream.
+            let stream_config = StreamConfiguration {
+                scoped_stream: ScopedStream {
+                    scope: scope.clone(),
+                    stream: stream.clone(),
+                },
+                scaling: Scaling {
+                    scale_type: ScaleType::FixedNumSegments,
+                    min_num_segments: 1,
+                    ..Default::default()
+                },
+                retention: Default::default(),
+            };
+            runtime.block_on(controller_client.create_stream(&stream_config)).map_err(|error| {
+                gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega data stream: {:?}", error])
+            })?;
+
+            // Create index stream.
+            let index_stream_config = StreamConfiguration {
+                scoped_stream: ScopedStream {
+                    scope: scope.clone(),
+                    stream: index_stream.clone(),
+                },
+                scaling: Scaling {
+                    scale_type: ScaleType::FixedNumSegments,
+                    min_num_segments: 1,
+                    ..Default::default()
+                },
+                retention: Default::default(),
+            };
+            runtime.block_on(controller_client.create_stream(&index_stream_config)).map_err(|error| {
+                gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega index stream: {:?}", error])
+            })?;
+
+            let scoped_segment = ScopedSegment {
                 scope: scope.clone(),
                 stream: stream.clone(),
-            },
-            scaling: Scaling {
-                scale_type: ScaleType::FixedNumSegments,
-                min_num_segments: 1,
-                ..Default::default()
-            },
-            retention: Default::default(),
-        };
-        runtime.block_on(controller_client.create_stream(&stream_config)).unwrap();
+                segment: Segment::from(0),
+            };
+            let mut reader = client_factory.create_byte_stream_reader(scoped_segment);
+            gst_info!(CAT, obj: element, "start: Opened Pravega reader for data");
 
-        // Create index stream.
-        let index_stream_config = StreamConfiguration {
-            scoped_stream: ScopedStream {
+            let index_scoped_segment = ScopedSegment {
                 scope: scope.clone(),
                 stream: index_stream.clone(),
-            },
-            scaling: Scaling {
-                scale_type: ScaleType::FixedNumSegments,
-                min_num_segments: 1,
-                ..Default::default()
-            },
-            retention: Default::default(),
-        };
-        runtime.block_on(controller_client.create_stream(&index_stream_config)).unwrap();
+                segment: Segment::from(0),
+            };
+            let index_reader = client_factory.create_byte_stream_reader(index_scoped_segment);
+            gst_info!(CAT, obj: element, "start: Opened Pravega reader for index");
 
-        let scoped_segment = ScopedSegment {
-            scope: scope.clone(),
-            stream: stream.clone(),
-            segment: Segment::from(0),
-        };
-        let mut reader = client_factory.create_byte_stream_reader(scoped_segment);
-        gst_info!(CAT, obj: element, "Opened Pravega reader");
+            let mut index_searcher = IndexSearcher::new(index_reader);
 
-        let index_scoped_segment = ScopedSegment {
-            scope: scope.clone(),
-            stream: index_stream.clone(),
-            segment: Segment::from(0),
-        };
-        let index_reader = client_factory.create_byte_stream_reader(index_scoped_segment);
-        gst_info!(CAT, obj: element, "Opened Pravega reader for index");
+            // TODO: Run below based on CAT threshold.
+            // gst_debug!(CAT, obj: element, "index_records={:?}", index_searcher.get_index_records());
 
-        let mut index_searcher = IndexSearcher::new(index_reader);
+            // end_offset is the byte offset in the data stream.
+            // The data stream reader will be configured to never read beyond this offset.
+            let end_offset = match settings.end_mode {
+                EndMode::Unbounded => u64::MAX,
+                EndMode::Latest => {
+                    // When ending at Latest, we will emit up through the very last byte currently in the data stream.
+                    reader.seek(SeekFrom::End(0)).unwrap()
+                },
+                EndMode::LatestIndexed => {
+                    // Determine Pravega stream offset for this timestamp by searching the index.
+                    let index_record = index_searcher.get_last_record().unwrap();
+                    gst_info!(CAT, obj: element, "start: end index_record={:?}", index_record);
+                    index_record.offset
+                },
+                EndMode::Timestamp => {
+                    let end_timestamp = PravegaTimestamp::from_nanoseconds(Some(settings.end_timestamp));
+                    // Determine Pravega stream offset for this timestamp by searching the index.
+                    let index_record = index_searcher.search_timestamp_after(end_timestamp).unwrap();
+                    gst_info!(CAT, obj: element, "start: end index_record={:?}", index_record);
+                    index_record.offset
+                },
+            };
+            gst_info!(CAT, obj: element, "start: end_offset={}", end_offset);
 
-        let start_timestamp = match settings.start_mode {
-            StartMode::NoSeek => PravegaTimestamp::NONE,
-            StartMode::Earliest => {
-                // When start at Earliest, the index will be used to find to the first random-access point.
-                PravegaTimestamp::MIN
-            },
-            StartMode::Latest => {
-                // When starting at Latest, the index will be used to find the last random-access point.
-                PravegaTimestamp::MAX
-            },
-            StartMode::Timestamp => {
-                // The index will be used to find a last random-access point before or on the specified timestamp.
-                PravegaTimestamp::from_nanoseconds(Some(settings.start_timestamp))
-            },
-        };
-        gst_info!(CAT, obj: element, "start_timestamp={}", start_timestamp);
+            let limited_reader = SeekableTake::new(reader, end_offset).unwrap();
+            let buf_reader = BufReader::with_capacity(settings.buffer_size, limited_reader);
+            let counting_reader = CountingReader::new(buf_reader).unwrap();
 
-        // end_offset is the byte offset in the data stream.
-        // The data stream reader will be configured to never read beyond this offset.
-        let end_offset = match settings.end_mode {
-            EndMode::Unbounded => u64::MAX,
-            EndMode::Latest => {
-                // When ending at Latest, we will emit up through the very last byte currently in the data stream.
-                reader.seek(SeekFrom::End(0)).unwrap()
-            },
-            EndMode::LatestIndexed => {
-                // Determine Pravega stream offset for this timestamp by searching the index.
-                let index_record = index_searcher.get_last_record().unwrap();
-                gst_info!(CAT, obj: element, "end index_record={:?}", index_record);
-                index_record.offset
-            },
-            EndMode::Timestamp => {
-                let end_timestamp = PravegaTimestamp::from_nanoseconds(Some(settings.end_timestamp));
-                // Determine Pravega stream offset for this timestamp by searching the index.
-                let index_record = index_searcher.search_timestamp_after(end_timestamp).unwrap();
-                gst_info!(CAT, obj: element, "end index_record={:?}", index_record);
-                index_record.offset
-            },
-        };
-        gst_info!(CAT, obj: element, "end_offset={}", end_offset);
-
-        let limited_reader = SeekableTake::new(reader, end_offset).unwrap();
-        let buf_reader = BufReader::with_capacity(settings.buffer_size, limited_reader);
-
-        *state = State::Started {
-            reader: Arc::new(Mutex::new(buf_reader)),
-            index_searcher: Arc::new(Mutex::new(index_searcher)),
-        };
-        // We must unlock the state so that seek does not deadlock.
-        drop(state);
-        gst_info!(CAT, obj: element, "Started");
-
-        if let Some(seek_pos) = start_timestamp.nanoseconds() {
-            element.seek_simple(
-                gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT,
-                seek_pos * gst::NSECOND,
-            ).unwrap();
-        }
-
-        Ok(())
+            *state = State::Started {
+                reader: Arc::new(Mutex::new(counting_reader)),
+                index_searcher: Arc::new(Mutex::new(index_searcher)),
+            };
+            gst_info!(CAT, obj: element, "start: Started");
+            Ok(())
+        })();
+        gst_debug!(CAT, obj: element, "start: END: result={:?}", result);
+        result
     }
 
     fn is_seekable(&self, _src: &Self::Type) -> bool {
         true
     }
 
-    // This method is called in the following scenarios:
-    // 1) It is first called right after we initialize the Pravega reader.
-    //    The input segment time will be 0.
-    //    This method will read the first index record.
-    // 2) It will be called when an GStreamer application performs a seek using GstElement.seek_simple().
-    //    The input segment time will be the number of nanoseconds since 1970-01-01 0:00:00 TAI.
-    //    This method will find the last index record before or equal to the desired time.
-    // In either case, the Pravega reader offset and the segment time will be set using
-    // the values from the located index record.
+    /// This method is called in the following scenarios:
+    /// 1) initial_seek=true: It is first called right after start() returns.
+    ///    The input segment time will be 0.
+    ///    This method should seek according to the start-mode parameter.
+    /// 2) initial_seek=false: It will be called when an GStreamer application performs a seek using GstElement.seek_simple().
+    ///    The input segment time will be the number of nanoseconds since 1970-01-01 0:00:00 TAI.
+    ///    This method will find the last index record before or equal to the desired time.
+    /// Unless start-mode=no-seek, the Pravega reader offset and the segment time will be set using
+    /// the values from the located index record.
     fn do_seek(&self, src: &Self::Type, segment: &mut gst::Segment) -> bool {
         gst_info!(CAT, obj: src, "do_seek: BEGIN: segment={:?}", segment);
+        let result = (|| {
+            // Get needed settings, then release lock.
+            let (start_timestamp, start_pts_at_zero) = {
+                let settings = self.settings.lock().unwrap();
+                let start_timestamp = match settings.start_mode {
+                    StartMode::NoSeek => PravegaTimestamp::NONE,
+                    StartMode::Earliest => {
+                        // When starting at Earliest, the index will be used to find to the first random-access point.
+                        PravegaTimestamp::MIN
+                    },
+                    StartMode::Latest => {
+                        // When starting at Latest, the index will be used to find the last random-access point.
+                        PravegaTimestamp::MAX
+                    },
+                    StartMode::Timestamp => {
+                        // The index will be used to find a last random-access point before or on the specified timestamp.
+                        PravegaTimestamp::from_nanoseconds(Some(settings.start_timestamp))
+                    },
+                };
+                (start_timestamp, settings.start_pts_at_zero)
+            };
 
-        let start_pts_at_zero = {
-            let settings = self.settings.lock().unwrap();
-            settings.start_pts_at_zero
-        };
+            let mut state = self.state.lock().unwrap();
 
-        let mut state = self.state.lock().unwrap();
-
-        let (reader, index_searcher) = match *state {
-            State::Started {
-                ref mut reader,
-                ref mut index_searcher,
-                ..
-            } => (reader, index_searcher),
-            State::Stopped => {
-                panic!("Not started yet");
-            }
-        };
-
-        let reader = reader.clone();
-        let index_searcher = index_searcher.clone();
-        drop(state);
-        let mut reader = reader.lock().unwrap();
-        let mut index_searcher = index_searcher.lock().unwrap();
-
-        let segment = segment.downcast_mut::<gst::format::Time>().unwrap();
-        // In the input segment parameter, start, position, and time are all set to the desired timestamp.
-        // If this is the initial seek, these will be all 0, and we will seek to the first record in the index.
-        segment.set_start(0);
-        segment.set_position(0);
-        let timestamp = segment.get_time().nseconds().unwrap();
-        let timestamp = PravegaTimestamp::from_nanoseconds(Some(timestamp));
-        // Determine Pravega stream offset for this timestamp by searching the index.
-        let index_record = index_searcher.search_timestamp(timestamp);
-        gst_info!(CAT, obj: src, "do_seek: index_record={:?}", index_record);
-        match index_record {
-            Ok(index_record) => {
-                if start_pts_at_zero {
-                    segment.set_time(ClockTime(index_record.timestamp.nanoseconds()));
+            let (reader, index_searcher) = match *state {
+                State::Started {
+                    ref mut reader,
+                    ref mut index_searcher,
+                    ..
+                } => (reader, index_searcher),
+                State::Stopped => {
+                    panic!("Not started yet");
                 }
-                reader.seek(SeekFrom::Start(index_record.offset)).unwrap();
-                gst_info!(CAT, obj: src, "do_seek: END: segment={:?}", segment);
-                true
-            },
-            Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
-                // This will happen if the index has no records.
-                let head_offset = reader.get_ref().get_ref().current_head().unwrap();
+            };
+
+            let reader = reader.clone();
+            let index_searcher = index_searcher.clone();
+            drop(state);
+            let mut reader = reader.lock().unwrap();
+            let mut index_searcher = index_searcher.lock().unwrap();
+
+            let segment = segment.downcast_mut::<gst::format::Time>().unwrap();
+
+            // In the input segment parameter, start, position, and time are all set to the desired timestamp.
+            // If this is the initial seek, these will be all 0, and we will seek to the first record in the index.
+            let initial_seek =
+                segment.get_time().nseconds().unwrap() == 0 &&
+                segment.get_start().nseconds().unwrap() == 0 &&
+                segment.get_position().nseconds().unwrap() == 0;
+            gst_info!(CAT, obj: src, "do_seek: initial_seek={}", initial_seek);
+
+            let timestamp = if initial_seek {
+                gst_info!(CAT, obj: src, "do_seek: start_timestamp={:?}", start_timestamp);
+                if start_pts_at_zero { unimplemented!() };
+                start_timestamp
+            } else {
+                segment.set_start(0);
+                segment.set_position(0);
+                PravegaTimestamp::from_nanoseconds(segment.get_time().nseconds())
+            };
+            gst_info!(CAT, obj: src, "do_seek: seeking to timestamp={:?}", start_timestamp);
+
+            if timestamp.is_some() {
+                // Determine Pravega stream offset for this timestamp by searching the index.
+                let index_record = index_searcher.search_timestamp(timestamp);
+                gst_info!(CAT, obj: src, "do_seek: index_record={:?}", index_record);
+                match index_record {
+                    Ok(index_record) => {
+                        if start_pts_at_zero {
+                            segment.set_time(ClockTime(index_record.timestamp.nanoseconds()));
+                            gst_info!(CAT, obj: src, "do_seek: starting PTS at zero; segment={:?}", segment);
+                        }
+                        reader.seek(SeekFrom::Start(index_record.offset)).unwrap();
+                        gst_info!(CAT, obj: src, "do_seek: seeked to indexed position; segment={:?}", segment);
+                        true
+                    },
+                    Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+                        // This will happen if the index has no records.
+                        let head_offset = reader.get_ref().get_ref().get_ref().current_head().unwrap();
+                        reader.seek(SeekFrom::Start(head_offset)).unwrap();
+                        gst_info!(CAT, obj: src, "do_seek: seeked to head because index is empty; segment={:?}", segment);
+                        true
+                    },
+                    Err(_) => {
+                        false
+                    }
+                }
+            } else {
+                let head_offset = reader.get_ref().get_ref().get_ref().current_head().unwrap();
                 reader.seek(SeekFrom::Start(head_offset)).unwrap();
-                gst_info!(CAT, obj: src, "do_seek: END: seeked to head because index is empty; segment={:?}", segment);
+                gst_info!(CAT, obj: src, "do_seek: Seeking to head of data stream because start-mode=no-seek; segment={:?}", segment);
                 true
-            },
-            Err(_) => {
-                false
             }
-        }
+        })();
+        gst_info!(CAT, obj: src, "do_seek: END: result={:?}", result);
+        result
     }
 
     fn query(&self, src: &Self::Type, query: &mut gst::QueryRef) -> bool {
-        gst_info!(CAT, obj: src, "query: query={:?}", query);
-        match query.view_mut() {
-            gst::QueryView::Seeking(ref mut q) => {
-                let fmt = q.get_format();
-                if fmt == gst::Format::Time {
-                    // Get start and end timestamps from index.
+        gst_debug!(CAT, obj: src, "query: BEGIN: query={:?}", query);
+        let result = (|| {
+            match query.view_mut() {
+                gst::QueryView::Seeking(ref mut q) => {
+                    let fmt = q.get_format();
+                    if fmt == gst::Format::Time {
+                        // Get start and end timestamps from index.
 
-                    // Get a temporary lock on state to get the index_searcher.
-                    // This lock is released before index_searcher performs I/O.
-                    let mut state = self.state.lock().unwrap();
-                    let index_searcher = match *state {
-                        State::Started {
-                            ref mut index_searcher,
-                            ..
-                        } => index_searcher,
-                        State::Stopped => {
-                            return false;
-                        }
-                    };
-                    let index_searcher = index_searcher.clone();
-                    drop(state);
-                    let mut index_searcher = index_searcher.lock().unwrap();
+                        // Get a temporary lock on state to get the index_searcher.
+                        // This lock is released before index_searcher performs I/O.
+                        let mut state = self.state.lock().unwrap();
+                        let index_searcher = match *state {
+                            State::Started {
+                                ref mut index_searcher,
+                                ..
+                            } => index_searcher,
+                            State::Stopped => {
+                                return false;
+                            }
+                        };
+                        let index_searcher = index_searcher.clone();
+                        drop(state);
+                        let mut index_searcher = index_searcher.lock().unwrap();
 
-                    let start = match index_searcher.get_first_record() {
-                        Ok(start) => start,
-                        Err(err) => {
-                            gst_error!(CAT, obj: src, "query: Unable to get first record from index: {}", err);
-                            return false;
-                        }
+                        let start = match index_searcher.get_first_record() {
+                            Ok(start) => start,
+                            Err(err) => {
+                                gst_error!(CAT, obj: src, "query: Unable to get first record from index: {}", err);
+                                return false;
+                            }
+                        };
+                        let end = match index_searcher.get_last_record() {
+                            Ok(end) => end,
+                            Err(err) => {
+                                gst_error!(CAT, obj: src, "query: Unable to get last record from index: {}", err);
+                                return false;
+                            }
+                        };
+                        gst_info!(CAT, obj: src, "query: start={:?}, end={:?}", start, end);
+                        q.set(true, ClockTime(start.timestamp.nanoseconds()), ClockTime(end.timestamp.nanoseconds()));
+                        return true;
                     };
-                    let end = match index_searcher.get_last_record() {
-                        Ok(end) => end,
-                        Err(err) => {
-                            gst_error!(CAT, obj: src, "query: Unable to get last record from index: {}", err);
-                            return false;
-                        }
-                    };
-                    gst_info!(CAT, obj: src, "query: start={:?}, end={:?}", start, end);
-                    q.set(true, ClockTime(start.timestamp.nanoseconds()), ClockTime(end.timestamp.nanoseconds()));
-                    return true;
-                };
-                false
-            },
-            _ => {
-                BaseSrcImplExt::parent_query(self, src, query)
-            },
-        }
+                    false
+                },
+                _ => {
+                    BaseSrcImplExt::parent_query(self, src, query)
+                },
+            }
+        })();
+        gst_debug!(CAT, obj: src, "query: END: result={}, query={:?}", result, query);
+        result
     }
 
     fn stop(&self, element: &Self::Type) -> Result<(), gst::ErrorMessage> {
-        gst_info!(CAT, obj: element, "Stopping");
-        let mut state = self.state.lock().unwrap();
-        if let State::Stopped = *state {
-            return Err(gst::error_msg!(
-                gst::ResourceError::Settings,
-                ["PravegaSrc not started"]
-            ));
-        }
-        *state = State::Stopped;
-        gst_info!(CAT, obj: element, "Stopped");
-        Ok(())
+        gst_info!(CAT, obj: element, "stop: BEGIN");
+        let result = (|| {
+            let mut state = self.state.lock().unwrap();
+            if let State::Stopped = *state {
+                return Err(gst::error_msg!(
+                    gst::ResourceError::Settings,
+                    ["PravegaSrc not started"]
+                ));
+            }
+            *state = State::Stopped;
+            Ok(())
+        })();
+        gst_info!(CAT, obj: element, "stop: END: result={:?}", result);
+        result
     }
 }
 
 impl PushSrcImpl for PravegaSrc {
     fn create(&self, element: &Self::Type) -> Result<gst::Buffer, gst::FlowError> {
-        let mut state = self.state.lock().unwrap();
+        gst_trace!(CAT, obj: element, "create: BEGIN");
+        let result = (|| {
 
-        let reader = match *state {
-            State::Started {
-                ref mut reader,
-                ..
-            } => reader,
-            State::Stopped => {
-                gst::element_error!(element, gst::CoreError::Failed, ["Not started yet"]);
-                panic!("Not started yet");
+            let mut state = self.state.lock().unwrap();
+
+            let reader = match *state {
+                State::Started {
+                    ref mut reader,
+                    ..
+                } => reader,
+                State::Stopped => {
+                    gst::element_error!(element, gst::CoreError::Failed, ["Not started yet"]);
+                    panic!("Not started yet");
+                }
+            };
+
+            let reader = reader.clone();
+            drop(state);
+            let mut reader = reader.lock().unwrap();
+            let reader = &mut (*reader);
+
+            let mut event_reader = EventReader::new();
+            let offset = reader.stream_position().unwrap();
+            let required_buffer_length = event_reader.read_required_buffer_length(reader).map_err(|err| {
+                if err.kind() == ErrorKind::UnexpectedEof {
+                    gst_info!(CAT, obj: element, "create: reached EOF when trying to read event length");
+                    gst::FlowError::Eos
+                } else {
+                    gst::element_error!(element, gst::CoreError::Failed, ["Failed to read event length from stream: {}", err]);
+                    gst::FlowError::Error
+                }
+            })?;
+
+            // TODO: Read directly into GstBuffer.
+            let mut read_buffer: Vec<u8> = vec![0; required_buffer_length];
+            let event = event_reader.read_event(reader, &mut read_buffer[..]).map_err(|err| {
+                if err.kind() == ErrorKind::UnexpectedEof {
+                    gst_info!(CAT, obj: element, "create: reached EOF when trying to read event payload");
+                    gst::FlowError::Eos
+                } else {
+                    gst::element_error!(element, gst::CoreError::Failed, ["Failed to read event payload from stream: {}", err]);
+                    gst::FlowError::Error
+                }
+            })?;
+            gst_memdump!(CAT, obj: element, "create: event={:?}", event);
+            let offset_end = reader.stream_position().unwrap();
+
+            let mut gst_buffer = gst::Buffer::with_size(event.payload.len()).unwrap();
+            {
+                let buffer_ref = gst_buffer.get_mut().unwrap();
+
+                let segment = element
+                    .get_segment()
+                    .downcast::<gst::format::Time>()
+                    .unwrap();
+                gst_trace!(CAT, obj: element, "create: segment={:?}", segment);
+                // If start_pts_at_zero=false (default), segment.get_time() equals 0 so the PTS will equal
+                // the timestamp stored in the Pravega timestamp.
+                let pts = ClockTime(event.header.timestamp.nanoseconds()) - segment.get_time();
+                gst_log!(CAT, obj: element, "create: timestamp={:?}, pts={}, payload_len={}",
+                    event.header.timestamp, pts, event.payload.len());
+
+                buffer_ref.set_pts(pts);
+                buffer_ref.set_offset(offset);
+                buffer_ref.set_offset_end(offset_end);
+                if event.header.random_access {
+                    buffer_ref.unset_flags(gst::BufferFlags::DELTA_UNIT);
+                } else {
+                    buffer_ref.set_flags(gst::BufferFlags::DELTA_UNIT);
+                }
+                if event.header.discontinuity {
+                    buffer_ref.set_flags(gst::BufferFlags::DISCONT);
+                }
+
+                let mut buffer_map = buffer_ref.map_writable().unwrap();
+                let slice = buffer_map.as_mut_slice();
+                slice.copy_from_slice(event.payload);
             }
-        };
 
-        let reader = reader.clone();
-        drop(state);
-        let mut reader = reader.lock().unwrap();
-        let reader = &mut (*reader);
-
-        let mut event_reader = EventReader::new();
-        let required_buffer_length = event_reader.read_required_buffer_length(reader).map_err(|err| {
-            if err.kind() == ErrorKind::UnexpectedEof {
-                gst_info!(CAT, obj: element, "create: reached EOF when trying to read event length");
-                gst::FlowError::Eos
-            } else {
-                gst::element_error!(element, gst::CoreError::Failed, ["Failed to read event length from stream: {}", err]);
-                gst::FlowError::Error
-            }
-        })?;
-
-        // TODO: Read directly into GstBuffer.
-        let mut read_buffer: Vec<u8> = vec![0; required_buffer_length];
-        let event = event_reader.read_event(reader, &mut read_buffer[..]).map_err(|err| {
-            if err.kind() == ErrorKind::UnexpectedEof {
-                gst_info!(CAT, obj: element, "create: reached EOF when trying to read event payload");
-                gst::FlowError::Eos
-            } else {
-                gst::element_error!(element, gst::CoreError::Failed, ["Failed to read event payload from stream: {}", err]);
-                gst::FlowError::Error
-            }
-        })?;
-        gst_trace!(CAT, obj: element, "create: event={:?}", event);
-
-        let mut gst_buffer = gst::Buffer::with_size(event.payload.len()).unwrap();
-        {
-            let buffer_ref = gst_buffer.get_mut().unwrap();
-
-            let segment = element
-                .get_segment()
-                .downcast::<gst::format::Time>()
-                .unwrap();
-            gst_log!(CAT, obj: element, "create: segment={:?}", segment);
-            // If start_pts_at_zero=false (default), segment.get_time() equals 0 so the PTS will equal
-            // the timestamp stored in the Pravega timestamp.
-            let pts = ClockTime(event.header.timestamp.nanoseconds()) - segment.get_time();
-            gst_log!(CAT, obj: element, "create: timestamp={}, pts={}, payload_len={}",
-                event.header.timestamp, pts, event.payload.len());
-
-            buffer_ref.set_pts(pts);
-            if event.header.random_access {
-                buffer_ref.unset_flags(gst::BufferFlags::DELTA_UNIT);
-            } else {
-                buffer_ref.set_flags(gst::BufferFlags::DELTA_UNIT);
-            }
-            if event.header.discontinuity {
-                buffer_ref.set_flags(gst::BufferFlags::DISCONT);
-            }
-
-            let mut buffer_map = buffer_ref.map_writable().unwrap();
-            let slice = buffer_map.as_mut_slice();
-            slice.copy_from_slice(event.payload);
-        }
-
-        Ok(gst_buffer)
+            Ok(gst_buffer)
+        })();
+        gst_trace!(CAT, obj: element, "create: END: result={:?}", result);
+        result
     }
 }
