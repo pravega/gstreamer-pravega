@@ -8,6 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+mod counting_reader;
 mod counting_writer;
 mod numeric;
 mod pravegasink;

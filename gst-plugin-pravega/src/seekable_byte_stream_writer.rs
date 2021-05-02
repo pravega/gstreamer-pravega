@@ -24,6 +24,11 @@ impl SeekableByteStreamWriter {
         Ok(writer)
     }
 
+    /// Gets a reference to the underlying reader.
+    pub fn get_ref(&self) -> &ByteStreamWriter {
+        &self.inner
+    }
+
     /// Gets a mutable reference to the underlying writer.
     pub fn get_mut(&mut self) -> &mut ByteStreamWriter {
         &mut self.inner

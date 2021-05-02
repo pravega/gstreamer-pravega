@@ -8,23 +8,23 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use std::io::{Write, Result, Seek, SeekFrom};
+use std::io::{Read, Result, Seek, SeekFrom};
 
-/// Write adaptor that tracks the current offset so it can be returned without seeking the inner writer.
+/// Read adaptor that tracks the current offset so it can be returned without seeking the inner reader.
 #[derive(Debug)]
-pub struct CountingWriter<T: Write + Seek> {
+pub struct CountingReader<T: Read + Seek> {
     inner: T,
     offset: u64,
 }
 
-impl<T: Write + Seek> CountingWriter<T> {
-    pub fn new(mut writer: T) -> Result<CountingWriter<T>> {
-        let offset = writer.seek(SeekFrom::Current(0))?;
-        let writer = CountingWriter {
-            inner: writer,
+impl<T: Read + Seek> CountingReader<T> {
+    pub fn new(mut reader: T) -> Result<CountingReader<T>> {
+        let offset = reader.seek(SeekFrom::Current(0))?;
+        let reader = CountingReader {
+            inner: reader,
             offset
         };
-        Ok(writer)
+        Ok(reader)
     }
 
     /// Gets a reference to the underlying reader.
@@ -32,30 +32,26 @@ impl<T: Write + Seek> CountingWriter<T> {
         &self.inner
     }
 
-    /// Gets a mutable reference to the underlying writer.
+    /// Gets a mutable reference to the underlying reader.
     ///
     /// Care should be taken to avoid modifying the internal I/O state of the
-    /// underlying writer as doing so may corrupt the offset.
+    /// underlying reader as doing so may corrupt the offset.
     pub fn get_mut(&mut self) -> &mut T {
         &mut self.inner
     }
 }
 
-impl<T: Write + Seek> Write for CountingWriter<T> {
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        let result = self.inner.write(buf);
-        if let Ok(written) = result {
-            self.offset += written as u64;
+impl<T: Read + Seek> Read for CountingReader<T> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        let result = self.inner.read(buf);
+        if let Ok(read) = result {
+            self.offset += read as u64;
         }
         result
     }
-
-    fn flush(&mut self) -> Result<()> {
-        self.inner.flush()
-    }
 }
 
-impl<T: Write + Seek> Seek  for CountingWriter<T> {
+impl<T: Read + Seek> Seek  for CountingReader<T> {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         match pos {
             SeekFrom::Current(0) => Ok(self.offset),

@@ -34,6 +34,7 @@ use pravega_video::event_serde::EventReader;
 use pravega_video::index::{IndexSearcher, get_index_stream_name};
 use pravega_video::timestamp::PravegaTimestamp;
 use pravega_video::utils;
+use crate::counting_reader::CountingReader;
 use crate::seekable_take::SeekableTake;
 
 const PROPERTY_NAME_STREAM: &str = "stream";
@@ -152,7 +153,7 @@ impl Default for Settings {
 enum State {
     Stopped,
     Started {
-        reader: Arc<Mutex<BufReader<SeekableTake<ByteStreamReader>>>>,
+        reader: Arc<Mutex<CountingReader<BufReader<SeekableTake<ByteStreamReader>>>>>,
         index_searcher: Arc<Mutex<IndexSearcher<ByteStreamReader>>>,
     },
 }
@@ -669,9 +670,10 @@ impl BaseSrcImpl for PravegaSrc {
 
             let limited_reader = SeekableTake::new(reader, end_offset).unwrap();
             let buf_reader = BufReader::with_capacity(settings.buffer_size, limited_reader);
+            let counting_reader = CountingReader::new(buf_reader).unwrap();
 
             *state = State::Started {
-                reader: Arc::new(Mutex::new(buf_reader)),
+                reader: Arc::new(Mutex::new(counting_reader)),
                 index_searcher: Arc::new(Mutex::new(index_searcher)),
             };
             gst_info!(CAT, obj: element, "start: Started");
@@ -774,7 +776,7 @@ impl BaseSrcImpl for PravegaSrc {
                     },
                     Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
                         // This will happen if the index has no records.
-                        let head_offset = reader.get_ref().get_ref().current_head().unwrap();
+                        let head_offset = reader.get_ref().get_ref().get_ref().current_head().unwrap();
                         reader.seek(SeekFrom::Start(head_offset)).unwrap();
                         gst_info!(CAT, obj: src, "do_seek: seeked to head because index is empty; segment={:?}", segment);
                         true
@@ -888,7 +890,6 @@ impl PushSrcImpl for PravegaSrc {
             let reader = &mut (*reader);
 
             let mut event_reader = EventReader::new();
-            // TODO: This likely flushes the BufReader.
             let offset = reader.stream_position().unwrap();
             let required_buffer_length = event_reader.read_required_buffer_length(reader).map_err(|err| {
                 if err.kind() == ErrorKind::UnexpectedEof {
