@@ -138,7 +138,7 @@ lazy_static! {
 #[ctor::ctor]
 fn init() {
     let filter = std::env::var("GST_PRAVEGA_INTEGRATION_TEST_LOG")
-        .unwrap_or_else(|_| "gstreamer_pravega_integration_test=debug,warn".to_owned());
+        .unwrap_or_else(|_| "gstreamer_pravega_integration_test=debug,pravega_video=debug,warn".to_owned());
     if !filter.is_empty() {
         tracing_subscriber::fmt()
             .with_env_filter(filter)

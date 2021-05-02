@@ -29,8 +29,6 @@ mod test {
         let first_utc = "2001-02-03T04:00:00.000Z".to_owned();
         let first_timestamp = PravegaTimestamp::try_from(Some(first_utc)).unwrap();
         info!("first_timestamp={:?}", first_timestamp);
-        let first_pts_written = ClockTime(first_timestamp.nanoseconds());
-        info!("first_pts_written={:?}", first_pts_written);
         let fps = 30;
         let key_int_max = 30;
         let length_sec = 5;
@@ -43,8 +41,6 @@ mod test {
             "videotestsrc name=src timestamp-offset={timestamp_offset} num-buffers={num_buffers} \
             ! video/x-raw,width=320,height=180,framerate={fps}/1 \
             ! videoconvert \
-            ! timeoverlay valignment=bottom font-desc=\"Sans 48px\" shaded-background=true \
-            ! videoconvert \
             ! x264enc key-int-max={key_int_max} bitrate=100 \
             ! mp4mux streamable=true fragment-duration=100 \
             ! tee name=t \
@@ -52,7 +48,7 @@ mod test {
             t. ! pravegasink {pravega_plugin_properties} \
                  seal=true timestamp-mode=tai sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
-            timestamp_offset = first_pts_written.nanoseconds().unwrap(),
+            timestamp_offset = first_timestamp.nanoseconds().unwrap(),
             num_buffers = num_buffers_written,
             fps = fps,
             key_int_max = key_int_max,
@@ -77,8 +73,8 @@ mod test {
         );
         let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
         debug!("summary={}", summary);
-        info!("Expected: summary={}", summary_written);
-        info!("Actual:   summary={}", summary);
+        info!("Expected: summary={:?}", summary_written);
+        info!("Actual:   summary={:?}", summary);
         assert_eq!(summary, summary_written);
     }
 
@@ -90,11 +86,9 @@ mod test {
         let summary_written = pravega_src_test_data_gen(test_config, stream_name).unwrap();
         let first_valid_pts_written = summary_written.first_valid_pts();
         info!("#### Read video stream");
-        // TODO: Should not need to use queue.
         let pipeline_description = format!(
             "pravegasrc {pravega_plugin_properties} \
               start-mode=earliest \
-            ! queue max-size-buffers=1 max-size-time=0 max-size-bytes=1000000000 \
             ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );
@@ -108,7 +102,9 @@ mod test {
 
     #[rstest]
     #[case(0, 0)]
+    #[case(2, 0)]
     #[case(2, 500)]
+    #[case(usize::MAX, 0)]      // last non-delta record
     fn test_pravegasrc_start_mode_timestamp(#[case] start_index: usize, #[case] start_offset_ms: u64) {
         info!("start_index={}, start_offset_ms={}", start_index, start_offset_ms);
         let test_config = &get_test_config();
@@ -118,26 +114,45 @@ mod test {
         let non_delta_pts = summary_written.non_delta_pts();
         info!("non_delta_pts={:?}", non_delta_pts);
         info!("#### Read video stream");
+        let start_index = std::cmp::min(start_index, non_delta_pts.len() - 1);
         let start_pts_expected = non_delta_pts[start_index];
         // We should get the same first PTS even if we specify a PTS beyond the indexed frame (but before the next one).
         let start_timestamp = clocktime_to_pravega(pravega_to_clocktime(start_pts_expected) + start_offset_ms * gst::MSECOND);
-        // TODO: Should not need to use queue.
         let pipeline_description = format!(
             "pravegasrc {pravega_plugin_properties} \
               start-mode=timestamp \
               start-timestamp={start_timestamp} \
-            ! queue max-size-buffers=1 max-size-time=0 max-size-bytes=1000000000 \
             ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
             start_timestamp = start_timestamp.nanoseconds().unwrap(),
         );
         let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
-        debug!("summary={}", summary);
+        debug!("summary_written={:?}", summary_written);
+        debug!("summary=        {:?}", summary);
         let first_pts_actual = summary.first_pts();
         info!("Expected: first_pts={:?}", start_pts_expected);
         info!("Actual:   first_pts={:?}", first_pts_actual);
-        // TODO: This fails because pravegasrc starts pts at 0. "create: timestamp=2001-02-03T04:00:04.000000000Z, pts=0:00:02.000000000, payload_len=3855"
         assert_eq!(first_pts_actual, start_pts_expected);
+    }
+
+    #[test]
+    fn test_pravegasrc_start_mode_timestamp_max() {
+        let test_config = &get_test_config();
+        info!("test_config={:?}", test_config);
+        let stream_name = &format!("test-pravegasrc-{}-{}", test_config.test_id, Uuid::new_v4())[..];
+        let _ = pravega_src_test_data_gen(test_config, stream_name).unwrap();
+        info!("#### Read video stream from max timestamp");
+        let pipeline_description = format!(
+            "pravegasrc {pravega_plugin_properties} \
+              start-mode=timestamp \
+              start-timestamp={start_timestamp} \
+            ! appsink name=sink sync=false",
+            pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
+            start_timestamp = PravegaTimestamp::MAX.nanoseconds().unwrap(),
+        );
+        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        debug!("summary={:?}", summary);
+        assert_eq!(summary.num_buffers(), 0);
     }
 
     #[test]

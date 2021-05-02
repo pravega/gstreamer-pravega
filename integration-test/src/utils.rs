@@ -33,11 +33,22 @@ pub fn gst_init() {
     gstpravega::plugin_register_static().unwrap();
 }
 
-#[derive(Clone, Debug, PartialEq)]
+// TODO: Also compare hash of buffer contents.
+#[derive(Clone, Debug)]
 pub struct BufferSummary {
     pub pts: PravegaTimestamp,
     pub size: u64,
     pub flags: BufferFlags,
+}
+
+impl PartialEq for BufferSummary {
+    fn eq(&self, other: &Self) -> bool {
+        self.pts == other.pts &&
+            self.size == other.size &&
+            self.flags.contains(gst::BufferFlags::DELTA_UNIT) == other.flags.contains(gst::BufferFlags::DELTA_UNIT)
+            // TODO: Also compare DISCONT flag but first event from mp4mux has inconsistent DISCONT flag.
+            // self.flags.contains(gst::BufferFlags::DISCONT) == other.flags.contains(gst::BufferFlags::DISCONT)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
