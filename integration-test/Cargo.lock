@@ -1961,6 +1961,7 @@ dependencies = [
  "async-trait",
  "clap",
  "derive_more",
+ "futures",
  "im",
  "jsonwebtoken",
  "ordered-float 1.1.1",
