@@ -97,7 +97,7 @@ mod test {
         assert_timestamp_approx_eq("first_pts_written", first_pts_read, expected_timestamp, expected_timestamp_margin, expected_timestamp_margin);
         assert_timestamp_approx_eq("last_pts_written", last_pts_read, expected_timestamp, expected_timestamp_margin, expected_timestamp_margin);
         assert!(summary_read.pts_range() >= num_sec_expected_min * gst::SECOND);
-        assert!(summary_read.pts_range() <= 2 * num_sec_to_record * gst::SECOND);
+        assert!(summary_read.pts_range() <= (2 * num_sec_to_record + 60) * gst::SECOND);
 
         info!("#### Read recorded stream from Pravega with decoding, part 1");
         let pipeline_description_decode = format!(
@@ -119,7 +119,7 @@ mod test {
         assert_timestamp_approx_eq("first_pts_decoded", first_pts_decoded, first_pts_read, decode_margin, decode_margin);
         assert_timestamp_approx_eq("last_pts_decoded", last_pts_decoded, last_pts_read, decode_margin, decode_margin);
         assert!(summary_decoded.pts_range() >= num_sec_expected_min * gst::SECOND);
-        assert!(summary_decoded.pts_range() <= (num_sec_to_record + 60) * gst::SECOND);
+        assert!(summary_decoded.pts_range() <= (2 * num_sec_to_record + 60) * gst::SECOND);
         assert_between_u64("num_buffers", summary_decoded.num_buffers(), num_frames_expected_min, num_frames_expected_max);
         assert_between_u64("num_buffers_with_valid_pts", summary_decoded.num_buffers_with_valid_pts(), num_frames_expected_min, num_frames_expected_max);
 
@@ -138,8 +138,8 @@ mod test {
         assert_timestamp_approx_eq("first_pts_read2", first_pts_read2, first_pts_read, 0 * gst::SECOND, 0 * gst::SECOND);
         assert_timestamp_approx_eq("last_pts_read2", last_pts_read2, last_pts_read, 0 * gst::SECOND,
             (2 * num_sec_to_record + max_gap_sec) * gst::SECOND);
-        assert!(summary_read2.pts_range() >= 2* num_sec_expected_min * gst::SECOND);
-        assert!(summary_read2.pts_range() <= (2 * num_sec_to_record + max_gap_sec) * gst::SECOND);
+        assert!(summary_read2.pts_range() >= 2 * num_sec_expected_min * gst::SECOND);
+        assert!(summary_read2.pts_range() <= (4 * num_sec_to_record + max_gap_sec) * gst::SECOND);
 
         info!("#### Read recorded stream from Pravega with decoding, part 2");
         let summary_decoded2 = launch_pipeline_and_get_summary(&pipeline_description_decode).unwrap();
@@ -151,7 +151,7 @@ mod test {
         assert_timestamp_approx_eq("first_pts_decoded2", first_pts_decoded2, first_pts_read2, decode_margin, decode_margin);
         assert_timestamp_approx_eq("last_pts_decoded2", last_pts_decoded2, last_pts_read2, decode_margin, decode_margin);
         assert!(summary_decoded2.pts_range() >= 2 * num_sec_expected_min * gst::SECOND);
-        assert!(summary_decoded2.pts_range() <= (2 * num_sec_to_record + max_gap_sec) * gst::SECOND);
+        assert!(summary_decoded2.pts_range() <= (4 * num_sec_to_record + max_gap_sec) * gst::SECOND);
         assert_between_u64("num_buffers", summary_decoded2.num_buffers(),
             2 * num_frames_expected_min, 2 * num_frames_expected_max);
         assert_between_u64("num_buffers_with_valid_pts", summary_decoded2.num_buffers_with_valid_pts(),
