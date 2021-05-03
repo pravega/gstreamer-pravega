@@ -34,9 +34,9 @@ mod test {
             (rtsp_url, None)
           },
           Err(_) => {
-            let rtsp_server = RTSPCameraSimulator::new(640, 480, fps, 10.0).unwrap();
+            let mut rtsp_server = RTSPCameraSimulator::new(640, 480, fps, 10.0).unwrap();
             rtsp_server.start().unwrap();
-            let rtsp_url = rtsp_server.get_url();
+            let rtsp_url = rtsp_server.get_url().unwrap();
             info!("Using in-process RTSP camera simulator at {}", rtsp_url);
             (rtsp_url, Some(rtsp_server))
           }

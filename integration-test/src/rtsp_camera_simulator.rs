@@ -15,18 +15,15 @@
 // See also /apps/src/bin/rtsp-camera-simulator.rs.
 
 use anyhow::Error;
-use glib::subclass::prelude::*;
-use gst_rtsp::RTSPUrl;
 use gst_rtsp_server::prelude::*;
 use gst_rtsp_server::{RTSPMediaFactory, RTSPServer};
-use gst_rtsp_server::subclass::prelude::*;
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc;
 use std::thread;
-use tracing::info;
+use tracing::{info, debug};
 
 pub struct RTSPCameraSimulator {
     server: RTSPServer,
-    port: Arc<Mutex<i32>>,
+    port: Option<i32>,
     path: String,
     main_loop: glib::MainLoop,
 }
@@ -58,43 +55,39 @@ impl RTSPCameraSimulator {
         let path = "/cam/realmonitor";
         server.set_service("0");
         mounts.add_factory(path, &factory);
-        info!(
-            "RTSP server is configured for rtsp://{}:{}{}",
-            server.get_address().unwrap(),
-            server.get_bound_port(),
-            path,
-        );
         Ok(RTSPCameraSimulator {
             server,
             path: path.to_owned(),
-            port: Arc::new(Mutex::new(0)),
+            port: None,
             main_loop,
         })
     }
 
-    pub fn get_url(&self) -> String {
-        let port = self.port.lock().unwrap();
-        assert!(*port > 0);
-        format!("rtsp://localhost:{}{}", port, self.path)
+    /// Get RTSP URL for this server.
+    pub fn get_url(&self) -> Result<String, Error> {
+        let port = self.port.expect("Port unknown. You must call start() before get_url().");
+        assert!(port > 0);
+        Ok(format!("rtsp://localhost:{}{}", port, self.path))
     }
 
-    pub fn start(&self) -> Result<(), Error>{
+    /// Start RTSP server in another thread.
+    pub fn start(&mut self) -> Result<(), Error>{
         let main_loop_clone = self.main_loop.clone();
         let server = self.server.clone();
-        let port = self.port.clone();
-        info!("RTSP server starting on port {}", server.get_bound_port());
+        let (tx, rx) = mpsc::channel();
+        debug!("RTSP server starting");
         let _ = thread::spawn(move || {
             let source_id = server.attach(None).unwrap();
-            info!("RTSP server started on port {}", server.get_bound_port());
-            let mut port = port.lock().unwrap();
-            *port = server.get_bound_port();
-            drop(port);
+            // We can only get the bound port after server.attach().
+            let port = server.get_bound_port();
+            tx.send(port).unwrap();
             main_loop_clone.run();
             glib::source_remove(source_id);
             info!("RTSP server stopped");
         });
-        // TODO: Need to wait for port to be set.
-        std::thread::sleep(std::time::Duration::from_millis(1000));
+        let port = rx.recv().unwrap();
+        self.port = Some(port);
+        info!("RTSP server started on port {}", port);
         Ok(())
     }
 }
