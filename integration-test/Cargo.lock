@@ -890,6 +890,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "gio"
+version = "0.13.0"
+source = "git+https://github.com/gtk-rs/gtk-rs#14ee52cdcea48ecd94ac8931cd4f10e22842c9c3"
+dependencies = [
+ "bitflags",
+ "futures-channel",
+ "futures-core",
+ "futures-io",
+ "gio-sys",
+ "glib",
+ "libc",
+ "once_cell",
+ "thiserror",
+]
+
+[[package]]
+name = "gio-sys"
+version = "0.13.0"
+source = "git+https://github.com/gtk-rs/gtk-rs#14ee52cdcea48ecd94ac8931cd4f10e22842c9c3"
+dependencies = [
+ "glib-sys",
+ "gobject-sys",
+ "libc",
+ "system-deps",
+ "winapi",
+]
+
+[[package]]
 name = "glib"
 version = "0.13.0"
 source = "git+https://github.com/gtk-rs/gtk-rs#14ee52cdcea48ecd94ac8931cd4f10e22842c9c3"
@@ -1041,6 +1069,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "gstreamer-net"
+version = "0.17.0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#762450bb5335d8c79cc29a6111874d89bd3b5c00"
+dependencies = [
+ "gio",
+ "glib",
+ "gstreamer",
+ "gstreamer-net-sys",
+]
+
+[[package]]
+name = "gstreamer-net-sys"
+version = "0.17.0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#762450bb5335d8c79cc29a6111874d89bd3b5c00"
+dependencies = [
+ "gio-sys",
+ "glib-sys",
+ "gstreamer-sys",
+ "libc",
+ "system-deps",
+]
+
+[[package]]
 name = "gstreamer-pravega-integration-test"
 version = "0.7.0"
 dependencies = [
@@ -1049,9 +1100,12 @@ dependencies = [
  "ctor",
  "derive-new",
  "flate2",
+ "glib",
  "gst-plugin-pravega",
  "gstreamer",
  "gstreamer-app",
+ "gstreamer-rtsp",
+ "gstreamer-rtsp-server",
  "java-properties",
  "lazy_static",
  "once_cell",
@@ -1065,7 +1119,89 @@ dependencies = [
  "tar",
  "tracing",
  "tracing-subscriber",
+ "url",
  "uuid",
+]
+
+[[package]]
+name = "gstreamer-rtsp"
+version = "0.17.0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#762450bb5335d8c79cc29a6111874d89bd3b5c00"
+dependencies = [
+ "bitflags",
+ "glib",
+ "gstreamer",
+ "gstreamer-rtsp-sys",
+ "gstreamer-sdp",
+ "libc",
+]
+
+[[package]]
+name = "gstreamer-rtsp-server"
+version = "0.17.0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#762450bb5335d8c79cc29a6111874d89bd3b5c00"
+dependencies = [
+ "bitflags",
+ "gio",
+ "glib",
+ "gstreamer",
+ "gstreamer-net",
+ "gstreamer-rtsp",
+ "gstreamer-rtsp-server-sys",
+ "gstreamer-sdp",
+ "libc",
+ "once_cell",
+]
+
+[[package]]
+name = "gstreamer-rtsp-server-sys"
+version = "0.17.0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#762450bb5335d8c79cc29a6111874d89bd3b5c00"
+dependencies = [
+ "gio-sys",
+ "glib-sys",
+ "gobject-sys",
+ "gstreamer-net-sys",
+ "gstreamer-rtsp-sys",
+ "gstreamer-sdp-sys",
+ "gstreamer-sys",
+ "libc",
+ "system-deps",
+]
+
+[[package]]
+name = "gstreamer-rtsp-sys"
+version = "0.17.0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#762450bb5335d8c79cc29a6111874d89bd3b5c00"
+dependencies = [
+ "gio-sys",
+ "glib-sys",
+ "gobject-sys",
+ "gstreamer-sdp-sys",
+ "gstreamer-sys",
+ "libc",
+ "system-deps",
+]
+
+[[package]]
+name = "gstreamer-sdp"
+version = "0.17.0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#762450bb5335d8c79cc29a6111874d89bd3b5c00"
+dependencies = [
+ "glib",
+ "gstreamer",
+ "gstreamer-sdp-sys",
+]
+
+[[package]]
+name = "gstreamer-sdp-sys"
+version = "0.17.0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#762450bb5335d8c79cc29a6111874d89bd3b5c00"
+dependencies = [
+ "glib-sys",
+ "gstreamer-sys",
+ "libc",
+ "system-deps",
 ]
 
 [[package]]

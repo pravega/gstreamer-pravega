@@ -11,16 +11,12 @@
 #[cfg(test)]
 mod test {
     use anyhow::{anyhow, Error};
-    use gst::ClockTime;
     use gst::prelude::*;
-    use gstpravega::utils::{clocktime_to_pravega, pravega_to_clocktime};
     use pravega_video::timestamp::PravegaTimestamp;
-    use rstest::rstest;
-    use std::convert::TryFrom;
-    use std::sync::Arc;
     use tracing::{error, info, debug};
     use uuid::Uuid;
     use crate::*;
+    use crate::rtsp_camera_simulator::RTSPCameraSimulator;
     use crate::utils::*;
 
     #[test]
@@ -30,6 +26,10 @@ mod test {
         info!("test_config={:?}", test_config);
         let stream_name = &format!("test-rtsp-{}-{}", test_config.test_id, Uuid::new_v4())[..];
         let rtsp_url = std::env::var("RTSP_URL").unwrap();
+
+        let rtsp_server = RTSPCameraSimulator::new().unwrap();
+        rtsp_server.start();
+
         let fps = 20;
         let num_sec_to_record = 10;
         // The identity element will stop the pipeline after this many video frames.
