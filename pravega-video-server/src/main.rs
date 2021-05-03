@@ -470,13 +470,15 @@ mod models {
             scope_name: String,
         ) -> anyhow::Result<ListStreamsResult> {
             tracing::info!("list_video_streams: scope_name={}", scope_name);
-            let controller_client = self.client_factory.get_controller_client();
-            let stream_names = controller_client.list_streams(&Scope::from(scope_name.clone())).await.unwrap();
-            let streams: Vec<_> = stream_names.into_iter().map(|stream_name| ListStreamsRecord {
-                scope_name: scope_name.clone(),
-                stream_name,
-            }).collect();
-            Ok(ListStreamsResult { streams })
+            // TODO: Need to use new list_streams API or completely remove the feature.
+            anyhow::bail!("unsupported");
+            // let controller_client = self.client_factory.get_controller_client();
+            // let stream_names = controller_client.list_streams(&Scope::from(scope_name.clone())).await.unwrap();
+            // let streams: Vec<_> = stream_names.into_iter().map(|stream_name| ListStreamsRecord {
+            //     scope_name: scope_name.clone(),
+            //     stream_name,
+            // }).collect();
+            // Ok(ListStreamsResult { streams })
         }
     }
 }
