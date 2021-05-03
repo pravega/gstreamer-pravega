@@ -8,6 +8,8 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+#![allow(dead_code)]
+
 use pravega_client::byte_stream::ByteStreamWriter;
 use std::io::{Error, ErrorKind, Result, Seek, SeekFrom, Write};
 

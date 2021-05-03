@@ -8,6 +8,8 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+#![allow(dead_code)]
+
 use std::io::{Read, Result, Seek, SeekFrom};
 
 /// Read adaptor that tracks the current offset so it can be returned without seeking the inner reader.

@@ -8,6 +8,8 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+#![allow(dead_code)]
+
 use std::io::{Read, Result, Seek, SeekFrom, Take};
 
 /// Reader adaptor which returns EOF beyond the specified end position.
