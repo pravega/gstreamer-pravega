@@ -134,6 +134,12 @@ impl BufferListSummary {
             .filter(|c| c.is_some())
             .count() as u64
     }
+
+    pub fn dump(&self, prefix: &str) {
+        for (i, s) in self.buffer_summary_list.iter().enumerate() {
+            debug!("{}{:5}: {:?}", prefix, i, s);
+        }
+    }
 }
 
 impl fmt::Display for BufferListSummary {
@@ -158,6 +164,8 @@ pub fn assert_between_clocktime(name: &str, actual: ClockTime, expected_min: Clo
 }
 
 pub fn assert_between_timestamp(name: &str, actual: PravegaTimestamp, expected_min: PravegaTimestamp, expected_max: PravegaTimestamp) {
+    debug!("{}: Actual:   {:?}    {:?}", name, actual, actual);
+    debug!("{}: Expected: {:?} to {:?}", name, expected_min, expected_max);
     if !actual.nanoseconds().is_some() {
         panic!("{} is None", name);
     }
@@ -179,6 +187,8 @@ pub fn assert_timestamp_approx_eq(name: &str, actual: PravegaTimestamp, expected
 }
 
 pub fn assert_between_u64(name: &str, actual: u64, expected_min: u64, expected_max: u64) {
+    debug!("{}: Actual:   {}    {}", name, actual, actual);
+    debug!("{}: Expected: {} to {}", name, expected_min, expected_max);
     if actual < expected_min {
         panic!("{}: actual value {} is less than expected minimum {}", name, actual, expected_min);
     }
@@ -187,7 +197,7 @@ pub fn assert_between_u64(name: &str, actual: u64, expected_min: u64, expected_m
     }
 }
 
-pub fn launch_pipeline(pipeline_description: String) -> Result<(), Error> {
+pub fn launch_pipeline(pipeline_description: &str) -> Result<(), Error> {
     info!("Launch Pipeline: {}", pipeline_description);
     let pipeline = gst::parse_launch(&pipeline_description)?;
     let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
@@ -195,7 +205,7 @@ pub fn launch_pipeline(pipeline_description: String) -> Result<(), Error> {
 }
 
 /// Run a pipeline until end-of-stream and return a summary of buffers sent to the AppSink named 'sink'.
-pub fn launch_pipeline_and_get_summary(pipeline_description: String) -> Result<BufferListSummary, Error> {
+pub fn launch_pipeline_and_get_summary(pipeline_description: &str) -> Result<BufferListSummary, Error> {
     info!("Launch Pipeline: {}", pipeline_description);
     let pipeline = gst::parse_launch(&pipeline_description)?;
     let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();

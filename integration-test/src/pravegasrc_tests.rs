@@ -53,7 +53,7 @@ mod test {
             fps = fps,
             key_int_max = key_int_max,
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={}", summary);
         Ok(summary)
     }
@@ -71,7 +71,7 @@ mod test {
             ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={}", summary);
         info!("Expected: summary={:?}", summary_written);
         info!("Actual:   summary={:?}", summary);
@@ -92,7 +92,7 @@ mod test {
             ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={}", summary);
         let first_pts = summary.first_pts();
         info!("Expected: first_pts={:?}", first_valid_pts_written);
@@ -126,7 +126,7 @@ mod test {
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
             start_timestamp = start_timestamp.nanoseconds().unwrap(),
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary_written={:?}", summary_written);
         debug!("summary=        {:?}", summary);
         let first_pts_actual = summary.first_pts();
@@ -150,7 +150,7 @@ mod test {
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
             start_timestamp = PravegaTimestamp::MAX.nanoseconds().unwrap(),
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={:?}", summary);
         assert_eq!(summary.num_buffers(), 0);
     }
@@ -168,7 +168,7 @@ mod test {
             ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={}", summary);
         assert!(summary.buffer_summary_list.is_empty());
     }

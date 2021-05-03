@@ -51,7 +51,7 @@ mod test {
             num_buffers = num_buffers_written,
             fps = fps,
         );
-        let summary_written = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary_written = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary_written={:?}", summary_written);
 
         info!("#### Read video stream from beginning");
@@ -61,7 +61,7 @@ mod test {
             ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={:?}", summary);
         let last_pts_written = summary.last_pts();
         assert_eq!(summary, summary_written);
@@ -78,7 +78,7 @@ mod test {
             ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={:?}", summary);
         let num_buffers_actual = summary.num_buffers();
         let first_pts_actual = summary.first_pts();
@@ -154,7 +154,7 @@ mod test {
             fps = fps,
             compression_pipeline = compression_pipeline,
         );
-        let summary_written = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary_written = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary_written={:?}", summary_written);
 
         info!("#### Read video stream from beginning");
@@ -165,7 +165,7 @@ mod test {
             ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={:?}", summary);
         let num_buffers_actual = summary.num_buffers();
         let first_pts_actual = summary.first_pts();
@@ -187,7 +187,7 @@ mod test {
                 pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
                 timestamp_offset = -1 * (first_pts_written.nanoseconds().unwrap() as i64),
             );
-            launch_pipeline(pipeline_description).unwrap();
+            launch_pipeline(&pipeline_description).unwrap();
         }
 
         info!("#### Truncate stream");
@@ -201,7 +201,7 @@ mod test {
             ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={:?}", summary);
         let num_buffers_actual = summary.num_buffers();
         let first_pts_actual = summary.first_pts();
@@ -223,7 +223,7 @@ mod test {
                 pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
                 timestamp_offset = -1 * (first_pts_written.nanoseconds().unwrap() as i64),
             );
-            launch_pipeline(pipeline_description).unwrap();
+            launch_pipeline(&pipeline_description).unwrap();
         }
 
         info!("#### Read video from truncated position with decoding");
@@ -233,7 +233,7 @@ mod test {
             ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={:?}", summary);
         let num_buffers_actual = summary.num_buffers();
         let first_pts_actual = summary.first_pts();
