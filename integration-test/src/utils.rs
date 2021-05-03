@@ -182,6 +182,9 @@ pub fn launch_pipeline_and_get_summary(pipeline_description: String) -> Result<B
     info!("Launch Pipeline: {}", pipeline_description);
     let pipeline = gst::parse_launch(&pipeline_description)?;
     let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
+    // Subscribe to any property changes.
+    // Identity elements with silent=false will produce bus messages and will be logged by monitor_pipeline_until_eos.
+    let _ = pipeline.add_property_deep_notify_watch(None, true);
     let summary_list = Arc::new(Mutex::new(Vec::new()));
     let summary_list_clone = summary_list.clone();
     let sink = pipeline
@@ -227,6 +230,7 @@ fn run_pipeline_until_eos(pipeline: &gst::Pipeline) -> Result<(), Error> {
 pub fn monitor_pipeline_until_eos(pipeline: &gst::Pipeline) -> Result<(), Error> {
     let bus = pipeline.get_bus().unwrap();
     while let Some(msg) = bus.timed_pop(gst::CLOCK_TIME_NONE) {
+        trace!("Bus message: {:?}", msg);
         match msg.view() {
             gst::MessageView::Eos(..) => break,
             gst::MessageView::Error(err) => {
@@ -239,6 +243,10 @@ pub fn monitor_pipeline_until_eos(pipeline: &gst::Pipeline) -> Result<(), Error>
                 let _ = pipeline.set_state(gst::State::Null);
                 return Err(anyhow!(msg));
             },
+            gst::MessageView::PropertyNotify(p) => {
+                // Identity elements with silent=false will produce this message after watching with `pipeline.add_property_deep_notify_watch(None, true)`.
+                debug!("{:?}", p);
+            }
             _ => (),
         }
     }

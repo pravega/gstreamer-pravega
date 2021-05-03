@@ -21,7 +21,7 @@ anyhow = "1"
 chrono = "0.4"
 ctor = "0.1.20"
 derive-new = "0.5"
-gst = { package = "gstreamer", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
+gst = { package = "gstreamer", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs", features = ["v1_10"] }
 gst-app = { package = "gstreamer-app", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
 gst-plugin-pravega = { path = "../gst-plugin-pravega" }
 java-properties = "1.2"
