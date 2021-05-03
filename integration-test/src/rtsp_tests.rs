@@ -25,10 +25,12 @@ mod test {
         let test_config = &get_test_config();
         info!("test_config={:?}", test_config);
         let stream_name = &format!("test-rtsp-{}-{}", test_config.test_id, Uuid::new_v4())[..];
-        let rtsp_url = std::env::var("RTSP_URL").unwrap();
 
-        let rtsp_server = RTSPCameraSimulator::new().unwrap();
-        rtsp_server.start();
+        let rtsp_url = std::env::var("RTSP_URL").unwrap();
+        let rtsp_server = RTSPCameraSimulator::new(640, 480, 20, 10.0).unwrap();
+        rtsp_server.start().unwrap();
+        let rtsp_url = rtsp_server.get_url();
+        info!("rtsp_url={}", rtsp_url);
 
         let fps = 20;
         let num_sec_to_record = 10;
