@@ -18,6 +18,6 @@ export PRAVEGA_LTS_PATH=${PRAVEGA_LTS_PATH:-/tmp/pravega-lts}
 docker-compose down
 sudo rm -rf ${PRAVEGA_LTS_PATH}
 docker-compose up -d
-sleep 10s
+sleep 20s
 curl -X POST -H "Content-Type: application/json" -d '{"scopeName":"examples"}' http://localhost:10080/v1/scopes
 docker-compose logs --follow
