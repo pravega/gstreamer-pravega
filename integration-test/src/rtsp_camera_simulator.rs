@@ -17,11 +17,26 @@
 #![allow(dead_code)]
 
 use anyhow::Error;
+use derive_builder::*;
 use gst_rtsp_server::prelude::*;
 use gst_rtsp_server::{RTSPMediaFactory, RTSPServer};
 use std::sync::mpsc;
 use std::thread;
 use tracing::{info, debug};
+
+#[derive(Builder)]
+pub struct RTSPCameraSimulatorConfig {
+    #[builder(default = "640")]
+    width: u64,
+    #[builder(default = "480")]
+    height: u64,
+    #[builder(default = "20")]
+    fps: u64,
+    #[builder(default = "10.0")]
+    target_rate_kilobytes_per_sec: f64,
+    #[builder(default = "\"/cam/realmonitor\".to_owned()")]
+    path: String,
+}
 
 pub struct RTSPCameraSimulator {
     server: RTSPServer,
@@ -31,13 +46,12 @@ pub struct RTSPCameraSimulator {
 }
 
 impl RTSPCameraSimulator {
-    #[allow(non_snake_case)]
-    pub fn new(width: u64, height: u64, fps: u64, target_rate_KB_per_sec: f64) -> Result<RTSPCameraSimulator, Error> {
+    pub fn new(config: RTSPCameraSimulatorConfig) -> Result<RTSPCameraSimulator, Error> {
         let main_loop = glib::MainLoop::new(None, false);
         let server = RTSPServer::new();
         let mounts = server.get_mount_points().unwrap();
         let factory = RTSPMediaFactory::new();
-        let target_rate_kbits_per_sec = (target_rate_KB_per_sec * 8.0) as u64;
+        let target_rate_kilobits_per_sec = (config.target_rate_kilobytes_per_sec * 8.0) as u64;
         let pipeline_description = format!(
             "videotestsrc name=src is-live=true do-timestamp=true \
             ! video/x-raw,width={width},height={height},framerate={fps}/1 \
@@ -47,10 +61,10 @@ impl RTSPCameraSimulator {
             ! x264enc tune=zerolatency key-int-max=30 bitrate={target_rate_kbits_per_sec} \
             ! h264parse \
             ! rtph264pay name=pay0 pt=96",
-            width = width,
-            height = height,
-            fps = fps,
-            target_rate_kbits_per_sec = target_rate_kbits_per_sec,
+            width = config.width,
+            height = config.height,
+            fps = config.fps,
+            target_rate_kbits_per_sec = target_rate_kilobits_per_sec,
         );
         info!("Launch Pipeline: {}", pipeline_description);
         factory.set_launch(&pipeline_description[..]);

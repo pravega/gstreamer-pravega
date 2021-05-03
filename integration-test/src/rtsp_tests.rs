@@ -15,7 +15,7 @@ mod test {
     use tracing::{error, info, debug};
     use uuid::Uuid;
     use crate::*;
-    use crate::rtsp_camera_simulator::RTSPCameraSimulator;
+    use crate::rtsp_camera_simulator::{RTSPCameraSimulator, RTSPCameraSimulatorConfigBuilder};
     use crate::utils::*;
 
     #[test]
@@ -33,7 +33,10 @@ mod test {
             (rtsp_url, None)
           },
           Err(_) => {
-            let mut rtsp_server = RTSPCameraSimulator::new(640, 480, fps, 10.0).unwrap();
+            let rtsp_server_config = RTSPCameraSimulatorConfigBuilder::default()
+              .fps(fps)
+              .build().unwrap();
+            let mut rtsp_server = RTSPCameraSimulator::new(rtsp_server_config).unwrap();
             rtsp_server.start().unwrap();
             let rtsp_url = rtsp_server.get_url().unwrap();
             info!("Using in-process RTSP camera simulator at {}", rtsp_url);

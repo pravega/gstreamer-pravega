@@ -20,6 +20,7 @@ edition = "2018"
 anyhow = "1"
 chrono = "0.4"
 ctor = "0.1.20"
+derive_builder = "0.10.2"
 derive-new = "0.5"
 glib = { git = "https://github.com/gtk-rs/gtk-rs" }
 gst = { package = "gstreamer", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs", features = ["v1_10"] }
