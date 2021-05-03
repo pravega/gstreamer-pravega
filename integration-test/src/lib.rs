@@ -11,6 +11,8 @@
 mod gst_plugin_pravega_tests;
 mod pravegasrc_tests;
 mod pravega_service;
+mod rtsp_camera_simulator;
+mod rtsp_tests;
 mod utils;
 
 use lazy_static::lazy_static;
@@ -19,7 +21,9 @@ use pravega_client_config::ClientConfigBuilder;
 use std::process::Command;
 use std::sync::Mutex;
 use std::{thread, time};
+#[allow(unused_imports)]
 use tracing::{error, info, info_span, warn};
+#[cfg(test)]
 use tracing_subscriber::fmt::format::FmtSpan;
 use crate::pravega_service::{PravegaService, PravegaStandaloneService, PravegaStandaloneServiceConfig};
 

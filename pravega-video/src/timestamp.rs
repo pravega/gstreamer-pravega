@@ -65,6 +65,10 @@ impl PravegaTimestamp {
         }
     }
 
+    pub fn now() -> PravegaTimestamp {
+        PravegaTimestamp::from(SystemTime::now())
+    }
+
     pub const fn none() -> Self {
         Self(None)
     }
@@ -163,18 +167,26 @@ impl From<Option<chrono::DateTime<chrono::Utc>>> for PravegaTimestamp {
     }
 }
 
-impl TryFrom<Option<String>> for PravegaTimestamp {
+impl TryFrom<Option<&str>> for PravegaTimestamp {
     type Error = anyhow::Error;
 
-    fn try_from(t: Option<String>) -> Result<Self, Self::Error> {
+    fn try_from(t: Option<&str>) -> Result<Self, Self::Error> {
         match t {
             Some(t) => {
-                let dt = chrono::DateTime::parse_from_rfc3339(&t[..])?;
+                let dt = chrono::DateTime::parse_from_rfc3339(t)?;
                 let nanos = u64::try_from(dt.timestamp_nanos())?;
                 Ok(PravegaTimestamp::from_unix_nanoseconds(Some(nanos)))
             },
             None => Ok(PravegaTimestamp::NONE),
         }
+    }
+}
+
+impl TryFrom<Option<String>> for PravegaTimestamp {
+    type Error = anyhow::Error;
+
+    fn try_from(t: Option<String>) -> Result<Self, Self::Error> {
+        PravegaTimestamp::try_from(t.as_deref())
     }
 }
 

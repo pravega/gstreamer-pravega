@@ -8,6 +8,8 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+#![allow(dead_code)]
+
 use anyhow::{anyhow, Error};
 use gst::{BufferFlags, ClockTime};
 use gst::prelude::*;
@@ -19,6 +21,7 @@ use pravega_video::index::{IndexSearcher, SearchMethod, get_index_stream_name};
 use pravega_video::timestamp::PravegaTimestamp;
 use std::fmt;
 use std::sync::{Arc, Mutex};
+#[allow(unused_imports)]
 use tracing::{error, warn, info, debug, trace};
 
 /// Initialize GStreamer.
@@ -106,6 +109,10 @@ impl BufferListSummary {
         }
     }
 
+    pub fn pts_range(&self) -> ClockTime {
+        pravega_to_clocktime(self.last_valid_pts()) - pravega_to_clocktime(self.first_valid_pts())
+    }
+
     /// Returns list of PTSs of all non-delta frames.
     pub fn non_delta_pts(&self) -> Vec<PravegaTimestamp> {
         self.buffer_summary_list
@@ -119,12 +126,28 @@ impl BufferListSummary {
     pub fn num_buffers(&self) -> u64 {
         self.buffer_summary_list.len() as u64
     }
+
+    pub fn num_buffers_with_valid_pts(&self) -> u64 {
+        self.buffer_summary_list
+            .iter()
+            .map(|s| s.pts)
+            .filter(|c| c.is_some())
+            .count() as u64
+    }
+
+    pub fn dump(&self, prefix: &str) {
+        for (i, s) in self.buffer_summary_list.iter().enumerate() {
+            debug!("{}{:5}: {:?}", prefix, i, s);
+        }
+    }
 }
 
 impl fmt::Display for BufferListSummary {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("BufferListSummary {{ num_buffers: {}, first_pts: {}, first_valid_pts: {}, last_valid_pts: {} }}",
-            self.num_buffers(), self.first_pts(), self.first_valid_pts(), self.last_valid_pts()))
+        f.write_fmt(format_args!("BufferListSummary {{ num_buffers: {}, num_buffers_with_valid_pts: {}, \
+            first_pts: {}, first_valid_pts: {}, last_valid_pts: {}, pts_range: {} }}",
+            self.num_buffers(), self.num_buffers_with_valid_pts(),
+            self.first_pts(), self.first_valid_pts(), self.last_valid_pts(), self.pts_range()))
     }
 }
 
@@ -141,6 +164,8 @@ pub fn assert_between_clocktime(name: &str, actual: ClockTime, expected_min: Clo
 }
 
 pub fn assert_between_timestamp(name: &str, actual: PravegaTimestamp, expected_min: PravegaTimestamp, expected_max: PravegaTimestamp) {
+    debug!("{}: Actual:   {:?}    {:?}", name, actual, actual);
+    debug!("{}: Expected: {:?} to {:?}", name, expected_min, expected_max);
     if !actual.nanoseconds().is_some() {
         panic!("{} is None", name);
     }
@@ -162,6 +187,8 @@ pub fn assert_timestamp_approx_eq(name: &str, actual: PravegaTimestamp, expected
 }
 
 pub fn assert_between_u64(name: &str, actual: u64, expected_min: u64, expected_max: u64) {
+    debug!("{}: Actual:   {}    {}", name, actual, actual);
+    debug!("{}: Expected: {} to {}", name, expected_min, expected_max);
     if actual < expected_min {
         panic!("{}: actual value {} is less than expected minimum {}", name, actual, expected_min);
     }
@@ -170,7 +197,7 @@ pub fn assert_between_u64(name: &str, actual: u64, expected_min: u64, expected_m
     }
 }
 
-pub fn launch_pipeline(pipeline_description: String) -> Result<(), Error> {
+pub fn launch_pipeline(pipeline_description: &str) -> Result<(), Error> {
     info!("Launch Pipeline: {}", pipeline_description);
     let pipeline = gst::parse_launch(&pipeline_description)?;
     let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
@@ -178,10 +205,13 @@ pub fn launch_pipeline(pipeline_description: String) -> Result<(), Error> {
 }
 
 /// Run a pipeline until end-of-stream and return a summary of buffers sent to the AppSink named 'sink'.
-pub fn launch_pipeline_and_get_summary(pipeline_description: String) -> Result<BufferListSummary, Error> {
+pub fn launch_pipeline_and_get_summary(pipeline_description: &str) -> Result<BufferListSummary, Error> {
     info!("Launch Pipeline: {}", pipeline_description);
     let pipeline = gst::parse_launch(&pipeline_description)?;
     let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
+    // Subscribe to any property changes.
+    // Identity elements with silent=false will produce bus messages and will be logged by monitor_pipeline_until_eos.
+    let _ = pipeline.add_property_deep_notify_watch(None, true);
     let summary_list = Arc::new(Mutex::new(Vec::new()));
     let summary_list_clone = summary_list.clone();
     let sink = pipeline
@@ -227,6 +257,7 @@ fn run_pipeline_until_eos(pipeline: &gst::Pipeline) -> Result<(), Error> {
 pub fn monitor_pipeline_until_eos(pipeline: &gst::Pipeline) -> Result<(), Error> {
     let bus = pipeline.get_bus().unwrap();
     while let Some(msg) = bus.timed_pop(gst::CLOCK_TIME_NONE) {
+        trace!("Bus message: {:?}", msg);
         match msg.view() {
             gst::MessageView::Eos(..) => break,
             gst::MessageView::Error(err) => {
@@ -239,6 +270,10 @@ pub fn monitor_pipeline_until_eos(pipeline: &gst::Pipeline) -> Result<(), Error>
                 let _ = pipeline.set_state(gst::State::Null);
                 return Err(anyhow!(msg));
             },
+            gst::MessageView::PropertyNotify(p) => {
+                // Identity elements with silent=false will produce this message after watching with `pipeline.add_property_deep_notify_watch(None, true)`.
+                debug!("{:?}", p);
+            }
             _ => (),
         }
     }

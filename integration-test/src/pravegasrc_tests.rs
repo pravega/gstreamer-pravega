@@ -10,14 +10,14 @@
 
 #[cfg(test)]
 mod test {
-    use anyhow::{anyhow, Error};
-    use gst::ClockTime;
+    use anyhow::Error;
     use gst::prelude::*;
     use gstpravega::utils::{clocktime_to_pravega, pravega_to_clocktime};
     use pravega_video::timestamp::PravegaTimestamp;
     use rstest::rstest;
     use std::convert::TryFrom;
     use std::sync::Arc;
+    #[allow(unused_imports)]
     use tracing::{error, info, debug};
     use uuid::Uuid;
     use crate::*;
@@ -53,7 +53,7 @@ mod test {
             fps = fps,
             key_int_max = key_int_max,
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={}", summary);
         Ok(summary)
     }
@@ -71,7 +71,7 @@ mod test {
             ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={}", summary);
         info!("Expected: summary={:?}", summary_written);
         info!("Actual:   summary={:?}", summary);
@@ -92,7 +92,7 @@ mod test {
             ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={}", summary);
         let first_pts = summary.first_pts();
         info!("Expected: first_pts={:?}", first_valid_pts_written);
@@ -126,7 +126,7 @@ mod test {
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
             start_timestamp = start_timestamp.nanoseconds().unwrap(),
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary_written={:?}", summary_written);
         debug!("summary=        {:?}", summary);
         let first_pts_actual = summary.first_pts();
@@ -150,7 +150,7 @@ mod test {
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
             start_timestamp = PravegaTimestamp::MAX.nanoseconds().unwrap(),
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={:?}", summary);
         assert_eq!(summary.num_buffers(), 0);
     }
@@ -168,7 +168,7 @@ mod test {
             ! appsink name=sink sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );
-        let summary = launch_pipeline_and_get_summary(pipeline_description).unwrap();
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={}", summary);
         assert!(summary.buffer_summary_list.is_empty());
     }
@@ -203,7 +203,7 @@ mod test {
         info!("Launch Pipeline: {}", pipeline_description);
         let pipeline = gst::parse_launch(&pipeline_description).unwrap();
         let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
-        let pipeline_clone = pipeline.clone();
+        let _pipeline_clone = pipeline.clone();
         let summary_list = Arc::new(Mutex::new(Vec::new()));
         let summary_list_clone = summary_list.clone();
         let sink = pipeline
@@ -214,7 +214,7 @@ mod test {
                 sink.set_callbacks(
                     gst_app::AppSinkCallbacks::builder()
                         .new_sample(move |sink| {
-                            let do_seek = {
+                            let _do_seek = {
                                 let sample = sink.pull_sample().unwrap();
                                 debug!("sample={:?}", sample);
                                 let buffer = sample.get_buffer().unwrap();
