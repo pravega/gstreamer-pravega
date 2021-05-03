@@ -10,9 +10,8 @@
 
 #[cfg(test)]
 mod test {
-    use anyhow::{anyhow, Error};
-    use gst::prelude::*;
     use pravega_video::timestamp::PravegaTimestamp;
+    #[allow(unused_imports)]
     use tracing::{error, info, debug};
     use uuid::Uuid;
     use crate::*;

@@ -11,11 +11,10 @@
 #[cfg(test)]
 mod test {
     use gst::ClockTime;
-    use gst::prelude::*;
     use gstpravega::utils::{clocktime_to_pravega, pravega_to_clocktime};
     use pravega_video::timestamp::PravegaTimestamp;
-    use rstest::rstest;
     use std::convert::TryFrom;
+    #[allow(unused_imports)]
     use tracing::{error, info, debug};
     use uuid::Uuid;
     use crate::*;

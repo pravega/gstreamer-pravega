@@ -10,14 +10,14 @@
 
 #[cfg(test)]
 mod test {
-    use anyhow::{anyhow, Error};
-    use gst::ClockTime;
+    use anyhow::Error;
     use gst::prelude::*;
     use gstpravega::utils::{clocktime_to_pravega, pravega_to_clocktime};
     use pravega_video::timestamp::PravegaTimestamp;
     use rstest::rstest;
     use std::convert::TryFrom;
     use std::sync::Arc;
+    #[allow(unused_imports)]
     use tracing::{error, info, debug};
     use uuid::Uuid;
     use crate::*;
@@ -203,7 +203,7 @@ mod test {
         info!("Launch Pipeline: {}", pipeline_description);
         let pipeline = gst::parse_launch(&pipeline_description).unwrap();
         let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
-        let pipeline_clone = pipeline.clone();
+        let _pipeline_clone = pipeline.clone();
         let summary_list = Arc::new(Mutex::new(Vec::new()));
         let summary_list_clone = summary_list.clone();
         let sink = pipeline
@@ -214,7 +214,7 @@ mod test {
                 sink.set_callbacks(
                     gst_app::AppSinkCallbacks::builder()
                         .new_sample(move |sink| {
-                            let do_seek = {
+                            let _do_seek = {
                                 let sample = sink.pull_sample().unwrap();
                                 debug!("sample={:?}", sample);
                                 let buffer = sample.get_buffer().unwrap();

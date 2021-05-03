@@ -8,6 +8,8 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+#![allow(dead_code)]
+
 use anyhow::{anyhow, Error};
 use gst::{BufferFlags, ClockTime};
 use gst::prelude::*;
@@ -19,6 +21,7 @@ use pravega_video::index::{IndexSearcher, SearchMethod, get_index_stream_name};
 use pravega_video::timestamp::PravegaTimestamp;
 use std::fmt;
 use std::sync::{Arc, Mutex};
+#[allow(unused_imports)]
 use tracing::{error, warn, info, debug, trace};
 
 /// Initialize GStreamer.

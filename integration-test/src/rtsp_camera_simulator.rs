@@ -14,6 +14,8 @@
 //   - https://gitlab.freedesktop.org/gstreamer/gstreamer-rs/-/blob/master/examples/src/bin/rtsp-server-record.rs
 // See also /apps/src/bin/rtsp-camera-simulator.rs.
 
+#![allow(dead_code)]
+
 use anyhow::Error;
 use gst_rtsp_server::prelude::*;
 use gst_rtsp_server::{RTSPMediaFactory, RTSPServer};
