@@ -106,6 +106,10 @@ impl BufferListSummary {
         }
     }
 
+    pub fn pts_range(&self) -> ClockTime {
+        pravega_to_clocktime(self.last_valid_pts()) - pravega_to_clocktime(self.first_valid_pts())
+    }
+
     /// Returns list of PTSs of all non-delta frames.
     pub fn non_delta_pts(&self) -> Vec<PravegaTimestamp> {
         self.buffer_summary_list
@@ -119,12 +123,22 @@ impl BufferListSummary {
     pub fn num_buffers(&self) -> u64 {
         self.buffer_summary_list.len() as u64
     }
+
+    pub fn num_buffers_with_valid_pts(&self) -> u64 {
+        self.buffer_summary_list
+            .iter()
+            .map(|s| s.pts)
+            .filter(|c| c.is_some())
+            .count() as u64
+    }
 }
 
 impl fmt::Display for BufferListSummary {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        f.write_fmt(format_args!("BufferListSummary {{ num_buffers: {}, first_pts: {}, first_valid_pts: {}, last_valid_pts: {} }}",
-            self.num_buffers(), self.first_pts(), self.first_valid_pts(), self.last_valid_pts()))
+        f.write_fmt(format_args!("BufferListSummary {{ num_buffers: {}, num_buffers_with_valid_pts: {}, \
+            first_pts: {}, first_valid_pts: {}, last_valid_pts: {}, pts_range: {} }}",
+            self.num_buffers(), self.num_buffers_with_valid_pts(),
+            self.first_pts(), self.first_valid_pts(), self.last_valid_pts(), self.pts_range()))
     }
 }
 
