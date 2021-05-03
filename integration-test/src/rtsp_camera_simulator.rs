@@ -21,7 +21,6 @@ use gst_rtsp_server::prelude::*;
 use gst_rtsp_server::{RTSPMediaFactory, RTSPServer};
 use gst_rtsp_server::subclass::prelude::*;
 use std::sync::{Arc, Mutex};
-// use std::sync::atomic::AtomicU16;
 use std::thread;
 use tracing::info;
 
@@ -34,7 +33,7 @@ pub struct RTSPCameraSimulator {
 
 impl RTSPCameraSimulator {
     #[allow(non_snake_case)]
-    pub fn new(width: u32, height: u32, fps: u32, target_rate_KB_per_sec: f64) -> Result<RTSPCameraSimulator, Error> {
+    pub fn new(width: u64, height: u64, fps: u64, target_rate_KB_per_sec: f64) -> Result<RTSPCameraSimulator, Error> {
         let main_loop = glib::MainLoop::new(None, false);
         let server = RTSPServer::new();
         let mounts = server.get_mount_points().unwrap();
@@ -75,6 +74,7 @@ impl RTSPCameraSimulator {
 
     pub fn get_url(&self) -> String {
         let port = self.port.lock().unwrap();
+        assert!(*port > 0);
         format!("rtsp://localhost:{}{}", port, self.path)
     }
 
@@ -86,13 +86,15 @@ impl RTSPCameraSimulator {
         let _ = thread::spawn(move || {
             let source_id = server.attach(None).unwrap();
             info!("RTSP server started on port {}", server.get_bound_port());
-            // port.store(val, order) = server.get_bound_port();
             let mut port = port.lock().unwrap();
             *port = server.get_bound_port();
+            drop(port);
             main_loop_clone.run();
             glib::source_remove(source_id);
             info!("RTSP server stopped");
         });
+        // TODO: Need to wait for port to be set.
+        std::thread::sleep(std::time::Duration::from_millis(1000));
         Ok(())
     }
 }

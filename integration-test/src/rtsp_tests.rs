@@ -25,14 +25,23 @@ mod test {
         let test_config = &get_test_config();
         info!("test_config={:?}", test_config);
         let stream_name = &format!("test-rtsp-{}-{}", test_config.test_id, Uuid::new_v4())[..];
-
-        let rtsp_url = std::env::var("RTSP_URL").unwrap();
-        let rtsp_server = RTSPCameraSimulator::new(640, 480, 20, 10.0).unwrap();
-        rtsp_server.start().unwrap();
-        let rtsp_url = rtsp_server.get_url();
-        info!("rtsp_url={}", rtsp_url);
-
         let fps = 20;
+
+        // Use external or in-process RTSP server.
+        let (rtsp_url, _rtsp_server) = match std::env::var("RTSP_URL") {
+          Ok(rtsp_url) => {
+            info!("Using external RTSP server at {}", rtsp_url);
+            (rtsp_url, None)
+          },
+          Err(_) => {
+            let rtsp_server = RTSPCameraSimulator::new(640, 480, fps, 10.0).unwrap();
+            rtsp_server.start().unwrap();
+            let rtsp_url = rtsp_server.get_url();
+            info!("Using in-process RTSP camera simulator at {}", rtsp_url);
+            (rtsp_url, Some(rtsp_server))
+          }
+        };
+
         let num_sec_to_record = 10;
         // The identity element will stop the pipeline after this many video frames.
         let num_frames_to_record = num_sec_to_record * fps;
