@@ -121,6 +121,7 @@ enum State {
         final_timestamp: PravegaTimestamp,
         // The offset that will be written to the index upon end-of-stream.
         final_offset: Option<u64>,
+        buffers_written: u64,
     },
 }
 
@@ -564,6 +565,7 @@ impl BaseSinkImpl for PravegaSink {
                 last_index_time: PravegaTimestamp::NONE,
                 final_timestamp: PravegaTimestamp::NONE,
                 final_offset: None,
+                buffers_written: 0,
             };
             gst_info!(CAT, obj: element, "start: Started");
             Ok(())
@@ -585,19 +587,22 @@ impl BaseSinkImpl for PravegaSink {
                 index_writer,
                 last_index_time,
                 final_timestamp,
-                final_offset) = match *state {
+                final_offset,
+                buffers_written) = match *state {
                 State::Started {
                     ref mut writer,
                     ref mut index_writer,
                     ref mut last_index_time,
                     ref mut final_timestamp,
                     ref mut final_offset,
+                    ref mut buffers_written,
                     ..
                 } => (writer,
                     index_writer,
                     last_index_time,
                     final_timestamp,
-                    final_offset),
+                    final_offset,
+                    buffers_written),
                 State::Stopped => {
                     gst::element_error!(element, gst::CoreError::Failed, ["Not started yet"]);
                     return Err(gst::FlowError::Error);
@@ -696,11 +701,18 @@ impl BaseSinkImpl for PravegaSink {
                 })?;
             }
 
-            // Record a discontinuity if upstream has indicated one or if this will be
-            // the first index record emitted from this instance.
-            let discontinuity = buffer_flags.contains(gst::BufferFlags::DISCONT)
+            // Record a discontinuity if any of the following are true:
+            //   1) upstream has indicated a discontinuity (or resync) in the buffer
+            //   3) this will be the first buffer written to the data stream from this instance
+            //   2) this will be the first index record written from this instance
+            let discontinuity =
+                   buffer_flags.contains(gst::BufferFlags::DISCONT)
                 || buffer_flags.contains(gst::BufferFlags::RESYNC)
+                || *buffers_written == 0
                 || (include_in_index && last_index_time.nanoseconds().is_none());
+            if discontinuity {
+                gst_debug!(CAT, obj: element, "render: Recording discontinuity");
+            }
 
             // Write index record.
             // We write the index record before the buffer so that any readers blocked on reading the
@@ -734,6 +746,7 @@ impl BaseSinkImpl for PravegaSink {
                 );
                 gst::FlowError::Error
             })?;
+            *buffers_written += 1;
 
             // Get the writer offset after writing.
             let writer_offset_end = writer.seek(SeekFrom::Current(0)).unwrap();
@@ -760,7 +773,6 @@ impl BaseSinkImpl for PravegaSink {
             if timestamp.is_some() {
                 // If duration of the buffer is reported as 0, we record it as if it had a 1 nanosecond duration.
                 let duration = cmp::max(1, duration.nanoseconds().unwrap_or_default());
-                // we must flush any data writes prior to this buffer, so that reads do not block waiting on this writer.
                 *final_timestamp = PravegaTimestamp::from_nanoseconds(
                     timestamp.nanoseconds().map(|t| t + duration));
             }
