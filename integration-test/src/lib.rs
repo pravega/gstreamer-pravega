@@ -9,6 +9,7 @@
 //
 
 mod gst_plugin_pravega_tests;
+mod hls_tests;
 mod pravegasrc_tests;
 mod pravega_service;
 mod rtsp_camera_simulator;

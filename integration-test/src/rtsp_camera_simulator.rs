@@ -32,6 +32,8 @@ pub struct RTSPCameraSimulatorConfig {
     height: u64,
     #[builder(default = "20")]
     fps: u64,
+    #[builder(default = "30")]
+    key_frame_interval_max: u64,
     #[builder(default = "10.0")]
     target_rate_kilobytes_per_sec: f64,
     #[builder(default = "\"/cam/realmonitor\".to_owned()")]
@@ -58,12 +60,13 @@ impl RTSPCameraSimulator {
             ! videoconvert \
             ! clockoverlay font-desc=\"Sans, 48\" time-format=\"%F %T\" shaded-background=true \
             ! timeoverlay valignment=bottom font-desc=\"Sans, 48\" shaded-background=true \
-            ! x264enc tune=zerolatency key-int-max=30 bitrate={target_rate_kbits_per_sec} \
+            ! x264enc tune=zerolatency key-int-max={key_frame_interval_max} bitrate={target_rate_kbits_per_sec} \
             ! h264parse \
             ! rtph264pay name=pay0 pt=96",
             width = config.width,
             height = config.height,
             fps = config.fps,
+            key_frame_interval_max = config.key_frame_interval_max,
             target_rate_kbits_per_sec = target_rate_kilobits_per_sec,
         );
         info!("Launch Pipeline: {}", pipeline_description);
