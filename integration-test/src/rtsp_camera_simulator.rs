@@ -24,6 +24,25 @@ use std::sync::mpsc;
 use std::thread;
 use tracing::{info, debug};
 
+/// Start an in-process RTSP server that simulates a camera
+/// or use an external RTSP server if specified in the RTSP_URL environment variable.
+/// The in-process RTSP server will be stopped when the returned value is dropped.
+pub fn start_or_get_rtsp_test_source(config: RTSPCameraSimulatorConfig) -> (String, Option<RTSPCameraSimulator>) {
+    match std::env::var("RTSP_URL") {
+        Ok(rtsp_url) => {
+            info!("Using external RTSP server at {}", rtsp_url);
+            (rtsp_url, None)
+        },
+        Err(_) => {
+            let mut rtsp_server = RTSPCameraSimulator::new(config).unwrap();
+            rtsp_server.start().unwrap();
+            let rtsp_url = rtsp_server.get_url().unwrap();
+            info!("Using in-process RTSP camera simulator at {}", rtsp_url);
+            (rtsp_url, Some(rtsp_server))
+        }
+    }
+}
+
 #[derive(Builder)]
 pub struct RTSPCameraSimulatorConfig {
     #[builder(default = "640")]

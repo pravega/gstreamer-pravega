@@ -31,6 +31,14 @@ use crate::pravega_service::{PravegaService, PravegaStandaloneService, PravegaSt
 #[macro_use]
 extern crate derive_new;
 
+/// Default logging configuraiton for GStreamer and GStreamer plugins.
+/// Valid levels are: none, ERROR, WARNING, FIXME, INFO, DEBUG, LOG, TRACE, MEMDUMP
+/// See [https://gstreamer.freedesktop.org/documentation/tutorials/basic/debugging-tools.html?gi-language=c#the-debug-log].
+pub const DEFAULT_GST_DEBUG: &str = "pravegasrc:DEBUG,pravegasink:DEBUG,basesink:INFO,FIXME";
+/// Default logging configuration for for Rust tracing (includes this integration test and the Pravega client).
+/// Valid levels are: error, warn, info, debug, trace
+pub const DEFAULT_GST_PRAVEGA_INTEGRATION_TEST_LOG: &str = "gstreamer_pravega_integration_test=debug,pravega_video=debug,warn";
+
 #[derive(Clone, Debug)]
 pub struct TestConfig {
     pub client_config: ClientConfig,
@@ -141,7 +149,7 @@ lazy_static! {
 #[ctor::ctor]
 fn init() {
     let filter = std::env::var("GST_PRAVEGA_INTEGRATION_TEST_LOG")
-        .unwrap_or_else(|_| "gstreamer_pravega_integration_test=debug,pravega_video=debug,warn".to_owned());
+        .unwrap_or_else(|_| DEFAULT_GST_PRAVEGA_INTEGRATION_TEST_LOG.to_owned());
     if !filter.is_empty() {
         tracing_subscriber::fmt()
             .with_env_filter(filter)

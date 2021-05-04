@@ -15,7 +15,7 @@ mod test {
     use tracing::{error, info, debug};
     use uuid::Uuid;
     use crate::*;
-    use crate::rtsp_camera_simulator::{RTSPCameraSimulator, RTSPCameraSimulatorConfigBuilder};
+    use crate::rtsp_camera_simulator::{start_or_get_rtsp_test_source, RTSPCameraSimulatorConfigBuilder};
     use crate::utils::*;
 
     #[test]
@@ -25,25 +25,10 @@ mod test {
         info!("test_config={:?}", test_config);
         let stream_name = &format!("test-rtsp-{}-{}", test_config.test_id, Uuid::new_v4())[..];
         let fps = 20;
-
-        // Use external or in-process RTSP server.
-        let (rtsp_url, _rtsp_server) = match std::env::var("RTSP_URL") {
-            Ok(rtsp_url) => {
-                info!("Using external RTSP server at {}", rtsp_url);
-                (rtsp_url, None)
-            },
-            Err(_) => {
-                let rtsp_server_config = RTSPCameraSimulatorConfigBuilder::default()
-                    .fps(fps)
-                    .build().unwrap();
-                let mut rtsp_server = RTSPCameraSimulator::new(rtsp_server_config).unwrap();
-                rtsp_server.start().unwrap();
-                let rtsp_url = rtsp_server.get_url().unwrap();
-                info!("Using in-process RTSP camera simulator at {}", rtsp_url);
-                (rtsp_url, Some(rtsp_server))
-            }
-        };
-
+        let rtsp_server_config = RTSPCameraSimulatorConfigBuilder::default()
+            .fps(fps)
+            .build().unwrap();
+        let (rtsp_url, _rtsp_server) = start_or_get_rtsp_test_source(rtsp_server_config);
         let num_sec_to_record = 10;
         // The identity element will stop the pipeline after this many video frames.
         let num_frames_to_record = num_sec_to_record * fps;
