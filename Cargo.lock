@@ -1202,8 +1202,8 @@ dependencies = [
  "gstreamer-base",
  "once_cell",
  "pravega-client",
- "pravega-client-config 0.1.0 (git+https://github.com//pravega/pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
- "pravega-client-shared 0.1.0 (git+https://github.com//pravega/pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
+ "pravega-client-config",
+ "pravega-client-shared",
  "pravega-video",
 ]
 
@@ -1364,8 +1364,8 @@ dependencies = [
  "gtk",
  "log",
  "pravega-client",
- "pravega-client-config 0.1.0 (git+https://github.com//pravega/pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
- "pravega-client-shared 0.1.0 (git+https://github.com//pravega/pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
+ "pravega-client-config",
+ "pravega-client-shared",
  "pravega-video",
  "serde",
  "serde_json",
@@ -2457,7 +2457,7 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 [[package]]
 name = "pravega-client"
 version = "0.1.0"
-source = "git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
 dependencies = [
  "ahash 0.6.3",
  "async-stream 0.2.1",
@@ -2476,9 +2476,9 @@ dependencies = [
  "pcg_rand",
  "pravega-client-auth",
  "pravega-client-channel",
- "pravega-client-config 0.1.0 (git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
- "pravega-client-retry 0.1.0 (git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
- "pravega-client-shared 0.1.0 (git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
+ "pravega-client-config",
+ "pravega-client-retry",
+ "pravega-client-shared",
  "pravega-connection-pool",
  "pravega-controller-client",
  "pravega-wire-protocol",
@@ -2498,12 +2498,12 @@ dependencies = [
 [[package]]
 name = "pravega-client-auth"
 version = "0.1.0"
-source = "git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
 dependencies = [
  "async-trait",
  "base64 0.12.3",
  "lazy_static",
- "pravega-client-shared 0.1.0 (git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
+ "pravega-client-shared",
  "pravega-controller-client",
  "regex",
  "tokio 1.5.0",
@@ -2513,7 +2513,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-channel"
 version = "0.1.0"
-source = "git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
 dependencies = [
  "futures-intrusive 0.4.0",
  "tokio 1.5.0",
@@ -2522,31 +2522,14 @@ dependencies = [
 [[package]]
 name = "pravega-client-config"
 version = "0.1.0"
-source = "git+https://github.com//pravega/pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
 dependencies = [
  "async-trait",
  "base64 0.12.3",
  "derive_builder",
  "getset",
- "pravega-client-retry 0.1.0 (git+https://github.com//pravega/pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
- "pravega-client-shared 0.1.0 (git+https://github.com//pravega/pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
- "reqwest",
- "serde",
- "serde_json",
- "tokio 1.5.0",
-]
-
-[[package]]
-name = "pravega-client-config"
-version = "0.1.0"
-source = "git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
-dependencies = [
- "async-trait",
- "base64 0.12.3",
- "derive_builder",
- "getset",
- "pravega-client-retry 0.1.0 (git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
- "pravega-client-shared 0.1.0 (git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
+ "pravega-client-retry",
+ "pravega-client-shared",
  "reqwest",
  "serde",
  "serde_json",
@@ -2556,16 +2539,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-retry"
 version = "0.1.0"
-source = "git+https://github.com//pravega/pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
-dependencies = [
- "snafu",
- "tokio 1.5.0",
-]
-
-[[package]]
-name = "pravega-client-retry"
-version = "0.1.0"
-source = "git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
 dependencies = [
  "snafu",
  "tokio 1.5.0",
@@ -2574,27 +2548,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-shared"
 version = "0.1.0"
-source = "git+https://github.com//pravega/pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
-dependencies = [
- "async-trait",
- "bytes 0.4.12",
- "derive-new",
- "derive_more",
- "encoding_rs",
- "im",
- "murmurhash3",
- "ordered-float 1.1.1",
- "serde",
- "shrinkwraprs",
- "snafu",
- "tokio 1.5.0",
- "uuid",
-]
-
-[[package]]
-name = "pravega-client-shared"
-version = "0.1.0"
-source = "git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
 dependencies = [
  "async-trait",
  "bytes 0.4.12",
@@ -2614,12 +2568,12 @@ dependencies = [
 [[package]]
 name = "pravega-connection-pool"
 version = "0.1.0"
-source = "git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
 dependencies = [
  "async-trait",
  "dashmap 3.11.10",
  "futures",
- "pravega-client-shared 0.1.0 (git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
+ "pravega-client-shared",
  "snafu",
  "tokio 1.5.0",
  "uuid",
@@ -2628,7 +2582,7 @@ dependencies = [
 [[package]]
 name = "pravega-controller-client"
 version = "0.1.0"
-source = "git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
 dependencies = [
  "async-trait",
  "clap 2.33.3",
@@ -2637,9 +2591,9 @@ dependencies = [
  "im",
  "jsonwebtoken",
  "ordered-float 1.1.1",
- "pravega-client-config 0.1.0 (git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
- "pravega-client-retry 0.1.0 (git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
- "pravega-client-shared 0.1.0 (git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
+ "pravega-client-config",
+ "pravega-client-retry",
+ "pravega-client-shared",
  "pravega-connection-pool",
  "pravega-wire-protocol",
  "prost",
@@ -2663,8 +2617,8 @@ dependencies = [
  "env_logger",
  "once_cell",
  "pravega-client",
- "pravega-client-config 0.1.0 (git+https://github.com//pravega/pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
- "pravega-client-shared 0.1.0 (git+https://github.com//pravega/pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
+ "pravega-client-config",
+ "pravega-client-shared",
  "rand 0.8.3",
  "rand_chacha 0.3.0",
  "tracing",
@@ -2682,8 +2636,8 @@ dependencies = [
  "handlebars",
  "hyper",
  "pravega-client",
- "pravega-client-config 0.1.0 (git+https://github.com//pravega/pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
- "pravega-client-shared 0.1.0 (git+https://github.com//pravega/pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
+ "pravega-client-config",
+ "pravega-client-shared",
  "pravega-video",
  "serde",
  "serde_derive",
@@ -2696,7 +2650,7 @@ dependencies = [
 [[package]]
 name = "pravega-wire-protocol"
 version = "0.1.0"
-source = "git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
 dependencies = [
  "async-trait",
  "bincode2",
@@ -2705,9 +2659,9 @@ dependencies = [
  "futures",
  "lazy_static",
  "log",
- "pravega-client-config 0.1.0 (git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
- "pravega-client-retry 0.1.0 (git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
- "pravega-client-shared 0.1.0 (git+https://github.com/pravega//pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
+ "pravega-client-config",
+ "pravega-client-retry",
+ "pravega-client-shared",
  "pravega-connection-pool",
  "serde",
  "serde_bytes",
@@ -2724,8 +2678,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "pravega-client",
- "pravega-client-config 0.1.0 (git+https://github.com//pravega/pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
- "pravega-client-shared 0.1.0 (git+https://github.com//pravega/pravega-client-rust.git?rev=800232b49893186203ebf36bdc430a3a7540d30e)",
+ "pravega-client-config",
+ "pravega-client-shared",
  "tokio 1.5.0",
  "tracing",
  "tracing-subscriber",
