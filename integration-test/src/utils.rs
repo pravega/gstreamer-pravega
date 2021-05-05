@@ -167,6 +167,8 @@ impl fmt::Display for BufferListSummary {
 }
 
 pub fn assert_between_clocktime(name: &str, actual: ClockTime, expected_min: ClockTime, expected_max: ClockTime) {
+    debug!("{}: Actual:   {}    {}", name, actual, actual);
+    debug!("{}: Expected: {} to {}", name, expected_min, expected_max);
     if !actual.nanoseconds().is_some() {
         panic!("{} is None", name);
     }
@@ -189,6 +191,17 @@ pub fn assert_between_timestamp(name: &str, actual: PravegaTimestamp, expected_m
     }
     if expected_max.nanoseconds().is_some() && actual.nanoseconds().unwrap() > expected_max.nanoseconds().unwrap() {
         panic!("{}: actual value {} is greater than expected maximum {}", name, actual, expected_max);
+    }
+}
+
+pub fn assert_timestamp_eq(name: &str, actual: PravegaTimestamp, expected: PravegaTimestamp) {
+    debug!("{}: Actual:   {:?}", name, actual);
+    debug!("{}: Expected: {:?}", name, expected);
+    if actual.nanoseconds().is_none() {
+        panic!("{} is None", name);
+    }
+    if actual != expected {
+        panic!("{}: actual value {} is not equal to expected value {}", name, actual, expected);
     }
 }
 
