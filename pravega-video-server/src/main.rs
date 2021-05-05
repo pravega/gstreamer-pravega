@@ -188,9 +188,11 @@ mod handlers {
 mod models {
     use anyhow;
     use chrono::{DateTime, Utc};
+    use futures::{StreamExt, future};
     use hyper::body::{Body, Bytes};
     use pravega_client::client_factory::ClientFactory;
     use pravega_client_shared::{Scope, ScopedSegment, Segment, Stream};
+    use pravega_controller_client::paginator::list_streams;
     use pravega_video::{event_serde::{EventReader}, index::IndexSearcher};
     use pravega_video::index::{IndexRecord, IndexRecordReader, SearchMethod, get_index_stream_name};
     use pravega_video::timestamp::PravegaTimestamp;
@@ -469,12 +471,27 @@ mod models {
             self,
             scope_name: String,
         ) -> anyhow::Result<ListStreamsResult> {
-            tracing::info!("list_video_streams: scope_name={}", scope_name);
+
+            tracing::info!("list_video_streams: scope_name={}", scope_name.clone());
             let controller_client = self.client_factory.get_controller_client();
-            let stream_names = controller_client.list_streams(&Scope::from(scope_name.clone())).await.unwrap();
-            let streams: Vec<_> = stream_names.into_iter().map(|stream_name| ListStreamsRecord {
+            let scope = Scope { name : scope_name.clone() };
+            let mut streams = Vec::new();
+            let mut had_error = false;
+            list_streams(scope, controller_client).for_each(|stream| {
+                if stream.is_ok() {
+                    streams.push(stream.unwrap());
+                } else {
+                    had_error = true;
+                }
+                future::ready(())
+            }).await;
+
+            if had_error {
+                anyhow::bail!("Error listing streams for scope={}", scope_name.clone());
+            }
+            let streams: Vec<_> = streams.into_iter().map(|scoped_stream| ListStreamsRecord {
                 scope_name: scope_name.clone(),
-                stream_name,
+                stream_name: scoped_stream.stream.name
             }).collect();
             Ok(ListStreamsResult { streams })
         }

@@ -25,7 +25,6 @@ pushd ${ROOT_DIR}/pravega-video
 cargo test $*
 popd
 
-# TODO: Below fails to compile.
-# pushd ${ROOT_DIR}/pravega-video-server
-# cargo test $*
-# popd
+pushd ${ROOT_DIR}/pravega-video-server
+cargo test $*
+popd

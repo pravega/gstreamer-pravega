@@ -24,6 +24,25 @@ use std::sync::mpsc;
 use std::thread;
 use tracing::{info, debug};
 
+/// Start an in-process RTSP server that simulates a camera
+/// or use an external RTSP server if specified in the RTSP_URL environment variable.
+/// The in-process RTSP server will be stopped when the returned value is dropped.
+pub fn start_or_get_rtsp_test_source(config: RTSPCameraSimulatorConfig) -> (String, Option<RTSPCameraSimulator>) {
+    match std::env::var("RTSP_URL") {
+        Ok(rtsp_url) => {
+            info!("Using external RTSP server at {}", rtsp_url);
+            (rtsp_url, None)
+        },
+        Err(_) => {
+            let mut rtsp_server = RTSPCameraSimulator::new(config).unwrap();
+            rtsp_server.start().unwrap();
+            let rtsp_url = rtsp_server.get_url().unwrap();
+            info!("Using in-process RTSP camera simulator at {}", rtsp_url);
+            (rtsp_url, Some(rtsp_server))
+        }
+    }
+}
+
 #[derive(Builder)]
 pub struct RTSPCameraSimulatorConfig {
     #[builder(default = "640")]
@@ -32,6 +51,8 @@ pub struct RTSPCameraSimulatorConfig {
     height: u64,
     #[builder(default = "20")]
     fps: u64,
+    #[builder(default = "30")]
+    key_frame_interval_max: u64,
     #[builder(default = "10.0")]
     target_rate_kilobytes_per_sec: f64,
     #[builder(default = "\"/cam/realmonitor\".to_owned()")]
@@ -58,12 +79,13 @@ impl RTSPCameraSimulator {
             ! videoconvert \
             ! clockoverlay font-desc=\"Sans, 48\" time-format=\"%F %T\" shaded-background=true \
             ! timeoverlay valignment=bottom font-desc=\"Sans, 48\" shaded-background=true \
-            ! x264enc tune=zerolatency key-int-max=30 bitrate={target_rate_kbits_per_sec} \
+            ! x264enc tune=zerolatency key-int-max={key_frame_interval_max} bitrate={target_rate_kbits_per_sec} \
             ! h264parse \
             ! rtph264pay name=pay0 pt=96",
             width = config.width,
             height = config.height,
             fps = config.fps,
+            key_frame_interval_max = config.key_frame_interval_max,
             target_rate_kbits_per_sec = target_rate_kilobits_per_sec,
         );
         info!("Launch Pipeline: {}", pipeline_description);
