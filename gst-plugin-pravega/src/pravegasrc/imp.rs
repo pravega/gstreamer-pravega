@@ -36,11 +36,11 @@ use pravega_video::timestamp::PravegaTimestamp;
 use pravega_video::utils;
 use crate::counting_reader::CountingReader;
 use crate::seekable_take::SeekableTake;
+use crate::utils::{clocktime_to_pravega, pravega_to_clocktime};
 
 const PROPERTY_NAME_STREAM: &str = "stream";
 const PROPERTY_NAME_CONTROLLER: &str = "controller";
 const PROPERTY_NAME_BUFFER_SIZE: &str = "buffer-size";
-const PROPERTY_NAME_START_PTS_AT_ZERO: &str = "start-pts-at-zero";
 const PROPERTY_NAME_START_MODE: &str = "start-mode";
 const PROPERTY_NAME_END_MODE: &str = "end-mode";
 const PROPERTY_NAME_START_TIMESTAMP: &str = "start-timestamp";
@@ -56,8 +56,10 @@ const PROPERTY_NAME_KEYCLOAK_FILE: &str = "keycloak-file";
 pub enum StartMode {
     #[genum(
         name = "This element will not initiate a seek when starting. \
-                Usually a pipeline will start with a seek to position 0, \
-                in which case this would be equivalent to earliest.",
+                It will begin reading from the first available buffer in the stream. \
+                It will not use the index and it will not set the segment times. \
+                This should generally not be used when playing with sync=true. \
+                This option is only useful if you wish to read buffers that may exist prior to an index record.",
         nick = "no-seek"
     )]
     NoSeek = 0,
@@ -111,8 +113,7 @@ pub enum EndMode {
 
 const DEFAULT_CONTROLLER: &str = "127.0.0.1:9090";
 const DEFAULT_BUFFER_SIZE: usize = 128*1024;
-const DEFAULT_START_PTS_AT_ZERO: bool = false;
-const DEFAULT_START_MODE: StartMode = StartMode::NoSeek;
+const DEFAULT_START_MODE: StartMode = StartMode::Earliest;
 const DEFAULT_END_MODE: EndMode = EndMode::Unbounded;
 const DEFAULT_START_TIMESTAMP: u64 = 0;
 const DEFAULT_END_TIMESTAMP: u64 = u64::MAX;
@@ -123,7 +124,6 @@ struct Settings {
     stream: Option<String>,
     controller: Option<String>,
     buffer_size: usize,
-    start_pts_at_zero: bool,
     start_mode: StartMode,
     end_mode: EndMode,
     start_timestamp: u64,
@@ -139,7 +139,6 @@ impl Default for Settings {
             stream: None,
             controller: Some(DEFAULT_CONTROLLER.to_owned()),
             buffer_size: DEFAULT_BUFFER_SIZE,
-            start_pts_at_zero: DEFAULT_START_PTS_AT_ZERO,
             start_mode: DEFAULT_START_MODE,
             end_mode: DEFAULT_END_MODE,
             start_timestamp: DEFAULT_START_TIMESTAMP,
@@ -264,17 +263,6 @@ impl ObjectImpl for PravegaSrc {
                 DEFAULT_BUFFER_SIZE.try_into().unwrap(),
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::boolean(
-                PROPERTY_NAME_START_PTS_AT_ZERO,
-                "Start PTS at 0",
-                "If true, the first buffer will have a PTS of 0. \
-                If false, buffers will have a PTS equal to the raw timestamp stored in the Pravega stream \
-                (nanoseconds since 1970-01-01 00:00 TAI International Atomic Time). \
-                Use true when using sinks with sync=true such as an autoaudiosink. \
-                Use false when using sinks with sync=false such as pravegasink.",
-                DEFAULT_START_PTS_AT_ZERO,
-                glib::ParamFlags::WRITABLE,
-            ),
             glib::ParamSpec::enum_(
                 PROPERTY_NAME_START_MODE,
                 "Start mode",
@@ -384,19 +372,6 @@ impl ObjectImpl for PravegaSrc {
                 };
                 if let Err(err) = res {
                     gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_BUFFER_SIZE, err);
-                }
-            },
-            PROPERTY_NAME_START_PTS_AT_ZERO => {
-                let res: Result<(), glib::Error> = match value.get::<bool>() {
-                    Ok(start_pts_at_zero) => {
-                        let mut settings = self.settings.lock().unwrap();
-                        settings.start_pts_at_zero = start_pts_at_zero.unwrap_or_default();
-                        Ok(())
-                    },
-                    Err(_) => unreachable!("type checked upstream"),
-                };
-                if let Err(err) = res {
-                    gst_error!(CAT, obj: obj, "Failed to set property {}: {}", PROPERTY_NAME_START_PTS_AT_ZERO, err);
                 }
             },
             PROPERTY_NAME_START_MODE => {
@@ -689,18 +664,26 @@ impl BaseSrcImpl for PravegaSrc {
 
     /// This method is called in the following scenarios:
     /// 1) initial_seek=true: It is first called right after start() returns.
-    ///    The input segment time will be 0.
-    ///    This method should seek according to the start-mode parameter.
-    /// 2) initial_seek=false: It will be called when an GStreamer application performs a seek using GstElement.seek_simple().
+    ///    The input segment times will all be 0.
+    ///    If the start-mode parameter is no-seek:
+    ///       a. This method will not use the index.
+    ///       b. Reading will begin at the head of the stream.
+    ///       c. All segment times will be 0.
+    ///    Otherwise, this will use the index to locate the timestamp specified by the start-mode parameter.
+    /// 2) initial_seek=false: It will be called when a GStreamer application performs a seek using GstElement.seek_simple().
     ///    The input segment time will be the number of nanoseconds since 1970-01-01 0:00:00 TAI.
-    ///    This method will find the last index record before or equal to the desired time.
-    /// Unless start-mode=no-seek, the Pravega reader offset and the segment time will be set using
-    /// the values from the located index record.
+    ///
+    /// When using the index:
+    /// 1) This method will find the last index record before or equal to the desired time.
+    /// 2) The Pravega reader offset and the segment times will be set using
+    ///    the values from the located index record.
+    /// 3) The segment times will be set so that each buffer will have a PTS and position equal to
+    ///    the number of nanoseconds since 1970-01-01 0:00:00 TAI.
     fn do_seek(&self, src: &Self::Type, segment: &mut gst::Segment) -> bool {
         gst_info!(CAT, obj: src, "do_seek: BEGIN: segment={:?}", segment);
         let result = (|| {
             // Get needed settings, then release lock.
-            let (start_timestamp, start_pts_at_zero) = {
+            let (start_mode, initial_seek_start_timestamp) = {
                 let settings = self.settings.lock().unwrap();
                 let start_timestamp = match settings.start_mode {
                     StartMode::NoSeek => PravegaTimestamp::NONE,
@@ -717,7 +700,7 @@ impl BaseSrcImpl for PravegaSrc {
                         PravegaTimestamp::from_nanoseconds(Some(settings.start_timestamp))
                     },
                 };
-                (start_timestamp, settings.start_pts_at_zero)
+                (settings.start_mode, start_timestamp)
             };
 
             let mut state = self.state.lock().unwrap();
@@ -748,47 +731,47 @@ impl BaseSrcImpl for PravegaSrc {
                 segment.get_start().nseconds().unwrap() == 0 &&
                 segment.get_position().nseconds().unwrap() == 0;
             gst_info!(CAT, obj: src, "do_seek: initial_seek={}", initial_seek);
-
-            let timestamp = if initial_seek {
-                gst_info!(CAT, obj: src, "do_seek: start_timestamp={:?}", start_timestamp);
-                if start_pts_at_zero { unimplemented!() };
-                start_timestamp
-            } else {
-                segment.set_start(0);
-                segment.set_position(0);
-                PravegaTimestamp::from_nanoseconds(segment.get_time().nseconds())
-            };
-            gst_info!(CAT, obj: src, "do_seek: seeking to timestamp={:?}", start_timestamp);
-
-            if timestamp.is_some() {
-                // Determine Pravega stream offset for this timestamp by searching the index.
-                let index_record = index_searcher.search_timestamp(timestamp);
+            let no_seek = initial_seek && start_mode == StartMode::NoSeek;
+            let seek_using_index = !no_seek;
+            if seek_using_index {
+                let requested_seek_timestamp = if initial_seek {
+                    initial_seek_start_timestamp
+                } else {
+                    clocktime_to_pravega(segment.get_time())
+                };
+                gst_info!(CAT, obj: src, "do_seek: seeking to timestamp={:?}", requested_seek_timestamp);
+                // Determine the stream offset for this timestamp by searching the index.
+                let index_record = index_searcher.search_timestamp(requested_seek_timestamp);
                 gst_info!(CAT, obj: src, "do_seek: index_record={:?}", index_record);
                 match index_record {
                     Ok(index_record) => {
-                        if start_pts_at_zero {
-                            segment.set_time(ClockTime(index_record.timestamp.nanoseconds()));
-                            gst_info!(CAT, obj: src, "do_seek: starting PTS at zero; segment={:?}", segment);
-                        }
+                        segment.set_start(ClockTime(index_record.timestamp.nanoseconds()));
+                        segment.set_time(ClockTime(index_record.timestamp.nanoseconds()));
+                        segment.set_position(0);
                         reader.seek(SeekFrom::Start(index_record.offset)).unwrap();
                         gst_info!(CAT, obj: src, "do_seek: seeked to indexed position; segment={:?}", segment);
                         true
                     },
                     Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
                         // This will happen if the index has no records.
-                        let head_offset = reader.get_ref().get_ref().get_ref().current_head().unwrap();
-                        reader.seek(SeekFrom::Start(head_offset)).unwrap();
-                        gst_info!(CAT, obj: src, "do_seek: seeked to head because index is empty; segment={:?}", segment);
-                        true
+                        // We cannot set the segment times appropriately.
+                        gst_error!(CAT, obj: src, "do_seek: index is empty; segment={:?}", segment);
+                        // TODO: Block until the first index record is read.
+                        false
                     },
                     Err(_) => {
                         false
                     }
                 }
             } else {
+                // This is the initial seek and start-mode=no-seek.
+                // The index will not be used.
+                segment.set_start(0);
+                segment.set_time(0);
+                segment.set_position(0);
                 let head_offset = reader.get_ref().get_ref().get_ref().current_head().unwrap();
                 reader.seek(SeekFrom::Start(head_offset)).unwrap();
-                gst_info!(CAT, obj: src, "do_seek: Seeking to head of data stream because start-mode=no-seek; segment={:?}", segment);
+                gst_info!(CAT, obj: src, "do_seek: Starting at head of data stream because start-mode=no-seek; segment={:?}", segment);
                 true
             }
         })();
@@ -800,6 +783,8 @@ impl BaseSrcImpl for PravegaSrc {
         gst_debug!(CAT, obj: src, "query: BEGIN: query={:?}", query);
         let result = (|| {
             match query.view_mut() {
+                // The Seeking query will return the current start and end timestamps
+                // as nanoseconds since the TAI epoch 1970-01-01 00:00:00 TAI.
                 gst::QueryView::Seeking(ref mut q) => {
                     let fmt = q.get_format();
                     if fmt == gst::Format::Time {
@@ -926,18 +911,14 @@ impl PushSrcImpl for PravegaSrc {
                     .downcast::<gst::format::Time>()
                     .unwrap();
                 gst_trace!(CAT, obj: element, "create: segment={:?}", segment);
-                // If start_pts_at_zero=false (default), segment.get_time() equals 0 so the PTS will equal
-                // the timestamp stored in the Pravega timestamp.
-                let pts = ClockTime(event.header.timestamp.nanoseconds()) - segment.get_time();
+                let pts = pravega_to_clocktime(event.header.timestamp);
                 gst_log!(CAT, obj: element, "create: timestamp={:?}, pts={}, payload_len={}",
                     event.header.timestamp, pts, event.payload.len());
 
                 buffer_ref.set_pts(pts);
                 buffer_ref.set_offset(offset);
                 buffer_ref.set_offset_end(offset_end);
-                if event.header.random_access {
-                    buffer_ref.unset_flags(gst::BufferFlags::DELTA_UNIT);
-                } else {
+                if !event.header.random_access {
                     buffer_ref.set_flags(gst::BufferFlags::DELTA_UNIT);
                 }
                 if event.header.discontinuity {

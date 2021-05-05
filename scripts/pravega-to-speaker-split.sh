@@ -27,7 +27,7 @@ PRAVEGA_STREAM=${PRAVEGA_STREAM:-split1}
 
 gst-launch-1.0 \
 -v \
-pravegasrc stream=examples/${PRAVEGA_STREAM}-a1 start-pts-at-zero=true \
+pravegasrc stream=examples/${PRAVEGA_STREAM}-a1 \
 ! tsdemux \
 ! avdec_aac \
 ! audioconvert \
