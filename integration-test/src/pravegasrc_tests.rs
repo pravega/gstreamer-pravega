@@ -11,9 +11,7 @@
 #[cfg(test)]
 mod test {
     use anyhow::Error;
-    use gst::ClockTime;
-    use gstpravega::utils::{clocktime_to_pravega, pravega_to_clocktime};
-    use pravega_video::timestamp::PravegaTimestamp;
+    use pravega_video::timestamp::{PravegaTimestamp, MSECOND, NSECOND};
     use rstest::rstest;
     use std::convert::TryFrom;
     use std::time::Instant;
@@ -77,13 +75,13 @@ mod test {
         let t0 = Instant::now();
         let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={}", summary);
-        let wallclock_elapsed_time = (Instant::now() - t0).as_nanos() as u64 * gst::NSECOND;
+        let wallclock_elapsed_time = (Instant::now() - t0).as_nanos() * NSECOND;
         debug!("wallclock_elapsed_time={}", wallclock_elapsed_time);
         info!("Expected: summary={:?}", summary_written);
         info!("Actual:   summary={:?}", summary);
         assert_eq!(summary, summary_written);
         if sync {
-            assert_between_clocktime("wallclock_elapsed_time", wallclock_elapsed_time, summary.pts_range(), ClockTime::none());
+            assert!(wallclock_elapsed_time >= summary.pts_range());
         }
     }
 
@@ -106,13 +104,13 @@ mod test {
         );
         let t0 = Instant::now();
         let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
-        let wallclock_elapsed_time = (Instant::now() - t0).as_nanos() as u64 * gst::NSECOND;
+        let wallclock_elapsed_time = (Instant::now() - t0).as_nanos() * NSECOND;
         debug!("wallclock_elapsed_time={}", wallclock_elapsed_time);
         debug!("summary={}", summary);
         let first_pts = summary.first_pts();
         assert_timestamp_eq("first_pts", first_pts, first_valid_pts_written);
         if sync {
-            assert_between_clocktime("wallclock_elapsed_time", wallclock_elapsed_time, summary.pts_range(), ClockTime::none());
+            assert!(wallclock_elapsed_time >= summary.pts_range());
         }
     }
 
@@ -136,7 +134,7 @@ mod test {
         let start_index = std::cmp::min(start_index, non_delta_pts.len() - 1);
         let start_pts_expected = non_delta_pts[start_index];
         // We should get the same first PTS even if we specify a PTS beyond the indexed frame (but before the next one).
-        let start_timestamp = clocktime_to_pravega(pravega_to_clocktime(start_pts_expected) + start_offset_ms * gst::MSECOND);
+        let start_timestamp = start_pts_expected + start_offset_ms * MSECOND;
         let pipeline_description = format!(
             "pravegasrc {pravega_plugin_properties} \
               start-mode=timestamp \
@@ -148,13 +146,13 @@ mod test {
         );
         let t0 = Instant::now();
         let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
-        let wallclock_elapsed_time = (Instant::now() - t0).as_nanos() as u64 * gst::NSECOND;
+        let wallclock_elapsed_time = (Instant::now() - t0).as_nanos() * NSECOND;
         debug!("wallclock_elapsed_time={}", wallclock_elapsed_time);
         debug!("summary_written={:?}", summary_written);
         debug!("summary=        {:?}", summary);
         assert_timestamp_eq("first_pts", summary.first_pts(), start_pts_expected);
         if sync {
-            assert_between_clocktime("wallclock_elapsed_time", wallclock_elapsed_time, summary.pts_range(), ClockTime::none());
+            assert!(wallclock_elapsed_time >= summary.pts_range());
         }
     }
 

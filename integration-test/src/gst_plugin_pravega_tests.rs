@@ -10,9 +10,7 @@
 
 #[cfg(test)]
 mod test {
-    use gst::ClockTime;
-    use gstpravega::utils::{clocktime_to_pravega, pravega_to_clocktime};
-    use pravega_video::timestamp::PravegaTimestamp;
+    use pravega_video::timestamp::{PravegaTimestamp, TimeDelta, SECOND, MSECOND};
     use std::convert::TryFrom;
     #[allow(unused_imports)]
     use tracing::{error, info, debug};
@@ -68,7 +66,7 @@ mod test {
 
         info!("#### Truncate stream");
         let truncate_sec = 1;
-        let truncate_before_pts = clocktime_to_pravega(pravega_to_clocktime(first_pts_written) + truncate_sec * gst::SECOND);
+        let truncate_before_pts = first_pts_written + truncate_sec * SECOND;
         truncate_stream(test_config.client_config.clone(), test_config.scope.clone(), stream_name.to_owned(), truncate_before_pts);
 
         info!("#### Read video from truncated position");
@@ -102,8 +100,8 @@ mod test {
             "x264enc key-int-max=30 bitrate=100 \
             ! mpegtsmux",
         );
-        let pts_margin = 126 * gst::MSECOND;
-        let random_start_pts_margin = 1000 * gst::MSECOND;
+        let pts_margin = 126 * MSECOND;
+        let random_start_pts_margin = 1000 * MSECOND;
         test_compressed_video(test_config, compression_pipeline, pts_margin, random_start_pts_margin)
     }
 
@@ -117,12 +115,12 @@ mod test {
             "x264enc key-int-max=30 bitrate=100 \
             ! mp4mux streamable=true fragment-duration=100",
         );
-        let pts_margin = 126 * gst::MSECOND;
-        let random_start_pts_margin = 1000 * gst::MSECOND;
+        let pts_margin = 126 * MSECOND;
+        let random_start_pts_margin = 1000 * MSECOND;
         test_compressed_video(test_config, compression_pipeline, pts_margin, random_start_pts_margin)
     }
 
-    fn test_compressed_video(test_config: TestConfig, compression_pipeline: String, pts_margin: ClockTime, random_start_pts_margin:ClockTime) {
+    fn test_compressed_video(test_config: TestConfig, compression_pipeline: String, pts_margin: TimeDelta, random_start_pts_margin:TimeDelta) {
         gst_init();
         let stream_name = &format!("test-compressed-video-{}-{}", test_config.test_id, Uuid::new_v4())[..];
 
@@ -133,7 +131,7 @@ mod test {
         let fps = 30;
         let length_sec = 10;
         let num_buffers_written = length_sec * fps;
-        let last_pts_written = clocktime_to_pravega(pravega_to_clocktime(first_pts_written) + (num_buffers_written - 1) * gst::SECOND / fps);
+        let last_pts_written = first_pts_written + (num_buffers_written - 1) * SECOND / fps;
         info!("last_pts_written={}", last_pts_written);
 
         info!("#### Write video stream to Pravega");
@@ -173,9 +171,9 @@ mod test {
         info!("Expected: num_buffers={}, first_pts={}, last_pts={}", num_buffers_written, first_pts_written, last_pts_written);
         info!("Actual:   num_buffers={}, first_pts={}, last_pts={}", num_buffers_actual, first_pts_actual, last_pts_actual);
         // TODO: Why is PTS is off by 125 ms?
-        assert_timestamp_approx_eq("first_pts_actual", first_pts_actual, first_pts_written, ClockTime::zero(), pts_margin);
-        assert_timestamp_approx_eq("last_pts_actual", last_pts_actual, last_pts_written, ClockTime::zero(), pts_margin);
-        assert_eq!(num_buffers_actual, num_buffers_written);
+        assert_timestamp_approx_eq("first_pts_actual", first_pts_actual, first_pts_written, 0 * SECOND, pts_margin);
+        assert_timestamp_approx_eq("last_pts_actual", last_pts_actual, last_pts_written, 0 * SECOND, pts_margin);
+        assert_eq!(num_buffers_actual, num_buffers_written as u64);
 
         if false {
             info!("#### Play video stream from beginning on screen");
@@ -192,7 +190,7 @@ mod test {
 
         info!("#### Truncate stream");
         let truncate_sec = 1;
-        let truncate_before_pts = clocktime_to_pravega(pravega_to_clocktime(first_pts_written) + truncate_sec * gst::SECOND);
+        let truncate_before_pts = first_pts_written + truncate_sec * SECOND;
         truncate_stream(test_config.client_config.clone(), test_config.scope.clone(), stream_name.to_owned(), truncate_before_pts);
 
         info!("#### Read video from truncated position without decoding");
@@ -247,7 +245,7 @@ mod test {
         assert_timestamp_approx_eq("first_pts_actual", first_pts_actual, first_pts_expected,
                                    pts_margin, pts_margin + random_start_pts_margin);
         assert_timestamp_approx_eq("last_pts_actual", last_pts_actual, last_pts_written,
-                                   ClockTime::zero(), pts_margin);
+                                   0 * SECOND, pts_margin);
         assert_between_u64("num_buffers_actual", num_buffers_actual, num_buffers_expected - fps, num_buffers_expected);
 
         info!("#### END");
