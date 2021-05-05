@@ -13,12 +13,12 @@
 use anyhow::{anyhow, Error};
 use gst::{BufferFlags, ClockTime};
 use gst::prelude::*;
-use gstpravega::utils::{clocktime_to_pravega, pravega_to_clocktime};
+use gstpravega::utils::clocktime_to_pravega;
 use pravega_client_config::ClientConfig;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client_shared::{Scope, Stream, Segment, ScopedSegment};
 use pravega_video::index::{IndexSearcher, SearchMethod, get_index_stream_name};
-use pravega_video::timestamp::PravegaTimestamp;
+use pravega_video::timestamp::{PravegaTimestamp, TimeDelta};
 use std::fmt;
 use std::sync::{Arc, Mutex};
 #[allow(unused_imports)]
@@ -124,8 +124,17 @@ impl BufferListSummary {
             .cloned()
     }
 
-    pub fn pts_range(&self) -> ClockTime {
-        pravega_to_clocktime(self.last_valid_pts()) - pravega_to_clocktime(self.first_valid_pts())
+    /// Returns buffers with PTS in given range.
+    pub fn buffers_between(&self, min_pts: PravegaTimestamp, max_pts: PravegaTimestamp) -> Vec<BufferSummary> {
+        self.buffer_summary_list
+            .iter()
+            .filter(|s| min_pts <= s.pts && s.pts <= max_pts)
+            .cloned()
+            .collect()
+    }
+
+    pub fn pts_range(&self) -> TimeDelta {
+        self.last_valid_pts() - self.first_valid_pts()
     }
 
     /// Returns list of PTSs of all non-delta frames.
@@ -167,6 +176,8 @@ impl fmt::Display for BufferListSummary {
 }
 
 pub fn assert_between_clocktime(name: &str, actual: ClockTime, expected_min: ClockTime, expected_max: ClockTime) {
+    debug!("{}: Actual:   {}    {}", name, actual, actual);
+    debug!("{}: Expected: {} to {}", name, expected_min, expected_max);
     if !actual.nanoseconds().is_some() {
         panic!("{} is None", name);
     }
@@ -192,13 +203,19 @@ pub fn assert_between_timestamp(name: &str, actual: PravegaTimestamp, expected_m
     }
 }
 
-pub fn assert_timestamp_approx_eq(name: &str, actual: PravegaTimestamp, expected: PravegaTimestamp, lower_margin: ClockTime, upper_margin: ClockTime) {
-    assert_between_timestamp(
-        name,
-        actual,
-        clocktime_to_pravega(pravega_to_clocktime(expected) - lower_margin),
-        clocktime_to_pravega(pravega_to_clocktime(expected) + upper_margin),
-    )
+pub fn assert_timestamp_eq(name: &str, actual: PravegaTimestamp, expected: PravegaTimestamp) {
+    debug!("{}: Actual:   {:?}", name, actual);
+    debug!("{}: Expected: {:?}", name, expected);
+    if actual.nanoseconds().is_none() {
+        panic!("{} is None", name);
+    }
+    if actual != expected {
+        panic!("{}: actual value {} is not equal to expected value {}", name, actual, expected);
+    }
+}
+
+pub fn assert_timestamp_approx_eq(name: &str, actual: PravegaTimestamp, expected: PravegaTimestamp, lower_margin: TimeDelta, upper_margin: TimeDelta) {
+    assert_between_timestamp(name, actual, expected - lower_margin, expected + upper_margin)
 }
 
 pub fn assert_between_u64(name: &str, actual: u64, expected_min: u64, expected_max: u64) {

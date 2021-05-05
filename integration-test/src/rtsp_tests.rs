@@ -10,7 +10,7 @@
 
 #[cfg(test)]
 mod test {
-    use pravega_video::timestamp::PravegaTimestamp;
+    use pravega_video::timestamp::{PravegaTimestamp, HOUR, SECOND};
     #[allow(unused_imports)]
     use tracing::{error, info, debug};
     use uuid::Uuid;
@@ -37,7 +37,7 @@ mod test {
         let num_frames_expected_max = num_frames_to_record;
         // We expect the RTSP camera's clock to be within 24 hours of this computer's clock.
         let expected_timestamp = PravegaTimestamp::now();
-        let expected_timestamp_margin = 24*60*60 * gst::SECOND;
+        let expected_timestamp_margin = 24 * HOUR;
 
         info!("#### Record RTSP camera to Pravega, part 1");
         // TODO: Test with queue?: queue max-size-buffers=0 max-size-bytes=10485760 max-size-time=0 silent=true leaky=downstream
@@ -79,10 +79,10 @@ mod test {
         let first_pts_read = summary_read.first_valid_pts();
         let last_pts_read = summary_read.last_valid_pts();
         assert!(first_pts_read.is_some(), "Pipeline is not recording timestamps");
-        assert_timestamp_approx_eq("first_pts_written", first_pts_read, expected_timestamp, expected_timestamp_margin, expected_timestamp_margin);
-        assert_timestamp_approx_eq("last_pts_written", last_pts_read, expected_timestamp, expected_timestamp_margin, expected_timestamp_margin);
-        assert!(summary_read.pts_range() >= num_sec_expected_min * gst::SECOND);
-        assert!(summary_read.pts_range() <= (2 * num_sec_to_record + 60) * gst::SECOND);
+        assert_timestamp_approx_eq("first_pts_read", first_pts_read, expected_timestamp, expected_timestamp_margin, expected_timestamp_margin);
+        assert_timestamp_approx_eq("first_pts_read", last_pts_read, expected_timestamp, expected_timestamp_margin, expected_timestamp_margin);
+        assert!(summary_read.pts_range() >= num_sec_expected_min * SECOND);
+        assert!(summary_read.pts_range() <= (2 * num_sec_to_record + 60) * SECOND);
 
         info!("#### Read recorded stream from Pravega with decoding, part 1");
         let pipeline_description_decode = format!(
@@ -100,11 +100,11 @@ mod test {
         let first_pts_decoded = summary_decoded.first_valid_pts();
         let last_pts_decoded = summary_decoded.last_valid_pts();
         assert!(first_pts_decoded.is_some(), "Pipeline is not recording timestamps");
-        let decode_margin = 10 * gst::SECOND;
+        let decode_margin = 10 * SECOND;
         assert_timestamp_approx_eq("first_pts_decoded", first_pts_decoded, first_pts_read, decode_margin, decode_margin);
         assert_timestamp_approx_eq("last_pts_decoded", last_pts_decoded, last_pts_read, decode_margin, decode_margin);
-        assert!(summary_decoded.pts_range() >= num_sec_expected_min * gst::SECOND);
-        assert!(summary_decoded.pts_range() <= (2 * num_sec_to_record + 60) * gst::SECOND);
+        assert!(summary_decoded.pts_range() >= num_sec_expected_min * SECOND);
+        assert!(summary_decoded.pts_range() <= (2 * num_sec_to_record + 60) * SECOND);
         assert_between_u64("num_buffers", summary_decoded.num_buffers(), num_frames_expected_min, num_frames_expected_max);
         assert_between_u64("num_buffers_with_valid_pts", summary_decoded.num_buffers_with_valid_pts(), num_frames_expected_min, num_frames_expected_max);
 
@@ -120,11 +120,11 @@ mod test {
         let first_pts_read2 = summary_read2.first_valid_pts();
         let last_pts_read2 = summary_read2.last_valid_pts();
         let max_gap_sec = 300;
-        assert_timestamp_approx_eq("first_pts_read2", first_pts_read2, first_pts_read, 0 * gst::SECOND, 0 * gst::SECOND);
-        assert_timestamp_approx_eq("last_pts_read2", last_pts_read2, last_pts_read, 0 * gst::SECOND,
-            (2 * num_sec_to_record + max_gap_sec) * gst::SECOND);
-        assert!(summary_read2.pts_range() >= 2 * num_sec_expected_min * gst::SECOND);
-        assert!(summary_read2.pts_range() <= (4 * num_sec_to_record + max_gap_sec) * gst::SECOND);
+        assert_timestamp_approx_eq("first_pts_read2", first_pts_read2, first_pts_read, 0 * SECOND, 0 * SECOND);
+        assert_timestamp_approx_eq("last_pts_read2", last_pts_read2, last_pts_read, 0 * SECOND,
+            (2 * num_sec_to_record + max_gap_sec) * SECOND);
+        assert!(summary_read2.pts_range() >= 2 * num_sec_expected_min * SECOND);
+        assert!(summary_read2.pts_range() <= (4 * num_sec_to_record + max_gap_sec) * SECOND);
 
         info!("#### Read recorded stream from Pravega with decoding, part 2");
         let summary_decoded2 = launch_pipeline_and_get_summary(&pipeline_description_decode).unwrap();
@@ -135,8 +135,8 @@ mod test {
         let last_pts_decoded2 = summary_decoded2.last_valid_pts();
         assert_timestamp_approx_eq("first_pts_decoded2", first_pts_decoded2, first_pts_read2, decode_margin, decode_margin);
         assert_timestamp_approx_eq("last_pts_decoded2", last_pts_decoded2, last_pts_read2, decode_margin, decode_margin);
-        assert!(summary_decoded2.pts_range() >= 2 * num_sec_expected_min * gst::SECOND);
-        assert!(summary_decoded2.pts_range() <= (4 * num_sec_to_record + max_gap_sec) * gst::SECOND);
+        assert!(summary_decoded2.pts_range() >= 2 * num_sec_expected_min * SECOND);
+        assert!(summary_decoded2.pts_range() <= (4 * num_sec_to_record + max_gap_sec) * SECOND);
         assert_between_u64("num_buffers", summary_decoded2.num_buffers(),
             2 * num_frames_expected_min, 2 * num_frames_expected_max);
         assert_between_u64("num_buffers_with_valid_pts", summary_decoded2.num_buffers_with_valid_pts(),
@@ -151,9 +151,8 @@ mod test {
                   end-mode=latest \
                 ! decodebin \
                 ! videoconvert \
-                ! autovideosink sync=true ts-offset={timestamp_offset}",
+                ! autovideosink sync=true",
                 pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
-                timestamp_offset = -1 * (first_pts_read.nanoseconds().unwrap() as i64),
             );
             launch_pipeline(&pipeline_description).unwrap();
         }
