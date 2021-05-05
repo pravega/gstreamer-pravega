@@ -13,7 +13,7 @@ mod test {
     use anyhow::Error;
     use gst::prelude::*;
     use gstpravega::utils::{clocktime_to_pravega, pravega_to_clocktime};
-    use pravega_video::timestamp::PravegaTimestamp;
+    use pravega_video::timestamp::{PravegaTimestamp, SECOND};
     use std::convert::TryFrom;
     use std::sync::Arc;
     use std::time::Instant;
@@ -56,32 +56,29 @@ mod test {
         Ok(summary)
     }
 
+    /// Test seeking that occurs in Pravega Video Player.
+    /// This starts playback from the beginning, with sync=true, then skips over several seconds.
     /// Based on https://gitlab.freedesktop.org/gstreamer/gstreamer-rs/-/blob/master/tutorials/src/bin/basic-tutorial-4.rs
     #[test]
-    fn test_pravegasrc_seek_sync() {
+    fn test_pravegasrc_seek_player() {
         let test_config = &get_test_config();
         info!("test_config={:?}", test_config);
         let stream_name = &format!("test-pravegasrc-{}-{}", test_config.test_id, Uuid::new_v4())[..];
         let summary_written = pravegasrc_seek_test_data_gen(test_config, stream_name).unwrap();
         debug!("summary_written={}", summary_written);
         let first_pts_written = summary_written.first_valid_pts();
+        let last_pts_written = summary_written.last_valid_pts();
 
         info!("#### Read video stream without decoding");
         info!("### Build pipeline");
         let pipeline_description = format!("\
             pravegasrc {pravega_plugin_properties} \
-              start-mode=no-seek \
+              start-mode=earliest \
             ! identity silent=false \
             ! appsink name=sink \
               sync=true",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
         );
-
-        let seek_at_pts = clocktime_to_pravega(pravega_to_clocktime(first_pts_written) + 1 * gst::SECOND);
-        let seek_to_pts = clocktime_to_pravega(pravega_to_clocktime(seek_at_pts) + 1 * gst::SECOND);
-        debug!("first_pts_written={:?}", first_pts_written);
-        debug!("seek_at_pts=      {:?}", seek_at_pts);
-        debug!("seek_to_pts=      {:?}", seek_to_pts);
 
         info!("Launch Pipeline: {}", pipeline_description);
         let pipeline = gst::parse_launch(&pipeline_description).unwrap();
@@ -120,26 +117,15 @@ mod test {
             None => warn!("Element named 'sink' not found"),
         };
 
-        info!("current_state={:?}", pipeline.get_current_state());
-
-        // We must changed to Paused before seeking.
-        info!("### Change state to Paused");
-        pipeline.set_state(gst::State::Paused).unwrap();
-        info!("current_state={:?}", pipeline.get_current_state());
-
-        info!("### Sleeping while paused");
-        std::thread::sleep(std::time::Duration::from_secs(3));
-        info!("current_state={:?}", pipeline.get_current_state());
-
-        info!("### Seeking to first pts");
-        pipeline.seek_simple(
-                gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT,
-                pravega_to_clocktime(first_pts_written),
-        ).unwrap();
-
         info!("### Play pipeline");
         pipeline.set_state(gst::State::Playing).unwrap();
         info!("current_state={:?}", pipeline.get_current_state());
+
+        let seek_at_pts = first_pts_written + 10 * SECOND;
+        let seek_to_pts = first_pts_written + 50 * SECOND;
+        debug!("first_pts_written={:?}", first_pts_written);
+        debug!("seek_at_pts=      {:?}", seek_at_pts);
+        debug!("seek_to_pts=      {:?}", seek_to_pts);
 
         let mut last_query_time = Instant::now();
 
@@ -148,17 +134,20 @@ mod test {
             let msg = bus.timed_pop(100 * gst::MSECOND);
             trace!("Bus message: {:?}", msg);
 
+            // Query the current position (pts) every 100 ms.
+            // Perform the seek at the desired pts.
             let now = Instant::now();
-            if (now - last_query_time).as_millis() > 1000 {
+            if (now - last_query_time).as_millis() > 100 {
                 let position = pipeline.query_position::<gst::ClockTime>().unwrap();
                 info!("position={}", position);
-                // if 10 * gst::SECOND < position && position < 30 * gst::SECOND {
-                //     info!("Performing seek");
-                //     pipeline.seek_simple(
-                //             gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT,
-                //             30 * gst::SECOND,
-                //     ).unwrap();
-                // }
+                let timestamp = clocktime_to_pravega(position);
+                if seek_at_pts <= timestamp && timestamp < seek_to_pts {
+                    info!("Performing seek");
+                    pipeline.seek_simple(
+                            gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT,
+                            pravega_to_clocktime(seek_to_pts),
+                    ).unwrap();
+                }
                 last_query_time = now;
             }
 
@@ -195,5 +184,11 @@ mod test {
             buffer_summary_list: summary_list,
         };
         debug!("summary={}", summary);
+        let first_pts_read = summary.first_valid_pts();
+        let last_pts_read = summary.last_valid_pts();
+        assert_between_timestamp("first_pts_read", first_pts_read, first_pts_written - 1 * SECOND, first_pts_written + 1 * SECOND);
+        assert_between_timestamp("last_pts_read", last_pts_read, last_pts_written - 1 * SECOND, last_pts_written + 1 * SECOND);
+        // Confirm there are no buffers that should have been skipped.
+        assert_eq!(summary.buffers_between(seek_at_pts + 10 * SECOND, seek_to_pts - 10 * SECOND).len(), 0);
     }
 }
