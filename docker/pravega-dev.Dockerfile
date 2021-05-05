@@ -10,7 +10,7 @@
 
 ARG FROM_IMAGE
 
-FROM ${FROM_IMAGE}
+FROM ${FROM_IMAGE} as builder-base
 
 # Install Rust compiler.
 # Based on:
@@ -40,26 +40,33 @@ ARG RUST_JOBS=1
 
 WORKDIR /usr/src/gstreamer-pravega
 
-## Build gst-plugin-pravega
+FROM builder-base as planner
+RUN cargo install cargo-chef
+COPY . .
+RUN cargo chef prepare  --recipe-path recipe.json
 
-COPY gst-plugin-pravega gst-plugin-pravega
-COPY pravega-video pravega-video
-COPY Cargo.toml .
-COPY Cargo.lock .
+FROM builder-base as cacher
+RUN cargo install cargo-chef
+COPY --from=planner /usr/src/gstreamer-pravega/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+
+FROM builder-base as final
+
+COPY . .
+
+# Copy over the cached dependencies
+COPY --from=cacher /usr/src/gstreamer-pravega/target target
+COPY --from=cacher /usr/local/cargo /usr/local/cargo
 
 RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS} && \
     mv -v target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 
 ## Build pravega-video-server
 
-COPY pravega-video-server pravega-video-server
-
 RUN cd pravega-video-server && \
     cargo install --locked --jobs ${RUST_JOBS} --path .
 
 ## Build misc. Rust apps
-
-COPY apps apps
 
 RUN cd apps && \
     cargo install --locked --jobs ${RUST_JOBS} --path . --bin \
