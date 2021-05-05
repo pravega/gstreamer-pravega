@@ -56,7 +56,6 @@ pravegasrc \
   allow-create-scope=${ALLOW_CREATE_SCOPE} \
   controller=${PRAVEGA_CONTROLLER_URI} \
   keycloak-file=\"${KEYCLOAK_SERVICE_ACCOUNT_FILE}\" \
-  start-pts-at-zero=true \
   stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
 ! identity silent=false name=pravegasrc \
 ! decodebin \

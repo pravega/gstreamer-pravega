@@ -67,7 +67,7 @@ pub enum TimestampMode {
     #[genum(
         name = "Input buffer timestamps are nanoseconds \
                 since 1970-01-01 00:00:00 TAI International Atomic Time, including leap seconds. \
-                Use this for buffers from pravegasrc (start-pts-at-zero=false).",
+                Use this for buffers from pravegasrc.",
         nick = "tai"
     )]
     Tai = 2,
