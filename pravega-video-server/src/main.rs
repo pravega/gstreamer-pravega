@@ -478,14 +478,19 @@ mod models {
             let controller_client = self.client_factory.get_controller_client();
             let scope = Scope { name : scope_name };
             let mut streams = Vec::new();
+            let mut had_error = false;
             list_streams(scope, controller_client).for_each(|stream| {
                 if stream.is_ok() {
                     streams.push(stream.unwrap());
                 } else {
-                    anyhow::bail!("Error listing streams for scope={}", ss.clone());
+                    had_error = true;
                 }
                 future::ready(())
             }).await;
+
+            if had_error {
+                anyhow::bail!("Error listing streams for scope={}", ss.clone());
+            }
             let streams: Vec<_> = streams.into_iter().map(|scoped_stream| ListStreamsRecord {
                 scope_name: ss.clone(),
                 stream_name: scoped_stream.stream.name
