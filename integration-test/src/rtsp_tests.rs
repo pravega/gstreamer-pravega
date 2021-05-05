@@ -151,9 +151,8 @@ mod test {
                   end-mode=latest \
                 ! decodebin \
                 ! videoconvert \
-                ! autovideosink sync=true ts-offset={timestamp_offset}",
+                ! autovideosink sync=true",
                 pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
-                timestamp_offset = -1 * (first_pts_read.nanoseconds().unwrap() as i64),
             );
             launch_pipeline(&pipeline_description).unwrap();
         }

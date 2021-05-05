@@ -181,9 +181,8 @@ mod test {
                 "pravegasrc {pravega_plugin_properties} \
                 ! decodebin \
                 ! videoconvert \
-                ! autovideosink sync=true ts-offset={timestamp_offset}",
+                ! autovideosink sync=true",
                 pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
-                timestamp_offset = -1 * (first_pts_written.nanoseconds().unwrap() as i64),
             );
             launch_pipeline(&pipeline_description).unwrap();
         }
@@ -217,9 +216,8 @@ mod test {
                 "pravegasrc {pravega_plugin_properties} \
                 ! decodebin \
                 ! videoconvert \
-                ! autovideosink sync=true ts-offset={timestamp_offset}",
+                ! autovideosink sync=true",
                 pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
-                timestamp_offset = -1 * (first_pts_written.nanoseconds().unwrap() as i64),
             );
             launch_pipeline(&pipeline_description).unwrap();
         }
