@@ -188,10 +188,11 @@ mod handlers {
 mod models {
     use anyhow;
     use chrono::{DateTime, Utc};
-    use futures::StreamExt;
+    use futures::{StreamExt, future};
     use hyper::body::{Body, Bytes};
     use pravega_client::client_factory::ClientFactory;
     use pravega_client_shared::{Scope, ScopedSegment, Segment, Stream};
+    use pravega_controller_client::paginator::list_streams;
     use pravega_video::{event_serde::{EventReader}, index::IndexSearcher};
     use pravega_video::index::{IndexRecord, IndexRecordReader, SearchMethod, get_index_stream_name};
     use pravega_video::timestamp::PravegaTimestamp;
@@ -470,13 +471,10 @@ mod models {
             self,
             scope_name: String,
         ) -> anyhow::Result<ListStreamsResult> {
-            use pravega_controller_client::paginator::list_streams;
-            use futures::future;
-            let ss = scope_name.clone();
 
-            tracing::info!("list_video_streams: scope_name={}", scope_name);
+            tracing::info!("list_video_streams: scope_name={}", scope_name.clone());
             let controller_client = self.client_factory.get_controller_client();
-            let scope = Scope { name : scope_name };
+            let scope = Scope { name : scope_name.clone() };
             let mut streams = Vec::new();
             let mut had_error = false;
             list_streams(scope, controller_client).for_each(|stream| {
@@ -489,10 +487,10 @@ mod models {
             }).await;
 
             if had_error {
-                anyhow::bail!("Error listing streams for scope={}", ss.clone());
+                anyhow::bail!("Error listing streams for scope={}", scope_name.clone());
             }
             let streams: Vec<_> = streams.into_iter().map(|scoped_stream| ListStreamsRecord {
-                scope_name: ss.clone(),
+                scope_name: scope_name.clone(),
                 stream_name: scoped_stream.stream.name
             }).collect();
             Ok(ListStreamsResult { streams })
