@@ -23,13 +23,14 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 #[allow(unused_imports)]
 use tracing::{error, warn, info, debug, trace};
+use crate::DEFAULT_GST_DEBUG;
 
 /// Initialize GStreamer.
 /// See log levels: https://gstreamer.freedesktop.org/documentation/tutorials/basic/debugging-tools.html?gi-language=c#the-debug-log
 pub fn gst_init() {
     match std::env::var("GST_DEBUG") {
         Ok(_) => (),
-        Err(_) => std::env::set_var("GST_DEBUG", "pravegasrc:TRACE,pravegasink:TRACE,basesink:INFO,INFO"),
+        Err(_) => std::env::set_var("GST_DEBUG", DEFAULT_GST_DEBUG),
     };
     info!("GST_DEBUG={}", std::env::var("GST_DEBUG").unwrap_or_default());
     gst::init().unwrap();
@@ -41,9 +42,14 @@ pub fn gst_init() {
 pub struct BufferSummary {
     pub pts: PravegaTimestamp,
     pub size: u64,
+    /// Not used for equality.
+    pub offset: u64,
+    /// Not used for equality.
+    pub offset_end: u64,
     pub flags: BufferFlags,
 }
 
+/// Compare BufferSummary to ensure that significant fields are equal.
 impl PartialEq for BufferSummary {
     fn eq(&self, other: &Self) -> bool {
         self.pts == other.pts &&
@@ -107,6 +113,15 @@ impl BufferListSummary {
             Some(t) => t.to_owned(),
             None => PravegaTimestamp::none(),
         }
+    }
+
+    /// Returns first buffer with PTS after given PTS.
+    pub fn first_buffer_after(&self, pts: PravegaTimestamp) -> Option<BufferSummary> {
+        self.buffer_summary_list
+            .iter()
+            .filter(|s| s.pts > pts)
+            .next()
+            .cloned()
     }
 
     pub fn pts_range(&self) -> ClockTime {
@@ -223,11 +238,13 @@ pub fn launch_pipeline_and_get_summary(pipeline_description: &str) -> Result<Buf
                 gst_app::AppSinkCallbacks::builder()
                     .new_sample(move |sink| {
                         let sample = sink.pull_sample().unwrap();
-                        debug!("sample={:?}", sample);
+                        trace!("sample={:?}", sample);
                         let buffer = sample.get_buffer().unwrap();
                         let summary = BufferSummary {
                             pts: clocktime_to_pravega(buffer.get_pts()),
                             size: buffer.get_size() as u64,
+                            offset: buffer.get_offset(),
+                            offset_end: buffer.get_offset_end(),
                             flags: buffer.get_flags(),
                         };
                         let mut summary_list = summary_list_clone.lock().unwrap();
