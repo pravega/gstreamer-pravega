@@ -23,9 +23,9 @@ clap = "3.0.0-beta.2"
 futures-util = "0.3"
 handlebars = "3"
 hyper = "0.14"
-pravega-client = { path = "../pravega-client-rust" }
-pravega-client-config = { path = "../pravega-client-rust/config"}
-pravega-client-shared = { path = "../pravega-client-rust/shared"}
+pravega-client = { git = "https://github.com/pravega/pravega-client-rust" }
+pravega-client-config = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-config" }
+pravega-client-shared = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-shared" }
 pravega-video = { path = "../pravega-video" }
 serde = "1"
 serde_derive = "1"

@@ -33,9 +33,11 @@ gst-rtsp-server = { package = "gstreamer-rtsp-server", git = "https://gitlab.fre
 gst-sdp = { package = "gstreamer-sdp", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
 gstreamer-video = { git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
 gtk = { git = "https://github.com/gtk-rs/gtk-rs" }
-pravega-client = { path = "../pravega-client-rust" }
-pravega-client-config = { path = "../pravega-client-rust/config"}
-pravega-client-shared = { path = "../pravega-client-rust/shared"}
+
+pravega-client = { git = "https://github.com/pravega/pravega-client-rust" }
+pravega-client-config = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-config" }
+pravega-client-shared = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-shared" }
+
 pravega-video = { path = "../pravega-video" }
 log = "0.4"
 serde = "1"

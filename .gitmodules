@@ -1,3 +1,0 @@
-[submodule "pravega-client-rust"]
-	path = pravega-client-rust
-	url = https://github.com/pravega/pravega-client-rust

@@ -43,11 +43,11 @@ WORKDIR /usr/src/gstreamer-pravega
 ## Build gst-plugin-pravega
 
 COPY gst-plugin-pravega gst-plugin-pravega
-COPY pravega-client-rust pravega-client-rust
 COPY pravega-video pravega-video
+COPY Cargo.toml .
+COPY Cargo.lock .
 
-RUN cd gst-plugin-pravega && \
-    cargo build --locked --release --jobs ${RUST_JOBS} && \
+RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS} && \
     mv -v target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 
 ## Build pravega-video-server

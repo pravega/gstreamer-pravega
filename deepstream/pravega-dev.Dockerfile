@@ -56,11 +56,9 @@ WORKDIR /usr/src/gstreamer-pravega
 ## Build gst-plugin-pravega.
 
 COPY gst-plugin-pravega gst-plugin-pravega
-COPY pravega-client-rust pravega-client-rust
 COPY pravega-video pravega-video
 
-RUN cd gst-plugin-pravega && \
-    cargo build --release && \
+RUN cargo build --package gst-plugin-pravega --release && \
     mv -v target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 
 ## Build pravega-video-server.
