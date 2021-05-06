@@ -108,6 +108,7 @@ apt-get install -y --no-install-recommends \
   libtag1-dev \
   libtheora-dev \
   libtwolame-dev \
+  libudev-dev \
   libunwind-dev \
   libva-dev \
   libvisual-0.4-dev \
