@@ -18,7 +18,7 @@ set -ex
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
 pushd ${ROOT_DIR}/gst-plugin-pravega
 cargo build --release
-export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/release:${GST_PLUGIN_PATH}
+export GST_PLUGIN_PATH=${ROOT_DIR}/target/release:${GST_PLUGIN_PATH}
 # log level can be INFO, DEBUG, or LOG (verbose)
 export GST_DEBUG=pravegasink:LOG,basesink:INFO,rtspsrc:LOG,rtpbin:LOG,rtpsession:LOG,rtpjitterbuffer:LOG,identity:LOG
 export RUST_BACKTRACE=1

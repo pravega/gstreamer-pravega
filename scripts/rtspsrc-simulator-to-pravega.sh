@@ -16,7 +16,7 @@ ROOT_DIR=$(readlink -f $(dirname $0)/..)
 LOG_FILE=/tmp/rtspsrc-simulator-to-pravega.log
 pushd ${ROOT_DIR}/gst-plugin-pravega
 cargo build
-export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_PATH}
+export GST_PLUGIN_PATH=${ROOT_DIR}/target/debug:${GST_PLUGIN_PATH}
 # log level can be INFO, DEBUG, or LOG (verbose)
 export GST_DEBUG=rtspsrcsimulator:LOG,pravegasink:LOG,basesink:INFO,identity:LOG
 export PRAVEGA_VIDEO_LOG=info

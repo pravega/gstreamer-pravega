@@ -15,7 +15,7 @@ ROOT_DIR=$(readlink -f $(dirname $0)/..)
 pushd ${ROOT_DIR}/gst-plugin-pravega
 cargo build
 popd
-export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_PATH}
+export GST_PLUGIN_PATH=${ROOT_DIR}/target/debug:${GST_PLUGIN_PATH}
 # log level can be INFO or LOG (verbose)
 export GST_DEBUG="pravegasrc:INFO,basesrc:INFO,mpegtsbase:INFO,mpegtspacketizer:INFO"
 export RUST_LOG=info

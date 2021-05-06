@@ -58,21 +58,19 @@ COPY . .
 COPY --from=cacher /usr/src/gstreamer-pravega/target target
 COPY --from=cacher /usr/local/cargo /usr/local/cargo
 
-RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS} && \
-    mv -v target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
 
 ## Build pravega-video-server
 
-RUN cd pravega-video-server && \
-    cargo install --locked --jobs ${RUST_JOBS} --path .
+RUN cargo install --locked --jobs ${RUST_JOBS} --path pravega-video-server
 
 ## Build misc. Rust apps
 
-RUN cd apps && \
-    cargo install --locked --jobs ${RUST_JOBS} --path . --bin \
+RUN cargo install --locked --jobs ${RUST_JOBS} --path apps --bin \
       rtsp-camera-simulator
 
 ## Install Python apps
+RUN mv -v target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 
 COPY python_apps python_apps
 

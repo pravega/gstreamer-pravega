@@ -150,7 +150,7 @@ dependencies = [
 [[package]]
 name = "atk"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "atk-sys",
  "bitflags",
@@ -161,7 +161,7 @@ dependencies = [
 [[package]]
 name = "atk-sys"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "glib-sys",
  "gobject-sys",
@@ -342,7 +342,7 @@ checksum = "b700ce4376041dcd0a327fd0097c41095743c4c8af8887265942faf1100bd040"
 [[package]]
 name = "cairo-rs"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "bitflags",
  "cairo-sys-rs",
@@ -354,7 +354,7 @@ dependencies = [
 [[package]]
 name = "cairo-sys-rs"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "glib-sys",
  "libc",
@@ -503,10 +503,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea221b5284a47e40033bf9b66f35f984ec0ea2931eb03505246cd27a963f981b"
 
 [[package]]
-name = "cpuid-bool"
-version = "0.1.2"
+name = "cpufeatures"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8aebca1129a03dc6dc2b127edd729435bbc4a37e1d5f4d7513165089ceb02634"
+checksum = "5cd5a7748210e7ec1a9696610b1015e6e31fbf58f77a160801f124bd1c36592a"
 
 [[package]]
 name = "crc32fast"
@@ -1008,7 +1008,7 @@ dependencies = [
 [[package]]
 name = "gdk"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "bitflags",
  "cairo-rs",
@@ -1023,7 +1023,7 @@ dependencies = [
 [[package]]
 name = "gdk-pixbuf"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "gdk-pixbuf-sys",
  "gio",
@@ -1034,7 +1034,7 @@ dependencies = [
 [[package]]
 name = "gdk-pixbuf-sys"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "gio-sys",
  "glib-sys",
@@ -1046,7 +1046,7 @@ dependencies = [
 [[package]]
 name = "gdk-sys"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "cairo-sys-rs",
  "gdk-pixbuf-sys",
@@ -1114,7 +1114,7 @@ dependencies = [
 [[package]]
 name = "gio"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "bitflags",
  "futures-channel",
@@ -1130,7 +1130,7 @@ dependencies = [
 [[package]]
 name = "gio-sys"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "glib-sys",
  "gobject-sys",
@@ -1142,7 +1142,7 @@ dependencies = [
 [[package]]
 name = "glib"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "bitflags",
  "futures-channel",
@@ -1160,7 +1160,7 @@ dependencies = [
 [[package]]
 name = "glib-macros"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "anyhow",
  "heck",
@@ -1174,7 +1174,7 @@ dependencies = [
 [[package]]
 name = "glib-sys"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "libc",
  "system-deps",
@@ -1183,7 +1183,7 @@ dependencies = [
 [[package]]
 name = "gobject-sys"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "glib-sys",
  "libc",
@@ -1210,7 +1210,7 @@ dependencies = [
 [[package]]
 name = "gst-plugin-version-helper"
 version = "0.6.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs#3d24f1da223b65031c4bba8d36beee518ec3878f"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs#f4a3881dcfea5463a45035eb85bd46b8ca0e7d65"
 dependencies = [
  "chrono",
 ]
@@ -1218,7 +1218,7 @@ dependencies = [
 [[package]]
 name = "gstreamer"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
@@ -1240,7 +1240,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-app"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "bitflags",
  "futures-core",
@@ -1256,7 +1256,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-app-sys"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "glib-sys",
  "gstreamer-base-sys",
@@ -1268,7 +1268,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-audio"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "array-init",
  "bitflags",
@@ -1284,7 +1284,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-audio-sys"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "glib-sys",
  "gobject-sys",
@@ -1297,7 +1297,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-base"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
@@ -1310,7 +1310,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-base-sys"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "glib-sys",
  "gobject-sys",
@@ -1322,7 +1322,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-net"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "gio",
  "glib",
@@ -1333,7 +1333,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-net-sys"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "gio-sys",
  "glib-sys",
@@ -1379,7 +1379,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-rtsp"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "bitflags",
  "glib",
@@ -1392,7 +1392,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-rtsp-server"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "bitflags",
  "gio",
@@ -1409,7 +1409,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-rtsp-server-sys"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "gio-sys",
  "glib-sys",
@@ -1425,7 +1425,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-rtsp-sys"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "gio-sys",
  "glib-sys",
@@ -1439,7 +1439,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-sdp"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "glib",
  "gstreamer",
@@ -1449,7 +1449,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-sdp-sys"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "glib-sys",
  "gstreamer-sys",
@@ -1460,7 +1460,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-sys"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "glib-sys",
  "gobject-sys",
@@ -1471,7 +1471,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-video"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
@@ -1487,7 +1487,7 @@ dependencies = [
 [[package]]
 name = "gstreamer-video-sys"
 version = "0.17.0"
-source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#5505715cc452e772f32ca0a730015943609417e0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d203745cfc559a6717161db286644e722390cbbd"
 dependencies = [
  "glib-sys",
  "gobject-sys",
@@ -1500,7 +1500,7 @@ dependencies = [
 [[package]]
 name = "gtk"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "atk",
  "bitflags",
@@ -1523,7 +1523,7 @@ dependencies = [
 [[package]]
 name = "gtk-sys"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "atk-sys",
  "cairo-sys-rs",
@@ -1540,7 +1540,7 @@ dependencies = [
 [[package]]
 name = "gtk3-macros"
 version = "0.1.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "anyhow",
  "heck",
@@ -1608,7 +1608,7 @@ dependencies = [
  "headers-core",
  "http",
  "mime",
- "sha-1 0.9.4",
+ "sha-1 0.9.5",
  "time",
 ]
 
@@ -2208,9 +2208,9 @@ checksum = "77af24da69f9d9341038eba93a073b1fdaaa1b788221b00a69bce9e762cb32de"
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.62"
+version = "0.9.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa52160d45fa2e7608d504b7c3a3355afed615e6d8b627a74458634ba21b69bd"
+checksum = "b6b0d6fb7d80f877617dfcb014e605e2b5ab2fb0afdf27935219bb6bd984cb98"
 dependencies = [
  "autocfg",
  "cc",
@@ -2247,7 +2247,7 @@ checksum = "afb2e1c3ee07430c2cf76151675e583e0f19985fa6efae47d6848a3e2c824f85"
 [[package]]
 name = "pango"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "bitflags",
  "glib",
@@ -2259,7 +2259,7 @@ dependencies = [
 [[package]]
 name = "pango-sys"
 version = "0.13.0"
-source = "git+https://github.com/gtk-rs/gtk-rs#d49914d02070f8d7dbc846a8b24dd61c5fa0e8c8"
+source = "git+https://github.com/gtk-rs/gtk-rs#c632ed3341a6fe835a1d5e8209a4c347f2f13b2c"
 dependencies = [
  "glib-sys",
  "gobject-sys",
@@ -2457,7 +2457,11 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 [[package]]
 name = "pravega-client"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+=======
+source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+>>>>>>> 53d034d... New Pravega 94a435111ae93cdef22e3afb3fb2cbe0dc32ba79
 dependencies = [
  "ahash 0.6.3",
  "async-stream 0.2.1",
@@ -2498,7 +2502,11 @@ dependencies = [
 [[package]]
 name = "pravega-client-auth"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+=======
+source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+>>>>>>> 53d034d... New Pravega 94a435111ae93cdef22e3afb3fb2cbe0dc32ba79
 dependencies = [
  "async-trait",
  "base64 0.12.3",
@@ -2513,7 +2521,11 @@ dependencies = [
 [[package]]
 name = "pravega-client-channel"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+=======
+source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+>>>>>>> 53d034d... New Pravega 94a435111ae93cdef22e3afb3fb2cbe0dc32ba79
 dependencies = [
  "futures-intrusive 0.4.0",
  "tokio 1.5.0",
@@ -2522,7 +2534,11 @@ dependencies = [
 [[package]]
 name = "pravega-client-config"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+=======
+source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+>>>>>>> 53d034d... New Pravega 94a435111ae93cdef22e3afb3fb2cbe0dc32ba79
 dependencies = [
  "async-trait",
  "base64 0.12.3",
@@ -2539,7 +2555,11 @@ dependencies = [
 [[package]]
 name = "pravega-client-retry"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+=======
+source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+>>>>>>> 53d034d... New Pravega 94a435111ae93cdef22e3afb3fb2cbe0dc32ba79
 dependencies = [
  "snafu",
  "tokio 1.5.0",
@@ -2548,7 +2568,11 @@ dependencies = [
 [[package]]
 name = "pravega-client-shared"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+=======
+source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+>>>>>>> 53d034d... New Pravega 94a435111ae93cdef22e3afb3fb2cbe0dc32ba79
 dependencies = [
  "async-trait",
  "bytes 0.4.12",
@@ -2568,7 +2592,11 @@ dependencies = [
 [[package]]
 name = "pravega-connection-pool"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+=======
+source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+>>>>>>> 53d034d... New Pravega 94a435111ae93cdef22e3afb3fb2cbe0dc32ba79
 dependencies = [
  "async-trait",
  "dashmap 3.11.10",
@@ -2582,7 +2610,11 @@ dependencies = [
 [[package]]
 name = "pravega-controller-client"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+=======
+source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+>>>>>>> 53d034d... New Pravega 94a435111ae93cdef22e3afb3fb2cbe0dc32ba79
 dependencies = [
  "async-trait",
  "clap 2.33.3",
@@ -2650,7 +2682,11 @@ dependencies = [
 [[package]]
 name = "pravega-wire-protocol"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/pravega/pravega-client-rust?rev=800232b49893186203ebf36bdc430a3a7540d30e#800232b49893186203ebf36bdc430a3a7540d30e"
+=======
+source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+>>>>>>> 53d034d... New Pravega 94a435111ae93cdef22e3afb3fb2cbe0dc32ba79
 dependencies = [
  "async-trait",
  "bincode2",
@@ -3217,13 +3253,13 @@ dependencies = [
 
 [[package]]
 name = "sha-1"
-version = "0.9.4"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dfebf75d25bd900fd1e7d11501efab59bc846dbc76196839663e6637bba9f25f"
+checksum = "b659df5fc3ce22274daac600ffb845300bd2125bcfaec047823075afdab81c00"
 dependencies = [
  "block-buffer 0.9.0",
  "cfg-if 1.0.0",
- "cpuid-bool",
+ "cpufeatures",
  "digest 0.9.0",
  "opaque-debug 0.3.0",
 ]
@@ -3831,7 +3867,7 @@ dependencies = [
  "input_buffer",
  "log",
  "rand 0.8.3",
- "sha-1 0.9.4",
+ "sha-1 0.9.5",
  "url",
  "utf-8",
 ]

@@ -39,7 +39,7 @@ def main():
     logging.info('args=%s' % str(args))
 
     # Set GStreamer plugin path
-    # gst_plugin_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "gst-plugin-pravega/target/debug")
+    # gst_plugin_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "target/debug")
     # logging.debug("gst_plugin_dir=%s" % gst_plugin_dir)
     # os.environ["GST_PLUGIN_PATH"] = gst_plugin_dir
 
