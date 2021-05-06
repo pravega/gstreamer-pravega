@@ -32,7 +32,7 @@ use crate::pravega_service::{PravegaService, PravegaStandaloneService, PravegaSt
 #[macro_use]
 extern crate derive_new;
 
-/// Default logging configuraiton for GStreamer and GStreamer plugins.
+/// Default logging configuration for GStreamer and GStreamer plugins.
 /// Valid levels are: none, ERROR, WARNING, FIXME, INFO, DEBUG, LOG, TRACE, MEMDUMP
 /// See [https://gstreamer.freedesktop.org/documentation/tutorials/basic/debugging-tools.html?gi-language=c#the-debug-log].
 pub const DEFAULT_GST_DEBUG: &str = "pravegasrc:LOG,pravegasink:DEBUG,basesink:INFO,FIXME";
