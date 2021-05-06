@@ -424,7 +424,7 @@ pub fn launch_pipeline_and_get_summary(pipeline_description: &str) -> Result<Buf
                 gst_app::AppSinkCallbacks::builder()
                     .new_sample(move |sink| {
                         let sample = sink.pull_sample().unwrap();
-                        trace!("sample={:?}", sample);
+                        debug!("sample={:?}", sample);
                         let buffer = sample.buffer().unwrap();
                         let summary = BufferSummary::from(buffer);
                         let mut summary_list = summary_list_clone.lock().unwrap();

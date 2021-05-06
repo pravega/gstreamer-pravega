@@ -217,4 +217,135 @@ mod test {
         // Confirm there are no buffers that should have been skipped.
         assert_eq!(summary.buffers_between(seek_at_pts + 10 * SECOND, seek_to_pts - 10 * SECOND).len(), 0);
     }
+
+    #[test]
+    fn test_pravegasrc_seek_2() {
+        let test_config = &get_test_config();
+        info!("test_config={:?}", test_config);
+        let stream_name = &format!("test-pravegasrc-{}-{}", test_config.test_id, Uuid::new_v4())[..];
+        let summary_written = pravegasrc_seek_test_data_gen(test_config, stream_name).unwrap();
+        debug!("summary_written={}", summary_written);
+        let first_pts_written = summary_written.first_valid_pts();
+        let last_pts_written = summary_written.last_valid_pts();
+
+        info!("#### Decode entire video stream");
+        let pipeline_description = format!("\
+            pravegasrc {pravega_plugin_properties} \
+              start-mode=earliest \
+            ! identity name=before_decode silent=false \
+            ! decodebin \
+            ! identity name=after_decode silent=false \
+            ! appsink name=sink \
+              sync=false",
+            pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
+        );
+        let summary_full = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
+        debug!("summary_written={}", summary_written);
+        debug!("summary_full=   {}", summary_full);
+        let first_pts_full = summary_full.first_valid_pts();
+        let last_pts_full = summary_full.last_valid_pts();
+        // thread::sleep(time::Duration::from_secs(3));
+
+        info!("#### Decode video stream starting from exact PTS");
+        let resume_from_pts: PravegaTimestamp = first_pts_full + 30510 * MSECOND;
+        let pipeline_description = format!("\
+            pravegasrc {pravega_plugin_properties} \
+              start-mode=timestamp \
+              start-timestamp={resume_from_pts} \
+            ! identity name=before_decode silent=false \
+            ! decodebin \
+            ! identity name=after_decode silent=false \
+            ! appsink name=sink \
+              sync=false",
+            pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
+            resume_from_pts = resume_from_pts.nanoseconds().unwrap(),
+        );
+        // info!("Launch Pipeline: {}", pipeline_description);
+        // let pipeline = gst::parse_launch(&pipeline_description).unwrap();
+        // let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
+        // // Subscribe to any property changes.
+        // // Identity elements with silent=false will produce bus messages and will be logged by monitor_pipeline_until_eos.
+        // let _ = pipeline.add_property_deep_notify_watch(None, true);
+        // let summary_list = Arc::new(Mutex::new(Vec::new()));
+        // let summary_list_clone = summary_list.clone();
+        // let sink = pipeline.get_by_name("sink");
+        // match sink {
+        //     Some(sink) => {
+        //         let sink = sink.downcast::<gst_app::AppSink>().unwrap();
+        //         sink.set_callbacks(
+        //             gst_app::AppSinkCallbacks::builder()
+        //                 .new_sample(move |sink| {
+        //                     let sample = sink.pull_sample().unwrap();
+        //                     debug!("sample={:?}", sample);
+        //                     let buffer = sample.get_buffer().unwrap();
+        //                     let pts = clocktime_to_pravega(buffer.get_pts());
+        //                     let summary = BufferSummary {
+        //                         pts,
+        //                         size: buffer.get_size() as u64,
+        //                         offset: buffer.get_offset(),
+        //                         offset_end: buffer.get_offset_end(),
+        //                         flags: buffer.get_flags(),
+        //                     };
+        //                     let mut summary_list = summary_list_clone.lock().unwrap();
+        //                     summary_list.push(summary);
+        //                     Ok(gst::FlowSuccess::Ok)
+        //                 })
+        //                 .build()
+        //         );
+        //     },
+        //     None => warn!("Element named 'sink' not found"),
+        // };
+
+        // info!("### Set state to Paused");
+        // pipeline.set_state(gst::State::Paused).unwrap();
+        // thread::sleep(time::Duration::from_secs(10));
+        // info!("current_state={:?}", pipeline.get_current_state());
+
+        // pravegasrc will start.
+        // Initial seek will occur.
+
+        // info!("### Performing seek");
+        // let seek_to_pts = first_pts_written + 30500 * MSECOND;
+        // debug!("first_pts_written={:?}", first_pts_written);
+        // debug!("seek_to_pts=      {:?}", seek_to_pts);
+        // pipeline.seek_simple(
+        //         gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT,
+        //         pravega_to_clocktime(seek_to_pts),
+        // ).unwrap();
+
+        // info!("### Set state to Playing");
+        // pipeline.set_state(gst::State::Playing).unwrap();
+        // info!("current_state={:?}", pipeline.get_current_state());
+
+        // monitor_pipeline_until_eos(&pipeline).unwrap();
+
+        // info!("### Stop pipeline");
+        // info!("current_state={:?}", pipeline.get_current_state());
+        // pipeline.set_state(gst::State::Null).unwrap();
+        // info!("current_state={:?}", pipeline.get_current_state());
+
+        // let summary_list = summary_list.lock().unwrap().clone();
+        // let summary = BufferListSummary {
+        //     buffer_summary_list: summary_list,
+        // };
+
+        let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
+        debug!("summary_written={}", summary_written);
+        debug!("summary_full=   {}", summary_full);
+        debug!("summary=        {}", summary);
+
+        let first_pts_read = summary.first_valid_pts();
+        let last_pts_read = summary.last_valid_pts();
+        debug!("first_pts_written={:?}", first_pts_written);
+        debug!("first_pts_full=   {:?}", first_pts_full);
+        debug!("resume_from_pts=  {:?}", resume_from_pts);
+        debug!("first_pts_read=   {:?}", first_pts_read);
+        debug!("last_pts_written= {:?}", last_pts_written);
+        debug!("last_pts_full=    {:?}", last_pts_full);
+        debug!("last_pts_read=    {:?}", last_pts_read);
+        // assert_between_timestamp("first_pts_read", first_pts_read, first_pts_written - 1 * SECOND, first_pts_written + 1 * SECOND);
+        // assert_between_timestamp("last_pts_read", last_pts_read, last_pts_written - 1 * SECOND, last_pts_written + 1 * SECOND);
+        // // Confirm there are no buffers that should have been skipped.
+        // assert_eq!(summary.buffers_between(seek_at_pts + 10 * SECOND, seek_to_pts - 10 * SECOND).len(), 0);
+    }
 }
