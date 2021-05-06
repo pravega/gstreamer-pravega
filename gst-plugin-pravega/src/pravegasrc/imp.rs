@@ -32,7 +32,7 @@ use pravega_client::byte::ByteReader;
 use pravega_client_shared::{Scope, Stream, StreamConfiguration, ScopedStream, Scaling, ScaleType};
 use pravega_video::event_serde::EventReader;
 use pravega_video::index::{IndexSearcher, get_index_stream_name};
-use pravega_video::timestamp::PravegaTimestamp;
+use pravega_video::timestamp::{PravegaTimestamp, SECOND};
 use pravega_video::utils;
 use crate::counting_reader::CountingReader;
 use crate::seekable_take::SeekableTake;
@@ -747,14 +747,21 @@ impl BaseSrcImpl for PravegaSrc {
                 } else {
                     clocktime_to_pravega(segment.time())
                 };
-                gst_info!(CAT, obj: src, "do_seek: seeking to timestamp={:?}", requested_seek_timestamp);
+                let search_offset = if requested_seek_timestamp == PravegaTimestamp::MIN { 0 * SECOND } else { -5 * SECOND };
+                gst_info!(CAT, obj: src, "do_seek: search_offset={:?}", search_offset);
+                let search_timestamp = requested_seek_timestamp + search_offset;
+                gst_info!(CAT, obj: src, "do_seek: seeking to timestamp={:?}", search_timestamp);
                 // Determine the stream offset for this timestamp by searching the index.
-                let index_record = index_searcher.search_timestamp(requested_seek_timestamp);
+                let index_record = index_searcher.search_timestamp(search_timestamp);
                 gst_info!(CAT, obj: src, "do_seek: index_record={:?}", index_record);
                 match index_record {
                     Ok(index_record) => {
-                        segment.set_start(ClockTime(index_record.timestamp.nanoseconds()));
-                        segment.set_time(ClockTime(index_record.timestamp.nanoseconds()));
+                        let t = if requested_seek_timestamp < index_record.timestamp { index_record.timestamp } else { requested_seek_timestamp };
+                        // gst_info!(CAT, obj: src, "do_seek: {:?}", t);
+                        // segment.set_start(ClockTime(index_record.timestamp.nanoseconds()));
+                        segment.set_start(ClockTime(t.nanoseconds()));
+                        // segment.set_time(ClockTime(index_record.timestamp.nanoseconds()));
+                        segment.set_time(ClockTime(t.nanoseconds()));
                         segment.set_position(0);
                         reader.seek(SeekFrom::Start(index_record.offset)).unwrap();
                         gst_info!(CAT, obj: src, "do_seek: seeked to indexed position; segment={:?}", segment);
