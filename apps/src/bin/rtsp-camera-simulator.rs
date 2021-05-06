@@ -27,6 +27,14 @@ use std::collections::HashMap;
 use tracing_subscriber::fmt::format::FmtSpan;
 use url::Url;
 
+/// Default logging configuration for GStreamer and GStreamer plugins.
+/// Valid levels are: none, ERROR, WARNING, FIXME, INFO, DEBUG, LOG, TRACE, MEMDUMP
+/// See [https://gstreamer.freedesktop.org/documentation/tutorials/basic/debugging-tools.html?gi-language=c#the-debug-log].
+pub const DEFAULT_GST_DEBUG: &str = "FIXME";
+/// Default logging configuration for for Rust tracing.
+/// Valid levels are: error, warn, info, debug, trace
+pub const DEFAULT_RUST_LOG: &str = "info";
+
 #[derive(Debug, Display, Error)]
 #[display(fmt = "Could not get mount points")]
 struct NoMountPoints;
@@ -40,22 +48,30 @@ struct Opts {
     /// URL path to accept
     #[clap(long, env = "CAMERA_PATH", default_value = "/cam/realmonitor")]
     path: String,
-    /// Default width
-    #[clap(long, env = "CAMERA_WIDTH", default_value = "320")]
-    width: u32,
-    /// Default height
-    #[clap(long, env = "CAMERA_HEIGHT", default_value = "180")]
-    height: u32,
     /// User name for basic authentication
     #[clap(long, env = "CAMERA_USER", default_value = "user")]
     user_name: String,
     /// Password for basic authentication. Authentication will be disabled if not specified.
     #[clap(long, env = "CAMERA_PASSWORD")]
     password: Option<String>,
+    /// Default width
+    #[clap(long, env = "CAMERA_WIDTH", default_value = "320")]
+    width: u32,
+    /// Default height
+    #[clap(long, env = "CAMERA_HEIGHT", default_value = "180")]
+    height: u32,
+    /// Default frames per second
+    #[clap(long, env = "CAMERA_FPS", default_value = "30")]
+    fps: f64,
+    /// Default maximum key frame interval, in number of frames
+    #[clap(long, env = "CAMERA_KEY_FRAME_INTERVAL_MAX", default_value = "30")]
+    key_frame_interval_max: u32,
     /// Default target rate in KB/sec
-    #[clap(long, env = "TARGET_RATE_KB_PER_SEC", default_value = "25.0")]
-    #[allow(non_snake_case)]
-    target_rate_KB_per_sec: f64,
+    #[clap(long, env = "CAMERA_TARGET_RATE_KILOBYTES_PER_SEC", default_value = "25.0")]
+    target_rate_kilobytes_per_sec: f64,
+    /// If 0, hides the clock by default
+    #[clap(long, env = "CAMERA_SHOW_CLOCK", default_value = "1")]
+    show_clock: u8,
 }
 
 fn main() {
@@ -69,11 +85,16 @@ fn run() -> Result<(), Error>  {
     let opts: Opts = Opts::parse();
 
     let filter = std::env::var("RUST_LOG")
-        .unwrap_or_else(|_| "info".to_owned());
+        .unwrap_or_else(|_| DEFAULT_RUST_LOG.to_owned());
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_span_events(FmtSpan::CLOSE)
         .init();
+
+    match std::env::var("GST_DEBUG") {
+        Ok(_) => (),
+        Err(_) => std::env::set_var("GST_DEBUG", DEFAULT_GST_DEBUG),
+    };
 
     gst::init()?;
 
@@ -174,22 +195,43 @@ mod media_factory {
                     Some(height) => height.clone().parse::<u32>().unwrap_or(opts.height),
                     None => opts.height,
                 };
-                let target_rate_KB_per_sec = match query_map.get("target_rate_KB_per_sec") {
-                    Some(target_rate_KB_per_sec) => target_rate_KB_per_sec.clone().parse::<f64>().unwrap_or(opts.target_rate_KB_per_sec),
-                    None => opts.target_rate_KB_per_sec,
+                let fps = match query_map.get("fps") {
+                    Some(fps) => fps.clone().parse::<f64>().unwrap_or(opts.fps),
+                    None => opts.fps,
                 };
-                let target_rate_kbits_per_sec = (target_rate_KB_per_sec * 8.0) as u64;
+                let fps = fps as u64;
+                let key_frame_interval_max = match query_map.get("key_frame_interval_max") {
+                    Some(key_frame_interval_max) => key_frame_interval_max.clone().parse::<u32>().unwrap_or(opts.key_frame_interval_max),
+                    None => opts.key_frame_interval_max,
+                };
+                let target_rate_kilobytes_per_sec = match query_map.get("target_rate_kilobytes_per_sec") {
+                    Some(target_rate_kilobytes_per_sec) => target_rate_kilobytes_per_sec.clone().parse::<f64>().unwrap_or(opts.target_rate_kilobytes_per_sec),
+                    None => opts.target_rate_kilobytes_per_sec,
+                };
+                let target_rate_kilobits_per_sec = (target_rate_kilobytes_per_sec * 8.0) as u64;
+                let default_show_clock = opts.show_clock != 0;
+                let show_clock = match query_map.get("show_clock") {
+                    Some(show_clock) => show_clock.clone().parse::<bool>().unwrap_or(default_show_clock),
+                    None => default_show_clock,
+                };
 
-                let pipeline_description =
-                        "videotestsrc name=src is-live=true do-timestamp=true".to_owned()
-                        + " ! " + &format!("video/x-raw,width={},height={},framerate=30/1", width, height)[..]
-                        + " ! videoconvert"
-                        + " ! clockoverlay font-desc=\"Sans, 48\" time-format=\"%F %T\" shaded-background=true"
-                        + " ! timeoverlay valignment=bottom font-desc=\"Sans, 48\" shaded-background=true"
-                        + " ! " + &format!("x264enc tune=zerolatency key-int-max=30 bitrate={}", target_rate_kbits_per_sec)[..]
-                        + " ! h264parse"
-                        + " ! rtph264pay name=pay0 pt=96"
-                    ;
+                let pipeline_description = format!(
+                    "videotestsrc name=src is-live=true do-timestamp=true \
+                    ! video/x-raw,width={width},height={height},framerate={fps}/1 \
+                    ! videoconvert \
+                    ! clockoverlay font-desc=\"Sans, 48\" time-format=\"%F %T\" shaded-background=true silent={silent} \
+                    ! timeoverlay valignment=bottom font-desc=\"Sans, 48\" shaded-background=true silent={silent} \
+                    ! x264enc tune=zerolatency key-int-max={key_frame_interval_max} bitrate={target_rate_kbits_per_sec} \
+                      speed-preset=ultrafast \
+                    ! h264parse \
+                    ! rtph264pay name=pay0 pt=96",
+                    width = width,
+                    height = height,
+                    fps = fps,
+                    key_frame_interval_max = key_frame_interval_max,
+                    target_rate_kbits_per_sec = target_rate_kilobits_per_sec,
+                    silent = !show_clock,
+                );
                 tracing::info!("Launch Pipeline: {}", pipeline_description);
                 let bin = gst::parse_launch(&pipeline_description.to_owned()).unwrap();
                 Some(bin.upcast())
