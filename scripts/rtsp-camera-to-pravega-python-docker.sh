@@ -8,7 +8,7 @@ export ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
 export BUFFER_SIZE_MB=${BUFFER_SIZE_MB:-50}
 export CAMERA_ADDRESS=${CAMERA_ADDRESS:-127.0.0.1}
 export CAMERA_PASSWORD=${CAMERA_PASSWORD:?Required environment variable not set}
-export CAMERA_PATH="/cam/realmonitor?target_rate_KB_per_sec=25"
+export CAMERA_PATH=${CAMERA_PATH:-"/cam/realmonitor?target_rate_kilobytes_per_sec=25"}
 export CAMERA_PORT=${CAMERA_PORT:-8554}
 export CAMERA_USER=${CAMERA_USER:-user}
 DOCKER_IMAGE=${DOCKER_IMAGE:-pravega/gstreamer:pravega-dev}
@@ -21,8 +21,10 @@ fi
 export PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
 export PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
 export PRAVEGA_STREAM=${PRAVEGA_STREAM:-rtsp1}
-#export PRAVEGA_VIDEO_LOG=info
+export PRAVEGA_VIDEO_LOG=info
 export RUST_BACKTRACE=1
+
+docker stop ${CONTAINER_NAME} || true
 
 docker run --rm \
 --name ${CONTAINER_NAME} \

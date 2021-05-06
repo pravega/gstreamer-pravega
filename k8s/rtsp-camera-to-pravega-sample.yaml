@@ -40,7 +40,7 @@ spec:
         - name: CAMERA_ADDRESS
           value: "10.246.27.131"
         - name: CAMERA_PATH
-          value: "/cam/realmonitor?target_rate_KB_per_sec=100&width=1280&height=720"
+          value: "/cam/realmonitor?width=2048&height=1080&fps=60&key_frame_interval_max=60&show_clock=false&target_rate_kilobytes_per_sec=4000"
         - name: CAMERA_PORT
           value: "8554"
         - name: CAMERA_PROTOCOLS
@@ -64,4 +64,4 @@ spec:
         - name: pravega_client_tls_cert_path
           value: "/etc/ssl/certs/DST_Root_CA_X3.pem"
         - name: PRAVEGA_STREAM
-          value: "video23"
+          value: "video33"
