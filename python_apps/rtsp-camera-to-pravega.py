@@ -19,6 +19,7 @@ import ctypes
 import distutils.util
 import logging
 import os
+import signal
 import sys
 import time
 import traceback
@@ -79,6 +80,7 @@ def main():
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
+    logging.info("%s: BEGIN" % parser.prog)
 
     # Set default GStreamer logging.
     if not "GST_DEBUG" in os.environ:
@@ -206,6 +208,13 @@ def main():
     bus.add_signal_watch()
     bus.connect("message", bus_call, loop)
 
+    def shutdown_handler(signum, frame):
+        logging.info("%s: Received signal %s" % (parser.prog, signum))
+        pipeline.set_state(Gst.State.NULL)
+
+    signal.signal(signal.SIGINT, shutdown_handler)
+    signal.signal(signal.SIGTERM, shutdown_handler)
+
     # Start play back and listen to events.
     logging.info("Starting pipeline")
     pipeline.set_state(Gst.State.PLAYING)
@@ -219,6 +228,7 @@ def main():
 
     pipeline.set_state(Gst.State.NULL)
 
+    logging.info("%s: END" % parser.prog)
 
 if __name__ == "__main__":
     main()
