@@ -45,7 +45,14 @@ def bus_call(bus, message, loop):
     elif t == Gst.MessageType.ELEMENT:
         details = message.get_structure().to_string()
         logging.info("%s: %s" % (message.src.name, str(details),))
+    elif t == Gst.MessageType.PROPERTY_NOTIFY:
+        details = message.get_structure().to_string()
+        logging.debug("%s: %s" % (message.src.name, str(details),))
     return True
+
+
+def on_queue_overrun(element):
+    logging.warning("Queue has overflowed and data has been lost. Try increasing buffer-size-mb.")
 
 
 def str2bool(v):
@@ -151,6 +158,9 @@ def main():
     logging.info("Creating pipeline:\n" +  pipeline_description)
     pipeline = Gst.parse_launch(pipeline_description)
 
+    # This will cause property changes to be logged as PROPERTY_NOTIFY messages.
+    pipeline.add_property_deep_notify_watch(None, True)
+
     source = pipeline.get_by_name("rtspsrc")
     if source:
         source.set_property("location", args.camera_uri)
@@ -188,8 +198,9 @@ def main():
         queue_sink.set_property("max-size-buffers", 0)
         queue_sink.set_property("max-size-bytes", int(args.buffer_size_mb * 1024 * 1024))
         queue_sink.set_property("max-size-time", 0)
-        queue_sink.set_property("silent", True)
+        queue_sink.set_property("silent", False)
         queue_sink.set_property("leaky", "downstream")
+        queue_sink.connect("overrun", on_queue_overrun)
     pravegasink = pipeline.get_by_name("pravegasink")
     if pravegasink:
         pravegasink.set_property("allow-create-scope", args.allow_create_scope)
