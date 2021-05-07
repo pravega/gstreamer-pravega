@@ -594,6 +594,7 @@ This thread will run in the background.
 - https://gitlab.freedesktop.org/gstreamer/gst-plugins-base/issues/255
 - [MPEG Timing Model](http://www.bretl.com/mpeghtml/timemdl.HTM)
 - [A Guide to MPEG Fundamentals and Protocol Analysis](http://www.img.lx.it.pt/~fp/cav/Additional_material/MPEG2_overview.pdf)
+- https://tsduck.io/
 
 # License
 

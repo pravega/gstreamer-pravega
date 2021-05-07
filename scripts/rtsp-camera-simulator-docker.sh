@@ -22,7 +22,7 @@ docker stop ${CONTAINER_NAME} || true
 
 docker run --rm \
 --name ${CONTAINER_NAME} \
---network host \
+-p ${CAMERA_PORT}:${CAMERA_PORT} \
 -e CAMERA_PORT \
 -e CAMERA_USER \
 -e CAMERA_PASSWORD \
