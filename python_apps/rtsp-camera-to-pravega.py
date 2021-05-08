@@ -152,7 +152,6 @@ def main():
         "   ! video/x-h264,alignment=au\n" +
         # Packetize in MPEG transport stream
         "   ! mpegtsmux\n" +
-        "   ! tsparse alignment=21 split-on-rai=true\n"
         "   ! queue name=queue_sink\n" +
         sink_desc)
     logging.info("Creating pipeline:\n" +  pipeline_description)
