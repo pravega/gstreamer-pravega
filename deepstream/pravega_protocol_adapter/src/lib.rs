@@ -25,7 +25,8 @@ use std::sync::{Arc, Once};
 use tokio::sync::Mutex;
 use tracing::{debug, error, info, trace};
 use tracing_subscriber::fmt::format::FmtSpan;
-use url::Url;
+use configparser::ini::Ini;
+use pravega_video::utils;
 
 static TRACING_INIT: Once = Once::new();
 
@@ -192,30 +193,37 @@ pub extern "C" fn nvds_msgapi_connect(
         config_path: *const c_char)
         -> *const NvDsPravegaClientHandle {
     init_tracing();
-    let connection_str = c_string_to_string(connection_str).unwrap_or_default();
-    let config_path = c_string_to_string(config_path).unwrap_or_default();
+    let connection_str = c_string_to_string(connection_str).unwrap_or(String::from("tcp://127.0.0.1:9090"));
+    let config_path = c_string_to_string(config_path);
     info!("nvds_msgapi_connect: connection_str={:?}, connect_cb={:?}, config_path={:?}", connection_str, connect_cb, config_path);
-    let url = Url::parse(&connection_str[..]).unwrap();
-    debug!("nvds_msgapi_connect: url={:?}", url);
-    if url.scheme() != URL_SCHEMA {
-        error!("nvds_msgapi_connect: Schema must be {}", URL_SCHEMA);
-        return ptr::null();
-    }
-    let host = url.host().unwrap_or(url::Host::Domain("localhost"));
-    let port = url.port().unwrap_or(9090);
-    let controller_uri = format!("{}:{}", host, port);
-    let query_map: HashMap<_, _> = url.query_pairs().into_owned().collect();
-    debug!("nvds_msgapi_connect: query_map={:?}", query_map);
-    let routing_key_method = if let Some(fixed_routing_key) = query_map.get("fixed_routing_key") {
-        RoutingKeyMethod::Fixed { routing_key: fixed_routing_key.clone() }
-    } else {
-        RoutingKeyMethod::Fixed { routing_key: "".to_owned() }
+
+    let (routing_key_method, keycloak_file) = match config_path {
+        Some(path) => {
+            let mut config = Ini::new();
+            if let Err(e) = config.load(&path[..]) {
+                error!("nvds_msgapi_connect: Failed to load config file: {}", e);
+                return ptr::null();
+            };
+            let routing_key_method = if let Some(fixed_routing_key) = config.get("message-broker", "fixed-routing-key") {
+                RoutingKeyMethod::Fixed { routing_key: fixed_routing_key.clone() }
+            } else {
+                RoutingKeyMethod::Fixed { routing_key: "".to_owned() }
+            };
+            let keycloak_file = config.get("message-broker", "keycloak-file");
+            (routing_key_method, keycloak_file)
+        },
+        None => (RoutingKeyMethod::Fixed { routing_key: "".to_owned() }, None),
     };
-    info!("nvds_msgapi_connect: controller_uri={:?}, routing_key_method={:?}", controller_uri, routing_key_method);
-    let client_config = ClientConfigBuilder::default()
-        .controller_uri(controller_uri.clone())
-        .build()
-        .expect("creating config");
+    
+    info!("nvds_msgapi_connect: controller_uri={:?}, routing_key_method={:?}, keycloak_file={:?}", connection_str, routing_key_method, keycloak_file);
+
+    let client_config = match utils::create_client_config(connection_str, keycloak_file) {
+        Ok(config) => config,
+        Err(e) => {
+            error!("nvds_msgapi_connect: Failed to create Pravega client config: {}", e);
+            return ptr::null();
+        },
+    };
     let client_factory = ClientFactory::new(client_config);
     let client_handle = Box::new(NvDsPravegaClientHandle::new(client_factory, routing_key_method));
     // Prevent Rust from dropping the NvDsPravegaClientHandle instance when this function ends.
