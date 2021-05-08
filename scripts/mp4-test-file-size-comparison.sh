@@ -20,8 +20,8 @@ FRAGMENT_DURATION_MS=100
 TARGET_RATE_KB_PER_SEC=100
 BITRATE_KILOBITS_PER_SEC=$(( ${TARGET_RATE_KB_PER_SEC} * 8 ))
 
-CAMERA_IP=${CAMERA_IP:-127.0.0.1}
-CAMERA_PASSWORD=${CAMERA_USER:-password}
+CAMERA_ADDRESS=${CAMERA_ADDRESS:-127.0.0.1}
+CAMERA_PASSWORD=${CAMERA_PASSWORD:-password}
 CAMERA_PATH=${CAMERA_PATH:-"/cam/realmonitor?width=640&height=480&fps=30&show_time=false&target_rate_kilobytes_per_sec=${TARGET_RATE_KB_PER_SEC}"}
 CAMERA_PORT=${CAMERA_PORT:-8554}
 CAMERA_USER=${CAMERA_USER:-user}
@@ -37,7 +37,7 @@ SOURCE1="
 
 SOURCE2="
 rtspsrc \
-  "location=rtsp://${CAMERA_USER}:${CAMERA_PASSWORD}@${CAMERA_IP}:${CAMERA_PORT}${CAMERA_PATH}" \
+  "location=rtsp://${CAMERA_USER}:${CAMERA_PASSWORD}@${CAMERA_ADDRESS}:${CAMERA_PORT}${CAMERA_PATH}" \
   buffer-mode=none \
   drop-messages-interval=0 \
   drop-on-latency=true \
@@ -51,7 +51,7 @@ rtspsrc \
 ! video/x-h264,alignment=au \
 "
 
-SOURCE=${SOURCE1}
+SOURCE=${SOURCE2}
 
 export GST_DEBUG_DUMP_DOT_DIR="/tmp/gst-dot/$(basename "${0}" .sh)-h264"
 echo rm -rf "${GST_DEBUG_DUMP_DOT_DIR}"
@@ -61,7 +61,7 @@ gst-launch-1.0 \
 ${SOURCE} \
 ! filesink \
   location=${HOME}/test.h264 \
-&
+
 
 export GST_DEBUG_DUMP_DOT_DIR="/tmp/gst-dot/$(basename "${0}" .sh)-mp4"
 echo rm -rf "${GST_DEBUG_DUMP_DOT_DIR}"
@@ -72,7 +72,7 @@ ${SOURCE} \
 ! mp4mux streamable=true fragment-duration=${FRAGMENT_DURATION_MS} \
 ! filesink \
   location=${HOME}/test.mp4 \
-&
+
 
 export GST_DEBUG_DUMP_DOT_DIR="/tmp/gst-dot/$(basename "${0}" .sh)-ts"
 echo rm -rf "${GST_DEBUG_DUMP_DOT_DIR}"
@@ -83,7 +83,7 @@ ${SOURCE} \
 ! mpegtsmux \
 ! filesink \
   location=${HOME}/test.ts \
-&
+
 
 wait
 
