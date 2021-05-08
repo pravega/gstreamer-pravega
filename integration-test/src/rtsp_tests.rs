@@ -44,13 +44,11 @@ mod test {
         let pipeline_description_record = format!("\
             rtspsrc \
               buffer-mode=none \
-              drop-messages-interval=0 \
               drop-on-latency=true \
               latency=2000 \
               location={rtsp_url} \
               ntp-sync=true \
               ntp-time-source=running-time \
-              rtcp-sync-send-time=false \
             ! rtph264depay \
             ! h264parse \
             ! video/x-h264,alignment=au \
