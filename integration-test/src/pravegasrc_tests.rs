@@ -11,14 +11,12 @@
 #[cfg(test)]
 mod test {
     use anyhow::Error;
-    use gst::prelude::*;
-    use gstpravega::utils::{clocktime_to_pravega, pravega_to_clocktime};
-    use pravega_video::timestamp::PravegaTimestamp;
+    use pravega_video::timestamp::{PravegaTimestamp, MSECOND, NSECOND};
     use rstest::rstest;
     use std::convert::TryFrom;
-    use std::sync::Arc;
+    use std::time::Instant;
     #[allow(unused_imports)]
-    use tracing::{error, info, debug};
+    use tracing::{error, info, debug, trace};
     use uuid::Uuid;
     use crate::*;
     use crate::utils::*;
@@ -58,8 +56,10 @@ mod test {
         Ok(summary)
     }
 
-    #[test]
-    fn test_pravegasrc_start_mode_no_seek() {
+    // With no-seek, the segment has 0 for all times because the initial PTS is unknown. sync=true cannot be used.
+    #[rstest]
+    #[case(false)]
+    fn test_pravegasrc_start_mode_no_seek(#[case] sync: bool) {
         let test_config = &get_test_config();
         info!("test_config={:?}", test_config);
         let stream_name = &format!("test-pravegasrc-{}-{}", test_config.test_id, Uuid::new_v4())[..];
@@ -68,18 +68,27 @@ mod test {
         let pipeline_description = format!(
             "pravegasrc {pravega_plugin_properties} \
               start-mode=no-seek \
-            ! appsink name=sink sync=false",
+            ! appsink name=sink sync={sync}",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
+            sync = sync,
         );
+        let t0 = Instant::now();
         let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={}", summary);
+        let wallclock_elapsed_time = (Instant::now() - t0).as_nanos() * NSECOND;
+        debug!("wallclock_elapsed_time={}", wallclock_elapsed_time);
         info!("Expected: summary={:?}", summary_written);
         info!("Actual:   summary={:?}", summary);
         assert_eq!(summary, summary_written);
+        if sync {
+            assert!(wallclock_elapsed_time >= summary.pts_range());
+        }
     }
 
-    #[test]
-    fn test_pravegasrc_start_mode_earliest() {
+    #[rstest]
+    #[case(false)]
+    #[case(true)]
+    fn test_pravegasrc_start_mode_earliest(#[case] sync: bool) {
         let test_config = &get_test_config();
         info!("test_config={:?}", test_config);
         let stream_name = &format!("test-pravegasrc-{}-{}", test_config.test_id, Uuid::new_v4())[..];
@@ -89,23 +98,31 @@ mod test {
         let pipeline_description = format!(
             "pravegasrc {pravega_plugin_properties} \
               start-mode=earliest \
-            ! appsink name=sink sync=false",
+            ! appsink name=sink sync={sync}",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
+            sync = sync,
         );
+        let t0 = Instant::now();
         let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
+        let wallclock_elapsed_time = (Instant::now() - t0).as_nanos() * NSECOND;
+        debug!("wallclock_elapsed_time={}", wallclock_elapsed_time);
         debug!("summary={}", summary);
         let first_pts = summary.first_pts();
-        info!("Expected: first_pts={:?}", first_valid_pts_written);
-        info!("Actual:   first_pts={:?}", first_pts);
-        assert_eq!(first_pts, first_valid_pts_written);
+        assert_timestamp_eq("first_pts", first_pts, first_valid_pts_written);
+        if sync {
+            assert!(wallclock_elapsed_time >= summary.pts_range());
+        }
     }
 
     #[rstest]
-    #[case(0, 0)]
-    #[case(2, 0)]
-    #[case(2, 500)]
-    #[case(usize::MAX, 0)]      // last non-delta record
-    fn test_pravegasrc_start_mode_timestamp(#[case] start_index: usize, #[case] start_offset_ms: u64) {
+    #[case(0, 0, false)]
+    #[case(0, 0, true)]
+    #[case(2, 0, false)]
+    #[case(2, 0, true)]
+    #[case(2, 500, false)]
+    #[case(2, 500, true)]
+    #[case(usize::MAX, 0, false)]      // last non-delta record
+    fn test_pravegasrc_start_mode_timestamp(#[case] start_index: usize, #[case] start_offset_ms: u64, #[case] sync: bool) {
         info!("start_index={}, start_offset_ms={}", start_index, start_offset_ms);
         let test_config = &get_test_config();
         info!("test_config={:?}", test_config);
@@ -117,22 +134,26 @@ mod test {
         let start_index = std::cmp::min(start_index, non_delta_pts.len() - 1);
         let start_pts_expected = non_delta_pts[start_index];
         // We should get the same first PTS even if we specify a PTS beyond the indexed frame (but before the next one).
-        let start_timestamp = clocktime_to_pravega(pravega_to_clocktime(start_pts_expected) + start_offset_ms * gst::MSECOND);
+        let start_timestamp = start_pts_expected + start_offset_ms * MSECOND;
         let pipeline_description = format!(
             "pravegasrc {pravega_plugin_properties} \
               start-mode=timestamp \
               start-timestamp={start_timestamp} \
-            ! appsink name=sink sync=false",
+            ! appsink name=sink sync={sync}",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
             start_timestamp = start_timestamp.nanoseconds().unwrap(),
+            sync = sync,
         );
+        let t0 = Instant::now();
         let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
+        let wallclock_elapsed_time = (Instant::now() - t0).as_nanos() * NSECOND;
+        debug!("wallclock_elapsed_time={}", wallclock_elapsed_time);
         debug!("summary_written={:?}", summary_written);
         debug!("summary=        {:?}", summary);
-        let first_pts_actual = summary.first_pts();
-        info!("Expected: first_pts={:?}", start_pts_expected);
-        info!("Actual:   first_pts={:?}", first_pts_actual);
-        assert_eq!(first_pts_actual, start_pts_expected);
+        assert_timestamp_eq("first_pts", summary.first_pts(), start_pts_expected);
+        if sync {
+            assert!(wallclock_elapsed_time >= summary.pts_range());
+        }
     }
 
     #[test]
@@ -170,102 +191,6 @@ mod test {
         );
         let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={}", summary);
-        assert!(summary.buffer_summary_list.is_empty());
-    }
-
-    /// Based on https://gitlab.freedesktop.org/gstreamer/gstreamer-rs/-/blob/master/tutorials/src/bin/basic-tutorial-4.rs
-    // TODO: Test incomplete.
-    #[test]
-    #[ignore]
-    fn test_pravegasrc_seek() {
-        let test_config = &get_test_config();
-        info!("test_config={:?}", test_config);
-        let stream_name = &format!("test-pravegasrc-{}-{}", test_config.test_id, Uuid::new_v4())[..];
-        let summary_written = pravega_src_test_data_gen(test_config, stream_name).unwrap();
-        debug!("summary_written={}", summary_written);
-        let first_pts_written = summary_written.first_valid_pts();
-
-        info!("#### Read video stream");
-        info!("### Build pipeline");
-        let pipeline_description = format!(
-            "pravegasrc {pravega_plugin_properties} \
-              start-mode=earliest \
-              ! appsink name=sink sync=false",
-            pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
-        );
-
-        let seek_at_pts = clocktime_to_pravega(pravega_to_clocktime(first_pts_written) + 1 * gst::SECOND);
-        let seek_to_pts = clocktime_to_pravega(pravega_to_clocktime(seek_at_pts) + 1 * gst::SECOND);
-        debug!("first_pts_written={:?}", first_pts_written);
-        debug!("seek_at_pts=      {:?}", seek_at_pts);
-        debug!("seek_to_pts=      {:?}", seek_to_pts);
-
-        info!("Launch Pipeline: {}", pipeline_description);
-        let pipeline = gst::parse_launch(&pipeline_description).unwrap();
-        let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
-        let _pipeline_clone = pipeline.clone();
-        let summary_list = Arc::new(Mutex::new(Vec::new()));
-        let summary_list_clone = summary_list.clone();
-        let sink = pipeline
-            .get_by_name("sink");
-        match sink {
-            Some(sink) => {
-                let sink = sink.downcast::<gst_app::AppSink>().unwrap();
-                sink.set_callbacks(
-                    gst_app::AppSinkCallbacks::builder()
-                        .new_sample(move |sink| {
-                            let _do_seek = {
-                                let sample = sink.pull_sample().unwrap();
-                                debug!("sample={:?}", sample);
-                                let buffer = sample.get_buffer().unwrap();
-                                let pts = clocktime_to_pravega(buffer.get_pts());
-                                let summary = BufferSummary {
-                                    pts,
-                                    size: buffer.get_size() as u64,
-                                    flags: buffer.get_flags(),
-                                };
-                                let mut summary_list = summary_list_clone.lock().unwrap();
-                                summary_list.push(summary);
-                                let do_seek = seek_at_pts <= pts;
-                                do_seek
-                            };
-
-                            // TODO: causes deadlock
-                            // if do_seek {
-                            //     info!("new_sample: Calling seek_simple");
-                            //     pipeline_clone.seek_simple(
-                            //         gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT,
-                            //         pravega_to_clocktime(seek_to_pts),
-                            //     ).unwrap();
-                            //     info!("new_sample: seek_simple returned");
-                            // }
-
-                            Ok(gst::FlowSuccess::Ok)
-                        })
-                        .build()
-                );
-            },
-            None => warn!("Element named 'sink' not found"),
-        };
-
-        // TODO: test preroll
-        // info!("### Pre-roll pipeline");
-        // pipeline.set_state(gst::State::Paused).unwrap();
-
-        info!("### Play pipeline");
-        pipeline.set_state(gst::State::Playing).unwrap();
-
-        monitor_pipeline_until_eos(&pipeline).unwrap();
-
-        // std::thread::sleep(std::time::Duration::from_secs(3));
-
-        info!("### Stop pipeline");
-        pipeline.set_state(gst::State::Null).unwrap();
-
-        let summary_list = summary_list.lock().unwrap().clone();
-        let summary = BufferListSummary {
-            buffer_summary_list: summary_list,
-        };
-        debug!("summary={}", summary);
+        assert_eq!(summary.num_buffers(), 0);
     }
 }

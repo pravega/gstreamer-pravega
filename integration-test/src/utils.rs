@@ -13,23 +13,24 @@
 use anyhow::{anyhow, Error};
 use gst::{BufferFlags, ClockTime};
 use gst::prelude::*;
-use gstpravega::utils::{clocktime_to_pravega, pravega_to_clocktime};
+use gstpravega::utils::clocktime_to_pravega;
 use pravega_client_config::ClientConfig;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client_shared::{Scope, Stream, Segment, ScopedSegment};
 use pravega_video::index::{IndexSearcher, SearchMethod, get_index_stream_name};
-use pravega_video::timestamp::PravegaTimestamp;
+use pravega_video::timestamp::{PravegaTimestamp, TimeDelta};
 use std::fmt;
 use std::sync::{Arc, Mutex};
 #[allow(unused_imports)]
 use tracing::{error, warn, info, debug, trace};
+use crate::DEFAULT_GST_DEBUG;
 
 /// Initialize GStreamer.
 /// See log levels: https://gstreamer.freedesktop.org/documentation/tutorials/basic/debugging-tools.html?gi-language=c#the-debug-log
 pub fn gst_init() {
     match std::env::var("GST_DEBUG") {
         Ok(_) => (),
-        Err(_) => std::env::set_var("GST_DEBUG", "pravegasrc:TRACE,pravegasink:TRACE,basesink:INFO,INFO"),
+        Err(_) => std::env::set_var("GST_DEBUG", DEFAULT_GST_DEBUG),
     };
     info!("GST_DEBUG={}", std::env::var("GST_DEBUG").unwrap_or_default());
     gst::init().unwrap();
@@ -41,9 +42,14 @@ pub fn gst_init() {
 pub struct BufferSummary {
     pub pts: PravegaTimestamp,
     pub size: u64,
+    /// Not used for equality.
+    pub offset: u64,
+    /// Not used for equality.
+    pub offset_end: u64,
     pub flags: BufferFlags,
 }
 
+/// Compare BufferSummary to ensure that significant fields are equal.
 impl PartialEq for BufferSummary {
     fn eq(&self, other: &Self) -> bool {
         self.pts == other.pts &&
@@ -109,8 +115,26 @@ impl BufferListSummary {
         }
     }
 
-    pub fn pts_range(&self) -> ClockTime {
-        pravega_to_clocktime(self.last_valid_pts()) - pravega_to_clocktime(self.first_valid_pts())
+    /// Returns first buffer with PTS after given PTS.
+    pub fn first_buffer_after(&self, pts: PravegaTimestamp) -> Option<BufferSummary> {
+        self.buffer_summary_list
+            .iter()
+            .filter(|s| s.pts > pts)
+            .next()
+            .cloned()
+    }
+
+    /// Returns buffers with PTS in given range.
+    pub fn buffers_between(&self, min_pts: PravegaTimestamp, max_pts: PravegaTimestamp) -> Vec<BufferSummary> {
+        self.buffer_summary_list
+            .iter()
+            .filter(|s| min_pts <= s.pts && s.pts <= max_pts)
+            .cloned()
+            .collect()
+    }
+
+    pub fn pts_range(&self) -> TimeDelta {
+        self.last_valid_pts() - self.first_valid_pts()
     }
 
     /// Returns list of PTSs of all non-delta frames.
@@ -152,6 +176,8 @@ impl fmt::Display for BufferListSummary {
 }
 
 pub fn assert_between_clocktime(name: &str, actual: ClockTime, expected_min: ClockTime, expected_max: ClockTime) {
+    debug!("{}: Actual:   {}    {}", name, actual, actual);
+    debug!("{}: Expected: {} to {}", name, expected_min, expected_max);
     if !actual.nanoseconds().is_some() {
         panic!("{} is None", name);
     }
@@ -177,13 +203,19 @@ pub fn assert_between_timestamp(name: &str, actual: PravegaTimestamp, expected_m
     }
 }
 
-pub fn assert_timestamp_approx_eq(name: &str, actual: PravegaTimestamp, expected: PravegaTimestamp, lower_margin: ClockTime, upper_margin: ClockTime) {
-    assert_between_timestamp(
-        name,
-        actual,
-        clocktime_to_pravega(pravega_to_clocktime(expected) - lower_margin),
-        clocktime_to_pravega(pravega_to_clocktime(expected) + upper_margin),
-    )
+pub fn assert_timestamp_eq(name: &str, actual: PravegaTimestamp, expected: PravegaTimestamp) {
+    debug!("{}: Actual:   {:?}", name, actual);
+    debug!("{}: Expected: {:?}", name, expected);
+    if actual.nanoseconds().is_none() {
+        panic!("{} is None", name);
+    }
+    if actual != expected {
+        panic!("{}: actual value {} is not equal to expected value {}", name, actual, expected);
+    }
+}
+
+pub fn assert_timestamp_approx_eq(name: &str, actual: PravegaTimestamp, expected: PravegaTimestamp, lower_margin: TimeDelta, upper_margin: TimeDelta) {
+    assert_between_timestamp(name, actual, expected - lower_margin, expected + upper_margin)
 }
 
 pub fn assert_between_u64(name: &str, actual: u64, expected_min: u64, expected_max: u64) {
@@ -223,11 +255,13 @@ pub fn launch_pipeline_and_get_summary(pipeline_description: &str) -> Result<Buf
                 gst_app::AppSinkCallbacks::builder()
                     .new_sample(move |sink| {
                         let sample = sink.pull_sample().unwrap();
-                        debug!("sample={:?}", sample);
+                        trace!("sample={:?}", sample);
                         let buffer = sample.get_buffer().unwrap();
                         let summary = BufferSummary {
                             pts: clocktime_to_pravega(buffer.get_pts()),
                             size: buffer.get_size() as u64,
+                            offset: buffer.get_offset(),
+                            offset_end: buffer.get_offset_end(),
                             flags: buffer.get_flags(),
                         };
                         let mut summary_list = summary_list_clone.lock().unwrap();

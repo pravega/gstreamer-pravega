@@ -20,10 +20,12 @@ edition = "2018"
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = "3.0.0-beta.2"
+futures = "0.3"
 futures-util = "0.3"
 handlebars = "3"
 hyper = "0.14"
 pravega-client = { git = "https://github.com/pravega/pravega-client-rust", rev = "800232b49893186203ebf36bdc430a3a7540d30e" }
+pravega-controller-client  = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-controller-client", rev = "800232b49893186203ebf36bdc430a3a7540d30e" }
 pravega-client-config = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-config", rev = "800232b49893186203ebf36bdc430a3a7540d30e" }
 pravega-client-shared = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-shared", rev = "800232b49893186203ebf36bdc430a3a7540d30e" }
 pravega-video = { path = "../pravega-video" }
