@@ -19,6 +19,7 @@ import ctypes
 import distutils.util
 import logging
 import os
+import signal
 import sys
 import time
 import traceback
@@ -44,7 +45,14 @@ def bus_call(bus, message, loop):
     elif t == Gst.MessageType.ELEMENT:
         details = message.get_structure().to_string()
         logging.info("%s: %s" % (message.src.name, str(details),))
+    elif t == Gst.MessageType.PROPERTY_NOTIFY:
+        details = message.get_structure().to_string()
+        logging.debug("%s: %s" % (message.src.name, str(details),))
     return True
+
+
+def on_queue_overrun(element):
+    logging.warning("Queue has overflowed and data has been lost. Try increasing buffer-size-mb.")
 
 
 def str2bool(v):
@@ -79,11 +87,12 @@ def main():
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
+    logging.info("%s: BEGIN" % parser.prog)
 
     # Set default GStreamer logging.
     if not "GST_DEBUG" in os.environ:
         os.environ["GST_DEBUG"] = ("WARNING,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO," +
-            "h264parse:WARN,pravegasink:LOG")
+            "h264parse:WARN,pravegasink:INFO")
 
     # Set default logging for pravega-video, which sets a Rust tracing subscriber used by the Pravega Rust Client.
     if not "PRAVEGA_VIDEO_LOG" in os.environ:
@@ -143,11 +152,13 @@ def main():
         "   ! video/x-h264,alignment=au\n" +
         # Packetize in MPEG transport stream
         "   ! mpegtsmux\n" +
-        "   ! tsparse alignment=21 split-on-rai=true\n"
         "   ! queue name=queue_sink\n" +
         sink_desc)
     logging.info("Creating pipeline:\n" +  pipeline_description)
     pipeline = Gst.parse_launch(pipeline_description)
+
+    # This will cause property changes to be logged as PROPERTY_NOTIFY messages.
+    pipeline.add_property_deep_notify_watch(None, True)
 
     source = pipeline.get_by_name("rtspsrc")
     if source:
@@ -186,8 +197,9 @@ def main():
         queue_sink.set_property("max-size-buffers", 0)
         queue_sink.set_property("max-size-bytes", int(args.buffer_size_mb * 1024 * 1024))
         queue_sink.set_property("max-size-time", 0)
-        queue_sink.set_property("silent", True)
+        queue_sink.set_property("silent", False)
         queue_sink.set_property("leaky", "downstream")
+        queue_sink.connect("overrun", on_queue_overrun)
     pravegasink = pipeline.get_by_name("pravegasink")
     if pravegasink:
         pravegasink.set_property("allow-create-scope", args.allow_create_scope)
@@ -206,6 +218,13 @@ def main():
     bus.add_signal_watch()
     bus.connect("message", bus_call, loop)
 
+    def shutdown_handler(signum, frame):
+        logging.info("Shutting down due to received signal %s" % signum)
+        loop.quit()
+
+    signal.signal(signal.SIGINT, shutdown_handler)
+    signal.signal(signal.SIGTERM, shutdown_handler)
+
     # Start play back and listen to events.
     logging.info("Starting pipeline")
     pipeline.set_state(Gst.State.PLAYING)
@@ -217,7 +236,9 @@ def main():
         pipeline.set_state(Gst.State.NULL)
         raise
 
+    logging.info("Stopping pipeline")
     pipeline.set_state(Gst.State.NULL)
+    logging.info("%s: END" % parser.prog)
 
 
 if __name__ == "__main__":
