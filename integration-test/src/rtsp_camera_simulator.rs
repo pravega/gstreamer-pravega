@@ -70,7 +70,7 @@ impl RTSPCameraSimulator {
     pub fn new(config: RTSPCameraSimulatorConfig) -> Result<RTSPCameraSimulator, Error> {
         let main_loop = glib::MainLoop::new(None, false);
         let server = RTSPServer::new();
-        let mounts = server.get_mount_points().unwrap();
+        let mounts = server.mount_points().unwrap();
         let factory = RTSPMediaFactory::new();
         let target_rate_kilobits_per_sec = (config.target_rate_kilobytes_per_sec * 8.0) as u64;
         let pipeline_description = format!(
@@ -117,7 +117,7 @@ impl RTSPCameraSimulator {
         let _ = thread::spawn(move || {
             let source_id = server.attach(None).unwrap();
             // We can only get the bound port after server.attach().
-            let port = server.get_bound_port();
+            let port = server.bound_port();
             tx.send(port).unwrap();
             main_loop_clone.run();
             glib::source_remove(source_id);

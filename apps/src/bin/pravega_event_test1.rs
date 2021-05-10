@@ -12,8 +12,7 @@ use clap::Clap;
 use log::info;
 
 use std::convert::TryInto;
-use std::io::{Error, ErrorKind, Read, Write};
-use std::time::{Duration, SystemTime};
+use std::io::{Write};
 use uuid::Uuid;
 
 use pravega_client::client_factory::ClientFactory;

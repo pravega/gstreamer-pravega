@@ -334,14 +334,14 @@ pub fn run() {
     let pravegasrc = playbin
         .clone()
         .dynamic_cast::<gst::Pipeline>().unwrap()
-        .get_by_name("src").unwrap();
+        .by_name("src").unwrap();
     pravegasrc.set_property("controller", &opts.controller).unwrap();
     pravegasrc.set_property("stream", &opts.stream).unwrap();
 
     let decodebin = playbin
         .clone()
         .dynamic_cast::<gst::Pipeline>().unwrap()
-        .get_by_name("decodebin").unwrap();
+        .by_name("decodebin").unwrap();
 
     let video_sink = gst::ElementFactory::make("glimagesink", Some("videosink")).unwrap();
     video_sink.set_property("sync", &(!opts.no_sync)).unwrap();
@@ -376,7 +376,7 @@ pub fn run() {
         // just now is either audio or video (or none of both, e.g. subtitles).
         let (is_audio, is_video) = {
             let media_type = src_pad.current_caps().and_then(|caps| {
-                caps.get_structure(0).map(|s| {
+                caps.structure(0).map(|s| {
                     let name = s.name();
                     (name.starts_with("audio/"), name.starts_with("video/"))
                 })
@@ -424,7 +424,7 @@ pub fn run() {
 
                 // Get the queue element's sink pad and link the decodebin's newly created
                 // src pad for the audio stream to it.
-                let sink_pad = queue.get_static_pad("sink").expect("queue has no sinkpad");
+                let sink_pad = queue.static_pad("sink").expect("queue has no sinkpad");
                 src_pad.link(&sink_pad)?;
             } else if is_video {
                 // decodebin found a raw videostream, so we build the follow-up pipeline to
@@ -433,7 +433,7 @@ pub fn run() {
                 let convert = gst::ElementFactory::make("videoconvert", None).unwrap();
                 let scale = gst::ElementFactory::make("videoscale", None).unwrap();
 
-                if let Some(_) = pipeline.get_by_name("videosink") {
+                if let Some(_) = pipeline.by_name("videosink") {
                     pipeline.remove(&video_sink)?;
                 }
 
@@ -447,7 +447,7 @@ pub fn run() {
 
                 // Get the queue element's sink pad and link the decodebin's newly created
                 // src pad for the video stream to it.
-                let sink_pad = queue.get_static_pad("sink").expect("queue has no sinkpad");
+                let sink_pad = queue.static_pad("sink").expect("queue has no sinkpad");
                 src_pad.link(&sink_pad)?;
             }
 

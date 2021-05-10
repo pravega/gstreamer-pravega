@@ -78,10 +78,10 @@ fn main() {
     let rtspsrc = pipeline
         .clone()
         .dynamic_cast::<gst::Pipeline>().unwrap()
-        .get_by_name("src").unwrap();
+        .by_name("src").unwrap();
     rtspsrc.set_property("location", &opts.location).unwrap();
 
-    // let pravegasink = pipeline.get_by_name("sink").unwrap();
+    // let pravegasink = pipeline.by_name("sink").unwrap();
     // pravegasink.set_property("controller", &opts.controller).unwrap();
     // pravegasink.set_property("stream", &opts.stream).unwrap();
 

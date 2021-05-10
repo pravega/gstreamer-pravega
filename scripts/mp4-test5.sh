@@ -15,7 +15,7 @@ ROOT_DIR=$(readlink -f $(dirname $0)/..)
 LOG_FILE="/tmp/$(basename "${0}" .sh).log"
 pushd ${ROOT_DIR}/gst-plugin-pravega
 cargo build
-export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_PATH}
+export GST_PLUGIN_PATH=${ROOT_DIR}/target/debug:${GST_PLUGIN_PATH}
 # log level can be INFO, DEBUG, or LOG (verbose)
 export GST_DEBUG=qtmux:INFO,pravegasink:LOG,pravegasrc:LOG,basesink:INFO,FIXME
 export RUST_BACKTRACE=1

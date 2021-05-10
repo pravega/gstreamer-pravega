@@ -14,8 +14,8 @@ set -ex
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
 pushd ${ROOT_DIR}/gst-plugin-pravega
 cargo build
-ls -lh ${ROOT_DIR}/gst-plugin-pravega/target/debug/*.so
-export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_PATH}
+ls -lh ${ROOT_DIR}/target/debug/*.so
+export GST_PLUGIN_PATH=${ROOT_DIR}/target/debug:${GST_PLUGIN_PATH}
 export GST_DEBUG="pravegasrc:LOG,mpegtsbase:4,mpegtspacketizer:4,GST_TRACER:7"
 export RUST_BACKTRACE=1
 PRAVEGA_STREAM=${PRAVEGA_STREAM:-camera8}

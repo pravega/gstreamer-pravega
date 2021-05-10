@@ -118,7 +118,6 @@ fn run() -> Result<(), Error>  {
 // Our custom media factory that creates a media input manually
 mod media_factory {
     use super::*;
-    use glib::subclass;
 
     // In the imp submodule we include the actual implementation
     mod imp {
@@ -211,9 +210,6 @@ mod media_factory {
 // Our custom media subclass that adds a custom attribute to the SDP returned by DESCRIBE
 mod media {
     use super::*;
-    use glib::subclass;
-    use glib::subclass::prelude::*;
-    use gst_rtsp_server::subclass::prelude::*;
 
     // In the imp submodule we include the actual implementation
     mod imp {

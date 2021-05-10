@@ -8,21 +8,16 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use anyhow::anyhow;
 use clap::Clap;
 use log::info;
 
 use serde::{Deserialize, Serialize};
-// use serde_json::Result;
-use std::convert::TryInto;
-use std::io::{Error, ErrorKind, Read, Write};
-use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
 use pravega_client::client_factory::ClientFactory;
-use pravega_client::tablemap::{TableError, TableMap, Version};
+use pravega_client::tablemap::{TableError, Version};
 use pravega_client_config::ClientConfigBuilder;
-use pravega_client_shared::{Scope, Stream, Segment, ScopedSegment, StreamConfiguration, ScopedStream, Scaling, ScaleType};
+use pravega_client_shared::{Scope};
 
 #[derive(Clap)]
 struct Opts {

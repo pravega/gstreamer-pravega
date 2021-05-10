@@ -102,7 +102,7 @@ impl EventStreamWriterPool {
             None => {
                 info!("EventStreamWriterPool::get_or_create: Creating new writer for {}", scoped_stream);
                 // Create stream if needed.
-                let controller_client = self.client_factory.get_controller_client();            
+                let controller_client = self.client_factory.get_controller_client();
                 // This StreamConfiguration will be used only if the stream does not yet exist.
                 // If the stream already exists, it will not be changed.
                 let stream_config = StreamConfiguration {
