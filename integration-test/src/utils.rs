@@ -256,13 +256,13 @@ pub fn launch_pipeline_and_get_summary(pipeline_description: &str) -> Result<Buf
                     .new_sample(move |sink| {
                         let sample = sink.pull_sample().unwrap();
                         trace!("sample={:?}", sample);
-                        let buffer = sample.get_buffer().unwrap();
+                        let buffer = sample.buffer().unwrap();
                         let summary = BufferSummary {
-                            pts: clocktime_to_pravega(buffer.get_pts()),
-                            size: buffer.get_size() as u64,
-                            offset: buffer.get_offset(),
-                            offset_end: buffer.get_offset_end(),
-                            flags: buffer.get_flags(),
+                            pts: clocktime_to_pravega(buffer.pts()),
+                            size: buffer.size() as u64,
+                            offset: buffer.offset(),
+                            offset_end: buffer.offset_end(),
+                            flags: buffer.flags(),
                         };
                         let mut summary_list = summary_list_clone.lock().unwrap();
                         summary_list.push(summary);
@@ -289,7 +289,7 @@ fn run_pipeline_until_eos(pipeline: &gst::Pipeline) -> Result<(), Error> {
 }
 
 pub fn monitor_pipeline_until_eos(pipeline: &gst::Pipeline) -> Result<(), Error> {
-    let bus = pipeline.get_bus().unwrap();
+    let bus = pipeline.bus().unwrap();
     while let Some(msg) = bus.timed_pop(gst::CLOCK_TIME_NONE) {
         trace!("Bus message: {:?}", msg);
         match msg.view() {
@@ -297,9 +297,9 @@ pub fn monitor_pipeline_until_eos(pipeline: &gst::Pipeline) -> Result<(), Error>
             gst::MessageView::Error(err) => {
                 let msg = format!(
                     "Error from {:?}: {} ({:?})",
-                    err.get_src().map(|s| s.get_path_string()),
-                    err.get_error(),
-                    err.get_debug()
+                    err.src().map(|s| s.path_string()),
+                    err.error(),
+                    err.debug()
                 );
                 let _ = pipeline.set_state(gst::State::Null);
                 return Err(anyhow!(msg));
