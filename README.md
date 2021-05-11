@@ -89,7 +89,7 @@ Arbitrary GStreamer buffers can be stored and transported using Pravega by utili
 
 ## Getting Started with Ubuntu
 
-GStreamer 1.18.0 or higher is recommended. This comes standard with Ubuntu version 20.10.
+GStreamer 1.18.0 and 1.18.4 have been tested and are recommended. Version 1.18.0 comes standard with Ubuntu version 20.10.
 
 ### Clone this Repository
 
@@ -332,8 +332,7 @@ Data truncated at offset 192809376
 # (Optional) Build GStreamer from Source
 
 Use this procedure to build GStreamer from source.
-This is recommended when using the rtsp-camera-to-pravega application as we have seen timestamp problems
-when using GStreamer 1.18.0 and earlier.
+If you are using Ubuntu 20.10 or Docker, this is not required nor recommended.
 
 ```bash
 sudo apt install \
@@ -594,7 +593,7 @@ This thread will run in the background.
 - https://gitlab.freedesktop.org/gstreamer/gst-plugins-base/issues/255
 - [MPEG Timing Model](http://www.bretl.com/mpeghtml/timemdl.HTM)
 - [A Guide to MPEG Fundamentals and Protocol Analysis](http://www.img.lx.it.pt/~fp/cav/Additional_material/MPEG2_overview.pdf)
-- https://tsduck.io/
+- [TSDuck, The MPEG Transport Stream Toolkit](https://tsduck.io/)
 
 # License
 
