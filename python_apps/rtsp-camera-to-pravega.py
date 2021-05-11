@@ -204,7 +204,8 @@ def main():
     if pravegasink:
         pravegasink.set_property("allow-create-scope", args.allow_create_scope)
         pravegasink.set_property("controller", args.pravega_controller_uri)
-        pravegasink.set_property("keycloak-file", args.keycloak_service_account_file)
+        if args.keycloak_service_account_file:
+            pravegasink.set_property("keycloak-file", args.keycloak_service_account_file)
         pravegasink.set_property("stream", "%s/%s" % (args.pravega_scope, args.pravega_stream))
         # Always write to Pravega immediately regardless of PTS
         pravegasink.set_property("sync", False)
