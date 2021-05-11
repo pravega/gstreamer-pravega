@@ -12,6 +12,8 @@ ARG FROM_IMAGE
 
 FROM ${FROM_IMAGE} as builder-base
 
+ARG RUST_JOBS=1
+
 # Install Rust compiler.
 # Based on:
 #   - https://github.com/rust-lang/docker-rust-nightly/blob/master/buster/Dockerfile
@@ -36,21 +38,24 @@ RUN set -eux; \
 
 # Build GStreamer Pravega libraries and applications.
 
-ARG RUST_JOBS=1
-
 WORKDIR /usr/src/gstreamer-pravega
+
 
 FROM builder-base as planner
 RUN cargo install cargo-chef
 COPY . .
 RUN cargo chef prepare  --recipe-path recipe.json
 
+
 FROM builder-base as cacher
 RUN cargo install cargo-chef
 COPY --from=planner /usr/src/gstreamer-pravega/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
+
 FROM builder-base as final
+
+ARG RUST_JOBS=1
 
 COPY . .
 
