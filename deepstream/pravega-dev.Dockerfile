@@ -10,7 +10,7 @@
 
 ARG FROM_IMAGE
 
-FROM ${FROM_IMAGE}
+FROM ${FROM_IMAGE} as builder-base
 
 # Install Python Bindings for DeepStream.
 
@@ -53,27 +53,39 @@ RUN set -eux; \
 
 WORKDIR /usr/src/gstreamer-pravega
 
+FROM builder-base as planner
+RUN cargo install cargo-chef
+COPY . .
+RUN cargo chef prepare  --recipe-path recipe.json
+
+FROM builder-base as cacher
+RUN cargo install cargo-chef
+COPY --from=planner /usr/src/gstreamer-pravega/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+
+FROM builder-base as final
 ## Build gst-plugin-pravega.
 
+# Copy over the cached dependencies
+COPY --from=cacher /usr/src/gstreamer-pravega/target target
+COPY --from=cacher /usr/local/cargo /usr/local/cargo
+COPY . .
+
 COPY gst-plugin-pravega gst-plugin-pravega
-COPY pravega-client-rust pravega-client-rust
 COPY pravega-video pravega-video
 
-RUN cd gst-plugin-pravega && \
-    cargo build --release && \
+RUN cargo build --package gst-plugin-pravega --release && \
     mv -v target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 
 ## Build pravega-video-server.
 
 COPY pravega-video-server pravega-video-server
 
-RUN cd pravega-video-server && \
-    cargo install --path .
+RUN cargo install --path pravega-video-server
 
 ## Build pravega_protocol_adapter.
 
 COPY deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
 
-RUN cd deepstream/pravega_protocol_adapter && \
-    cargo build --release && \
+RUN cargo build --release --package pravega_protocol_adapter && \
     mv -v target/release/*.so /opt/nvidia/deepstream/deepstream/lib/

@@ -191,6 +191,22 @@ impl TryFrom<Option<String>> for PravegaTimestamp {
     }
 }
 
+impl TryFrom<&String> for PravegaTimestamp {
+    type Error = anyhow::Error;
+    fn try_from(t:&String) -> Result<Self, Self::Error> {
+        let dt = chrono::DateTime::parse_from_rfc3339(t)?;
+        let nanos = u64::try_from(dt.timestamp_nanos())?;
+        Ok(PravegaTimestamp::from_unix_nanoseconds(Some(nanos)))
+    }
+}
+
+impl TryFrom<String> for PravegaTimestamp {
+    type Error = anyhow::Error;
+    fn try_from(t: String) -> Result<Self, Self::Error> {
+        PravegaTimestamp::try_from(&t)
+    }
+}
+
 /// Returns the timestamp in a friendly human-readable format.
 /// This is currently the same format as to_iso_8601() but may change in the future.
 /// For example: 2001-02-03T04:00:04.200000000Z

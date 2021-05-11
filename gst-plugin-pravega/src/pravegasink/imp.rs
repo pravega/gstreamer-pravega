@@ -208,28 +208,28 @@ impl ObjectImpl for PravegaSink {
 
     fn properties() -> &'static [glib::ParamSpec] {
         static PROPERTIES: Lazy<Vec<glib::ParamSpec>> = Lazy::new(|| { vec![
-            glib::ParamSpec::string(
+            glib::ParamSpec::new_string(
                 PROPERTY_NAME_STREAM,
                 "Stream",
                 "scope/stream",
                 None,
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::string(
+            glib::ParamSpec::new_string(
                 PROPERTY_NAME_CONTROLLER,
                 "Controller",
                 "Pravega controller",
                 Some(DEFAULT_CONTROLLER),
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::boolean(
+            glib::ParamSpec::new_boolean(
                 PROPERTY_NAME_SEAL,
                 "Seal",
                 "Seal Pravega stream when stopped",
                 false,
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::uint(
+            glib::ParamSpec::new_uint(
                 PROPERTY_NAME_BUFFER_SIZE,
                 "Buffer size",
                 "Size of buffer in number of bytes",
@@ -238,7 +238,7 @@ impl ObjectImpl for PravegaSink {
                 DEFAULT_BUFFER_SIZE.try_into().unwrap(),
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::enum_(
+            glib::ParamSpec::new_enum(
                 PROPERTY_NAME_TIMESTAMP_MODE,
                 "Timestamp mode",
                 "Timestamp mode used by the input",
@@ -246,7 +246,7 @@ impl ObjectImpl for PravegaSink {
                 DEFAULT_TIMESTAMP_MODE as i32,
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::double(
+            glib::ParamSpec::new_double(
                 PROPERTY_NAME_INDEX_MIN_SEC,
                 "Minimum index interval",
                 "The minimum number of seconds between index records",
@@ -255,7 +255,7 @@ impl ObjectImpl for PravegaSink {
                 DEFAULT_INDEX_MIN_SEC.try_into().unwrap(),
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::double(
+            glib::ParamSpec::new_double(
                 PROPERTY_NAME_INDEX_MAX_SEC,
                 "Maximum index interval",
                 "Force index record if one has not been created in this many seconds, even at delta frames.",
@@ -264,14 +264,14 @@ impl ObjectImpl for PravegaSink {
                 DEFAULT_INDEX_MAX_SEC.try_into().unwrap(),
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::boolean(
+            glib::ParamSpec::new_boolean(
                 PROPERTY_NAME_ALLOW_CREATE_SCOPE,
                 "Allow create scope",
                 "If true, the Pravega scope will be created if needed.",
                 true,
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::string(
+            glib::ParamSpec::new_string(
                 PROPERTY_NAME_KEYCLOAK_FILE,
                 "Keycloak file",
                 "The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.",
@@ -289,11 +289,10 @@ impl ObjectImpl for PravegaSink {
         value: &glib::Value,
         pspec: &glib::ParamSpec,
     ) {
-        match pspec.get_name() {
+        match pspec.name() {
             PROPERTY_NAME_STREAM => {
                 let res = match value.get::<String>() {
-                    Ok(Some(stream)) => self.set_stream(&obj, Some(stream)),
-                    Ok(None) => self.set_stream(&obj, None),
+                    Ok(stream) => self.set_stream(&obj, Some(stream)),
                     Err(_) => unreachable!("type checked upstream"),
                 };
                 if let Err(err) = res {
@@ -302,7 +301,7 @@ impl ObjectImpl for PravegaSink {
             },
             PROPERTY_NAME_CONTROLLER => {
                 let res = match value.get::<String>() {
-                    Ok(controller) => self.set_controller(&obj, controller),
+                    Ok(controller) => self.set_controller(&obj, Some(controller)),
                     Err(_) => unreachable!("type checked upstream"),
                 };
                 if let Err(err) = res {
@@ -313,7 +312,7 @@ impl ObjectImpl for PravegaSink {
                 let res: Result<(), glib::Error> = match value.get::<bool>() {
                     Ok(seal) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.seal = seal.unwrap_or_default();
+                        settings.seal = seal;
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -326,7 +325,7 @@ impl ObjectImpl for PravegaSink {
                 let res: Result<(), glib::Error> = match value.get::<u32>() {
                     Ok(buffer_size) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.buffer_size = buffer_size.unwrap_or_default().try_into().unwrap_or_default();
+                        settings.buffer_size = buffer_size.try_into().unwrap_or_default();
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -339,7 +338,7 @@ impl ObjectImpl for PravegaSink {
                 let res: Result<(), glib::Error> = match value.get::<TimestampMode>() {
                     Ok(timestamp_mode) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.timestamp_mode = timestamp_mode.unwrap();
+                        settings.timestamp_mode = timestamp_mode;
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -352,7 +351,7 @@ impl ObjectImpl for PravegaSink {
                 let res: Result<(), glib::Error> = match value.get::<f64>() {
                     Ok(index_min_sec) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.index_min_nanos = (index_min_sec.unwrap_or_default() * 1e9) as u64;
+                        settings.index_min_nanos = (index_min_sec * 1e9) as u64;
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -365,7 +364,7 @@ impl ObjectImpl for PravegaSink {
                 let res: Result<(), glib::Error> = match value.get::<f64>() {
                     Ok(index_max_sec) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.index_max_nanos = (index_max_sec.unwrap_or_default() * 1e9) as u64;
+                        settings.index_max_nanos = (index_max_sec * 1e9) as u64;
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -378,7 +377,7 @@ impl ObjectImpl for PravegaSink {
                 let res: Result<(), glib::Error> = match value.get::<bool>() {
                     Ok(allow_create_scope) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.allow_create_scope = allow_create_scope.unwrap_or_default();
+                        settings.allow_create_scope = allow_create_scope;
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -391,9 +390,7 @@ impl ObjectImpl for PravegaSink {
                 let res: Result<(), glib::Error> = match value.get::<String>() {
                     Ok(keycloak_file) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.keycloak_file = keycloak_file
-                            .filter(|s| !s.is_empty())
-                            .map(|s| s.to_owned());
+                        settings.keycloak_file = Some(keycloak_file);
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -441,7 +438,7 @@ impl ElementImpl for PravegaSink {
         let clock = gst::SystemClock::obtain();
         let clock_type = gst::ClockType::Realtime;
         clock.set_property("clock-type", &clock_type).unwrap();
-        let time = clock.get_time();
+        let time = clock.time();
         gst_info!(CAT, obj: element, "provide_clock: Using clock_type={:?}, time={}, ({} ns)", clock_type, time, time.nanoseconds().unwrap());
         Some(clock)
     }
@@ -609,8 +606,8 @@ impl BaseSinkImpl for PravegaSink {
                 }
             };
 
-            let pts = buffer.get_pts();
-            let duration = buffer.get_duration();
+            let pts = buffer.pts();
+            let duration = buffer.duration();
 
             let map = buffer.map_readable().map_err(|_| {
                 gst::element_error!(element, gst::CoreError::Failed, ["Failed to map buffer"]);
@@ -627,7 +624,7 @@ impl BaseSinkImpl for PravegaSink {
                 TimestampMode::RealtimeClock => {
                     // pts is time between beginning of play and beginning of this buffer.
                     // base_time is the value of the pipeline clock (time since Unix epoch) at the beginning of play.
-                    PravegaTimestamp::from_unix_nanoseconds((element.get_base_time() + pts).nseconds())
+                    PravegaTimestamp::from_unix_nanoseconds((element.base_time() + pts).nseconds())
                 },
                 TimestampMode::Ntp => {
                     // When receiving from rtspsrc (ntp-sync=true ntp-time-source=running-time),
@@ -645,12 +642,12 @@ impl BaseSinkImpl for PravegaSink {
             let writer_offset = writer.seek(SeekFrom::Current(0)).unwrap();
 
             gst_log!(CAT, obj: element, "render: timestamp={:?}, pts={}, base_time={}, duration={}, size={}, writer_offset={}",
-                timestamp, pts, element.get_base_time(), buffer.get_duration(), buffer.get_size(), writer_offset);
+                timestamp, pts, element.base_time(), buffer.duration(), buffer.size(), writer_offset);
 
             // We only want to include key frames (non-delta units) in the index.
             // However, if no key frame has been received in a while, force an index record.
             // This is required for nvv4l2h264enc because it identifies all buffers as DELTA_UNIT.
-            let buffer_flags = buffer.get_flags();
+            let buffer_flags = buffer.flags();
             let is_delta_unit = buffer_flags.contains(gst::BufferFlags::DELTA_UNIT);
             let random_access = !is_delta_unit;
             let include_in_index = match timestamp.nanoseconds() {

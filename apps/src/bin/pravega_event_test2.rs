@@ -12,14 +12,11 @@ use anyhow::anyhow;
 use clap::Clap;
 use log::info;
 
-use std::convert::TryInto;
-use std::io::{Error, ErrorKind, Read, Write};
-use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 
 use pravega_client::client_factory::ClientFactory;
 use pravega_client_config::ClientConfigBuilder;
-use pravega_client_shared::{Scope, Stream, Segment, ScopedSegment, StreamConfiguration, ScopedStream, Scaling, ScaleType};
+use pravega_client_shared::{Scope, Stream, StreamConfiguration, ScopedStream, Scaling, ScaleType};
 
 #[derive(Clap)]
 struct Opts {
@@ -101,7 +98,7 @@ fn main() {
 
         // read from segment
         let mut slice = reader.acquire_segment().await.expect("acquire segment");
-        for i in 0..num_events {
+        for _ in 0..num_events {
             let read_event = slice.next();
             info!("read_event={:?}", read_event);
             assert!(read_event.is_some(), "event slice should have event to read");

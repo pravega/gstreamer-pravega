@@ -24,10 +24,10 @@ futures = "0.3"
 futures-util = "0.3"
 handlebars = "3"
 hyper = "0.14"
-pravega-client = { path = "../pravega-client-rust" }
-pravega-controller-client = { path = "../pravega-client-rust/controller-client" }
-pravega-client-config = { path = "../pravega-client-rust/config"}
-pravega-client-shared = { path = "../pravega-client-rust/shared"}
+pravega-client = { git = "https://github.com/pravega/pravega-client-rust", rev = "94a435111ae93cdef22e3afb3fb2cbe0dc32ba79" }
+pravega-controller-client = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-controller-client", rev = "94a435111ae93cdef22e3afb3fb2cbe0dc32ba79" }
+pravega-client-config = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-config", rev = "94a435111ae93cdef22e3afb3fb2cbe0dc32ba79" }
+pravega-client-shared = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-shared", rev = "94a435111ae93cdef22e3afb3fb2cbe0dc32ba79" }
 pravega-video = { path = "../pravega-video" }
 serde = "1"
 serde_derive = "1"

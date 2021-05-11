@@ -18,8 +18,8 @@ ROOT_DIR=$(readlink -f $(dirname $0)/..)
 pushd ${ROOT_DIR}/gst-plugin-pravega
 cargo build
 popd
-ls -lh ${ROOT_DIR}/gst-plugin-pravega/target/debug/*.so
-export GST_PLUGIN_PATH=${ROOT_DIR}/gst-plugin-pravega/target/debug:${GST_PLUGIN_PATH}
+ls -lh ${ROOT_DIR}/target/debug/*.so
+export GST_PLUGIN_PATH=${ROOT_DIR}/target/debug:${GST_PLUGIN_PATH}
 pushd ${ROOT_DIR}/apps
 cargo build --bin launch
 popd

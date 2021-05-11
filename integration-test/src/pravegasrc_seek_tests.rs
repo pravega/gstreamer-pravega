@@ -89,7 +89,7 @@ mod test {
         let summary_list = Arc::new(Mutex::new(Vec::new()));
         let summary_list_clone = summary_list.clone();
         let sink = pipeline
-            .get_by_name("sink");
+            .by_name("sink");
         match sink {
             Some(sink) => {
                 let sink = sink.downcast::<gst_app::AppSink>().unwrap();
@@ -98,14 +98,14 @@ mod test {
                         .new_sample(move |sink| {
                             let sample = sink.pull_sample().unwrap();
                             debug!("sample={:?}", sample);
-                            let buffer = sample.get_buffer().unwrap();
-                            let pts = clocktime_to_pravega(buffer.get_pts());
+                            let buffer = sample.buffer().unwrap();
+                            let pts = clocktime_to_pravega(buffer.pts());
                             let summary = BufferSummary {
                                 pts,
-                                size: buffer.get_size() as u64,
-                                offset: buffer.get_offset(),
-                                offset_end: buffer.get_offset_end(),
-                                flags: buffer.get_flags(),
+                                size: buffer.size() as u64,
+                                offset: buffer.offset(),
+                                offset_end: buffer.offset_end(),
+                                flags: buffer.flags(),
                             };
                             let mut summary_list = summary_list_clone.lock().unwrap();
                             summary_list.push(summary);
@@ -119,7 +119,7 @@ mod test {
 
         info!("### Play pipeline");
         pipeline.set_state(gst::State::Playing).unwrap();
-        info!("current_state={:?}", pipeline.get_current_state());
+        info!("current_state={:?}", pipeline.current_state());
 
         let seek_at_pts = first_pts_written + 10 * SECOND;
         let seek_to_pts = first_pts_written + 50 * SECOND;
@@ -129,7 +129,7 @@ mod test {
 
         let mut last_query_time = Instant::now();
 
-        let bus = pipeline.get_bus().unwrap();
+        let bus = pipeline.bus().unwrap();
         loop {
             let msg = bus.timed_pop(100 * gst::MSECOND);
             trace!("Bus message: {:?}", msg);
@@ -158,9 +158,9 @@ mod test {
                         gst::MessageView::Error(err) => {
                             let msg = format!(
                                 "Error from {:?}: {} ({:?})",
-                                err.get_src().map(|s| s.get_path_string()),
-                                err.get_error(),
-                                err.get_debug()
+                                err.src().map(|s| s.path_string()),
+                                err.error(),
+                                err.debug()
                             );
                             let _ = pipeline.set_state(gst::State::Null);
                             panic!("msg={}", msg);

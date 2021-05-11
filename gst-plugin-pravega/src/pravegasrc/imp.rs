@@ -240,21 +240,21 @@ impl ObjectImpl for PravegaSrc {
 
     fn properties() -> &'static [glib::ParamSpec] {
         static PROPERTIES: Lazy<Vec<glib::ParamSpec>> = Lazy::new(|| { vec![
-            glib::ParamSpec::string(
+            glib::ParamSpec::new_string(
                 PROPERTY_NAME_STREAM,
                 "Stream",
                 "scope/stream",
                 None,
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::string(
+            glib::ParamSpec::new_string(
                 PROPERTY_NAME_CONTROLLER,
                 "Controller",
                 "Pravega controller",
                 None,
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::uint(
+            glib::ParamSpec::new_uint(
                 PROPERTY_NAME_BUFFER_SIZE,
                 "Buffer size",
                 "Size of buffer in number of bytes",
@@ -263,7 +263,7 @@ impl ObjectImpl for PravegaSrc {
                 DEFAULT_BUFFER_SIZE.try_into().unwrap(),
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::enum_(
+            glib::ParamSpec::new_enum(
                 PROPERTY_NAME_START_MODE,
                 "Start mode",
                 "The position to start reading the stream at",
@@ -271,7 +271,7 @@ impl ObjectImpl for PravegaSrc {
                 DEFAULT_START_MODE as i32,
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::enum_(
+            glib::ParamSpec::new_enum(
                 PROPERTY_NAME_END_MODE,
                 "End mode",
                 "The position to end reading the stream at",
@@ -279,7 +279,7 @@ impl ObjectImpl for PravegaSrc {
                 DEFAULT_END_MODE as i32,
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::uint64(
+            glib::ParamSpec::new_uint64(
                 PROPERTY_NAME_START_TIMESTAMP,
                 "Start timestamp",
                 "If start-mode=timestamp, this is the timestamp at which to start, \
@@ -289,7 +289,7 @@ impl ObjectImpl for PravegaSrc {
                 DEFAULT_START_TIMESTAMP,
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::uint64(
+            glib::ParamSpec::new_uint64(
                 PROPERTY_NAME_END_TIMESTAMP,
                 "End timestamp",
                 "If end-mode=timestamp, this is the timestamp at which to stop, \
@@ -299,7 +299,7 @@ impl ObjectImpl for PravegaSrc {
                 DEFAULT_END_TIMESTAMP,
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::string(
+            glib::ParamSpec::new_string(
                 PROPERTY_NAME_START_UTC,
                 "Start UTC",
                 "If start-mode=utc, this is the timestamp at which to start, \
@@ -307,7 +307,7 @@ impl ObjectImpl for PravegaSrc {
                 None,
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::string(
+            glib::ParamSpec::new_string(
                 PROPERTY_NAME_END_UTC,
                 "End UTC",
                 "If end-mode=utc, this is the timestamp at which to stop, \
@@ -315,14 +315,14 @@ impl ObjectImpl for PravegaSrc {
                 None,
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::boolean(
+            glib::ParamSpec::new_boolean(
                 PROPERTY_NAME_ALLOW_CREATE_SCOPE,
                 "Allow create scope",
                 "If true, the Pravega scope will be created if needed.",
                 true,
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::string(
+            glib::ParamSpec::new_string(
                 PROPERTY_NAME_KEYCLOAK_FILE,
                 "Keycloak file",
                 "The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.",
@@ -341,11 +341,10 @@ impl ObjectImpl for PravegaSrc {
         value: &glib::Value,
         pspec: &glib::ParamSpec,
     ) {
-        match pspec.get_name() {
+        match pspec.name() {
             PROPERTY_NAME_STREAM => {
                 let res = match value.get::<String>() {
-                    Ok(Some(stream)) => self.set_stream(&obj, Some(stream)),
-                    Ok(None) => self.set_stream(&obj, None),
+                    Ok(stream) => self.set_stream(&obj, Some(stream)),
                     Err(_) => unreachable!("type checked upstream"),
                 };
                 if let Err(err) = res {
@@ -354,7 +353,7 @@ impl ObjectImpl for PravegaSrc {
             },
             PROPERTY_NAME_CONTROLLER => {
                 let res = match value.get::<String>() {
-                    Ok(controller) => self.set_controller(&obj, controller),
+                    Ok(controller) => self.set_controller(&obj, Some(controller)),
                     Err(_) => unreachable!("type checked upstream"),
                 };
                 if let Err(err) = res {
@@ -365,7 +364,7 @@ impl ObjectImpl for PravegaSrc {
                 let res: Result<(), glib::Error> = match value.get::<u32>() {
                     Ok(buffer_size) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.buffer_size = buffer_size.unwrap_or_default().try_into().unwrap_or_default();
+                        settings.buffer_size = buffer_size.try_into().unwrap_or_default();
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -378,7 +377,7 @@ impl ObjectImpl for PravegaSrc {
                 let res: Result<(), glib::Error> = match value.get::<StartMode>() {
                     Ok(start_mode) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.start_mode = start_mode.unwrap();
+                        settings.start_mode = start_mode;
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -391,7 +390,7 @@ impl ObjectImpl for PravegaSrc {
                 let res: Result<(), glib::Error> = match value.get::<EndMode>() {
                     Ok(end_mode) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.end_mode = end_mode.unwrap();
+                        settings.end_mode = end_mode;
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -404,7 +403,7 @@ impl ObjectImpl for PravegaSrc {
                 let res: Result<(), glib::Error> = match value.get::<u64>() {
                     Ok(start_timestamp) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.start_timestamp = start_timestamp.unwrap_or_default().try_into().unwrap_or_default();
+                        settings.start_timestamp = start_timestamp;
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -417,7 +416,7 @@ impl ObjectImpl for PravegaSrc {
                 let res: Result<(), glib::Error> = match value.get::<u64>() {
                     Ok(end_timestamp) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.end_timestamp = end_timestamp.unwrap_or_default().try_into().unwrap_or_default();
+                        settings.end_timestamp = end_timestamp;
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -456,7 +455,7 @@ impl ObjectImpl for PravegaSrc {
                 let res: Result<(), glib::Error> = match value.get::<bool>() {
                     Ok(allow_create_scope) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.allow_create_scope = allow_create_scope.unwrap_or_default();
+                        settings.allow_create_scope = allow_create_scope;
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -469,9 +468,7 @@ impl ObjectImpl for PravegaSrc {
                 let res: Result<(), glib::Error> = match value.get::<String>() {
                     Ok(keycloak_file) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.keycloak_file = keycloak_file
-                            .filter(|s| !s.is_empty())
-                            .map(|s| s.to_owned());
+                        settings.keycloak_file = Some(keycloak_file);
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -727,9 +724,9 @@ impl BaseSrcImpl for PravegaSrc {
             // In the input segment parameter, start, position, and time are all set to the desired timestamp.
             // If this is the initial seek, these will be all 0, and we will seek to the first record in the index.
             let initial_seek =
-                segment.get_time().nseconds().unwrap() == 0 &&
-                segment.get_start().nseconds().unwrap() == 0 &&
-                segment.get_position().nseconds().unwrap() == 0;
+                segment.time().nseconds().unwrap() == 0 &&
+                segment.start().nseconds().unwrap() == 0 &&
+                segment.position().nseconds().unwrap() == 0;
             gst_info!(CAT, obj: src, "do_seek: initial_seek={}", initial_seek);
             let no_seek = initial_seek && start_mode == StartMode::NoSeek;
             let seek_using_index = !no_seek;
@@ -737,7 +734,7 @@ impl BaseSrcImpl for PravegaSrc {
                 let requested_seek_timestamp = if initial_seek {
                     initial_seek_start_timestamp
                 } else {
-                    clocktime_to_pravega(segment.get_time())
+                    clocktime_to_pravega(segment.time())
                 };
                 gst_info!(CAT, obj: src, "do_seek: seeking to timestamp={:?}", requested_seek_timestamp);
                 // Determine the stream offset for this timestamp by searching the index.
@@ -786,7 +783,7 @@ impl BaseSrcImpl for PravegaSrc {
                 // The Seeking query will return the current start and end timestamps
                 // as nanoseconds since the TAI epoch 1970-01-01 00:00:00 TAI.
                 gst::QueryView::Seeking(ref mut q) => {
-                    let fmt = q.get_format();
+                    let fmt = q.format();
                     if fmt == gst::Format::Time {
                         // Get start and end timestamps from index.
 
@@ -907,7 +904,7 @@ impl PushSrcImpl for PravegaSrc {
                 let buffer_ref = gst_buffer.get_mut().unwrap();
 
                 let segment = element
-                    .get_segment()
+                    .segment()
                     .downcast::<gst::format::Time>()
                     .unwrap();
                 gst_trace!(CAT, obj: element, "create: segment={:?}", segment);

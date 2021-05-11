@@ -273,7 +273,7 @@ impl ObjectImpl for RtspSrcSimulator {
 
     fn properties() -> &'static [glib::ParamSpec] {
         static PROPERTIES: Lazy<Vec<glib::ParamSpec>> = Lazy::new(|| { vec![
-            glib::ParamSpec::uint64(
+            glib::ParamSpec::new_uint64(
                 PROPERTY_NAME_FIRST_PTS,
                 "First PTS",
                 "The first modified output buffer will have this PTS.",

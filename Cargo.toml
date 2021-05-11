@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "apps",
+    "deepstream/pravega_protocol_adapter",
+    "gst-plugin-pravega",
+    "integration-test",
+    "pravega-video",
+    "pravega-video-server"
+]
