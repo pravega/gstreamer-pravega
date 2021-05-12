@@ -17,11 +17,11 @@
 
 /* MODIFY: to reflect your own path */
 //#define SO_PATH "/opt/nvidia/deepstream/deepstream/lib/"
-#define SO_PATH "/root/work/gstreamer-pravega/deepstream/pravega_protocol_adapter/target/release/"
+#define SO_PATH "/home/ubuntu/projects/gstreamer-pravega/deepstream/pravega_protocol_adapter/target/release/"
 #define PRAVEGA_PROTO_SO "libnvds_pravega_proto.so"
 #define PRAVEGA_PROTO_PATH SO_PATH PRAVEGA_PROTO_SO
-#define PRAVEGA_CFG_FILE NULL
-#define PRAVEGA_CONNECT_STR "pravega://localhost:9090?fixed_routing_key=foo"
+#define PRAVEGA_CFG_FILE "/home/ubuntu/cfg_pravega.txt"
+#define PRAVEGA_CONNECT_STR "tls://pravega-controller.kubespray.nautilus-platform-dev.com:443"
 #define MAX_LEN 256
 
 void sample_msgapi_connect_cb(NvDsMsgApiHandle *h_ptr, NvDsMsgApiEventType ds_evt)
