@@ -205,7 +205,7 @@ pub extern "C" fn nvds_msgapi_connect(
                 return ptr::null();
             };
             let routing_key_method = if let Some(fixed_routing_key) = config.get("message-broker", "fixed-routing-key") {
-                RoutingKeyMethod::Fixed { routing_key: fixed_routing_key.clone() }
+                RoutingKeyMethod::Fixed { routing_key: fixed_routing_key }
             } else {
                 RoutingKeyMethod::Fixed { routing_key: "".to_owned() }
             };
