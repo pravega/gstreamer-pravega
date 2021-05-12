@@ -60,7 +60,6 @@ fn c_string_to_string(s: *const c_char) -> Option<String> {
 
 const NVDS_MSGAPI_VERSION_SZ: &str = "2.0\0";
 const NVDS_MSGAPI_PROTOCOL_SZ: &str = "PRAVEGA\0";
-const URL_SCHEMA: &str = "pravega";
 
 #[repr(C)]
 #[allow(non_camel_case_types)]
