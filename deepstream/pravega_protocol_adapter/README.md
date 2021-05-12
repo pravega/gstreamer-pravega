@@ -20,11 +20,7 @@ Build and run test_pravega_proto_async.
 ./docker-run.sh
 
 cd ~/work/gstreamer-pravega/deepstream/pravega_protocol_adapter && \
-cargo build --release && \
-make -f Makefile.test && \
-PRAVEGA_PROTOCOL_ADAPTER_LOG=trace target/test_pravega_proto_async
-
-PRAVEGA_PROTOCOL_ADAPTER_LOG=trace target/test_pravega_proto_sync
+make test
 ```
 
 Build and run deepstream-test4-app.
