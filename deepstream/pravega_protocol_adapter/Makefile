@@ -20,7 +20,7 @@ PRAVEGA_PROTOCOL_ADAPTER_SRC:=src/lib.rs Cargo.toml
 TEST_SRCS:=test_pravega_protocol_adapter.cpp
 
 CXXFLAGS:=-I$(DS_INC)
-LDFLAGS:=-L./target/release -L$(DS_LIB) -l$(PRAVEGA_PROTOCOL_ADAPTER) -Wl,-rpath ./target/release -Wl,-rpath=$(DS_LIB)
+LDFLAGS:=-L./target/release -L$(DS_LIB) -l$(PRAVEGA_PROTOCOL_ADAPTER) -Wl,-rpath,'$$ORIGIN'/release -Wl,-rpath,$(DS_LIB)
 
 default: all
 
