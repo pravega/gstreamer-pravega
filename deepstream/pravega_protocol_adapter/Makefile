@@ -7,29 +7,30 @@
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
-
+CXX:=g++
 CARGO:=cargo
 DS_INC:=/opt/nvidia/deepstream/deepstream/sources/includes
 DS_LIB:=/opt/nvidia/deepstream/deepstream/lib
 PRAVEGA_PROTOCOL_ADAPTER:=nvds_pravega_proto
 
-TEST_BIN:=target/test_pravega_protocol_adapter
 PRAVEGA_PROTOCOL_ADAPTER_DYLIB:=target/release/lib$(PRAVEGA_PROTOCOL_ADAPTER).so
+TEST_BIN:=target/test_pravega_protocol_adapter
 
+PRAVEGA_PROTOCOL_ADAPTER_SRC:=src/lib.rs Cargo.toml
 TEST_SRCS:=test_pravega_protocol_adapter.cpp
 
-CXXFLAGS:= -I$(DS_INC)
-LDFLAGS:= -L./target/release -L$(DS_LIB) -l$(PRAVEGA_PROTOCOL_ADAPTER) -Wl,-rpath ./target/release -Wl,-rpath=$(DS_LIB)
+CXXFLAGS:=-I$(DS_INC)
+LDFLAGS:=-L./target/release -L$(DS_LIB) -l$(PRAVEGA_PROTOCOL_ADAPTER) -Wl,-rpath ./target/release -Wl,-rpath=$(DS_LIB)
 
 default: all
 
 all: $(PRAVEGA_PROTOCOL_ADAPTER_DYLIB) $(TEST_BIN)
 
-$(PRAVEGA_PROTOCOL_ADAPTER_DYLIB) : src/lib.rs Cargo.toml
+$(PRAVEGA_PROTOCOL_ADAPTER_DYLIB): $(PRAVEGA_PROTOCOL_ADAPTER_SRC)
 	$(CARGO) build --release
 
-$(TEST_BIN) : $(TEST_SRCS) $(PRAVEGA_PROTOCOL_ADAPTER_DYLIB)
-	$(CXX) -o $@ $^  $(CXXFLAGS) $(LDFLAGS)
+$(TEST_BIN): $(TEST_SRCS) $(PRAVEGA_PROTOCOL_ADAPTER_DYLIB)
+	$(CXX) -o $@ $< $(CXXFLAGS) $(LDFLAGS)
 
 clean:
 	rm -rf $(TEST_BIN) $(PRAVEGA_PROTOCOL_ADAPTER_DYLIB)
