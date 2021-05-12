@@ -36,4 +36,6 @@ clean:
 	rm -rf $(TEST_BIN) $(PRAVEGA_PROTOCOL_ADAPTER_DYLIB)
 
 test: all
-	pravega_client_tls_cert_path=/etc/ssl/certs/ca-certificates.crt $(TEST_BIN)
+	pravega_client_tls_cert_path=/etc/ssl/certs/ca-certificates.crt $(TEST_BIN) \
+		"tls://pravega-controller.kubespray.nautilus-platform-dev.com:443" \
+		"/home/ubuntu/cfg_pravega.txt"
