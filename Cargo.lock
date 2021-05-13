@@ -2874,13 +2874,14 @@ name = "pravega_protocol_adapter"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "configparser",
  "pravega-client",
  "pravega-client-config",
  "pravega-client-shared",
+ "pravega-video",
  "tokio 1.5.0",
  "tracing",
  "tracing-subscriber",
- "url",
 ]
 
 [[package]]
