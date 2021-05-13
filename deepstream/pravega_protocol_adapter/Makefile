@@ -36,7 +36,7 @@ $(TEST_BIN): $(TEST_SRCS) $(PRAVEGA_PROTOCOL_ADAPTER_DYLIB)
 clean:
 	rm -rf $(TEST_BIN) $(PRAVEGA_PROTOCOL_ADAPTER_DYLIB)
 
+PRAVEGA_CONTROLLER_URI ?= tcp://127.0.0.1:9090
+PRAVEGA_CFG ?=
 test: all
-	pravega_client_tls_cert_path=/etc/ssl/certs/ca-certificates.crt $(TEST_BIN) \
-		"tls://pravega-controller.kubespray.nautilus-platform-dev.com:443" \
-		"/home/ubuntu/cfg_pravega.txt"
+	$(TEST_BIN) $(PRAVEGA_CONTROLLER_URI) $(PRAVEGA_CFG)
