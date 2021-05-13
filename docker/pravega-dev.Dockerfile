@@ -97,6 +97,10 @@ RUN cargo chef cook --release --recipe-path recipe.json
 
 FROM builder-base as pravega-dev
 
+# Copy over the cached dependencies
+COPY --from=cacher /usr/src/gstreamer-pravega/target target
+COPY --from=cacher /usr/local/cargo /usr/local/Cargo
+
 COPY Cargo.toml .
 COPY Cargo.lock .
 COPY apps apps
@@ -105,10 +109,6 @@ COPY integration-test integration-test
 COPY deepstream deepstream
 COPY pravega-video pravega-video
 COPY pravega-video-server pravega-video-server
-
-# Copy over the cached dependencies
-COPY --from=cacher /usr/src/gstreamer-pravega/target target
-COPY --from=cacher /usr/local/cargo /usr/local/cargo
 
 RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
 
@@ -127,3 +127,144 @@ RUN mv -v target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 COPY python_apps python_apps
 
 ENV PATH=/usr/src/gstreamer-pravega/python_apps:$PATH
+
+FROM "${DOCKER_REPOSITORY}ubuntu:20.10" as prod-base
+RUN \
+    apt-get update && \
+    apt-get dist-upgrade -y && \
+    apt-get install -y --no-install-recommends \
+        bubblewrap \
+        ca-certificates \
+        intel-media-va-driver-non-free \
+        iso-codes \
+        ladspa-sdk \
+        liba52-0.7.4 \
+        libaa1 \
+        libaom0 \
+        libass9 \
+        libavcodec58 \
+        libavfilter7 \
+        libavformat58 \
+        libavutil56 \
+        libbs2b0 \
+        libbz2-1.0 \
+        libcaca0 \
+        libcap2 \
+        libchromaprint1 \
+        libcurl3-gnutls \
+        libdca0 \
+        libde265-0 \
+        libdv4 \
+        libdvdnav4 \
+        libdvdread8 \
+        libdw1 \
+        libegl1 \
+        libepoxy0 \
+        libfaac0 \
+        libfaad2 \
+        libfdk-aac2 \
+        libflite1 \
+        libfluidsynth2 \
+        libgbm1 \
+        libgcrypt20 \
+        libgl1 \
+        libgles1 \
+        libgles2 \
+        libglib2.0-0 \
+        libgme0 \
+        libgmp10 \
+        libgsl25 \
+        libgsm1 \
+        libgudev-1.0-0 \
+        libharfbuzz-icu0 \
+        libjpeg8 \
+        libkate1 \
+        liblcms2-2 \
+        liblilv-0-0 \
+        libmfx1 \
+        libmjpegutils-2.1-0 \
+        libmodplug1 \
+        libmp3lame0 \
+        libmpcdec6 \
+        libmpeg2-4 \
+        libmpg123-0 \
+        libofa0 \
+        libogg0 \
+        libopencore-amrnb0 \
+        libopencore-amrwb0 \
+        libopenexr25 \
+        libopenjp2-7 \
+        libopus0 \
+        liborc-0.4-0 \
+        libpango-1.0-0 \
+        libpng16-16 \
+        librsvg2-2 \
+        librtmp1 \
+        libsbc1 \
+        libseccomp2 \
+        libshout3 \
+        libsndfile1 \
+        libsoundtouch1 \
+        libsoup2.4-1 \
+        libspandsp2 \
+        libspeex1 \
+        libsrt1 \
+        libsrtp2-1 \
+        libssl1.1 \
+        libtag1v5 \
+        libtheora0 \
+        libtwolame0 \
+        libunwind8 \
+        libva2 \
+        libvisual-0.4-0 \
+        libvo-aacenc0 \
+        libvo-amrwbenc0 \
+        libvorbis0a \
+        libvpx6 \
+        libvulkan1 \
+        libwavpack1 \
+        libwayland-client0 \
+        libwayland-egl1 \
+        libwayland-server0 \
+        libwebp6 \
+        libwebpdemux2 \
+        libwebpmux3 \
+        libwebrtc-audio-processing1 \
+        libwildmidi2 \
+        libwoff1 \
+        libx264-160 \
+        libx265-192 \
+        libxkbcommon0 \
+        libxslt1.1 \
+        libzbar0 \
+        libzvbi0 \
+        mjpegtools \
+        wayland-protocols \
+        xdg-dbus-proxy \
+    && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+FROM gstreamer-source-code as debug-prod-compile
+ENV DEBUG=true
+ENV OPTIMIZATIONS=true
+RUN ["/compile"]
+
+FROM prod-base as debug-prod
+COPY --from=debug-prod-compile /compiled-binaries /
+COPY --from=pravega-dev /usr/src/gstreamer-pravega/python_apps /usr/src/gstreamer-pravega/python_apps
+ENV PATH=/usr/src/gstreamer-pravega/python_apps:$PATH
+COPY --from=pravega-dev /usr/lib/x86_64-linux-gnu/gstreamer-1.0/ /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+COPY --from=pravega-dev /usr/src/gstreamer-pravega/target/release/pravega-video-server .
+
+FROM gstreamer-source-code as prod-compile
+ENV DEBUG=false
+ENV OPTIMIZATIONS=true
+RUN ["/compile"]
+
+FROM prod-base as prod
+COPY --from=prod-compile /compiled-binaries /
+COPY --from=pravega-dev /usr/src/gstreamer-pravega/python_apps /usr/src/gstreamer-pravega/python_apps
+ENV PATH=/usr/src/gstreamer-pravega/python_apps:$PATH
+COPY --from=pravega-dev /usr/lib/x86_64-linux-gnu/gstreamer-1.0/ /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+COPY --from=pravega-dev /usr/src/gstreamer-pravega/target/release/pravega-video-server .

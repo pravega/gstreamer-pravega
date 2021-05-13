@@ -21,6 +21,27 @@ DOCKER_REPOSITORY=${DOCKER_REPOSITORY}
 #docker pull ${DOCKER_REPOSITORY}ubuntu:20.10
 
 # Build pravega-dev image which includes the source code and binaries for all applications.
+docker build -t pravega/gstreamer:pravega-prod \
+    --build-arg GSTREAMER_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gstreamer.git \
+    --build-arg GSTREAMER_CHECKOUT=${GSTREAMER_CHECKOUT} \
+    --build-arg GST_PLUGINS_BASE_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gst-plugins-base.git \
+    --build-arg GST_PLUGINS_BASE_CHECKOUT=${GSTREAMER_CHECKOUT} \
+    --build-arg GST_PLUGINS_BAD_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gst-plugins-bad.git \
+    --build-arg GST_PLUGINS_BAD_CHECKOUT=${GSTREAMER_CHECKOUT} \
+    --build-arg GST_PLUGINS_GOOD_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gst-plugins-good.git \
+    --build-arg GST_PLUGINS_GOOD_CHECKOUT=${GSTREAMER_CHECKOUT} \
+    --build-arg GST_PLUGINS_UGLY_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gst-plugins-ugly.git \
+    --build-arg GST_PLUGINS_UGLY_CHECKOUT=${GSTREAMER_CHECKOUT} \
+    --build-arg GST_LIBAV_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gst-libav.git \
+    --build-arg GST_LIBAV_CHECKOUT=${GSTREAMER_CHECKOUT} \
+    --build-arg GST_RTSP_SERVER_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gst-rtsp-server.git \
+    --build-arg GST_RTSP_SERVER_CHECKOUT=${GSTREAMER_CHECKOUT} \
+    --build-arg RUST_JOBS=${RUST_JOBS} \
+    --build-arg DOCKER_REPOSITORY=${DOCKER_REPOSITORY} \
+    -t prod \
+    -f ${ROOT_DIR}/docker/pravega-dev.Dockerfile ${ROOT_DIR}
+
+# This is a cache hit 100%.
 docker build -t pravega/gstreamer:pravega-dev \
     --build-arg GSTREAMER_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gstreamer.git \
     --build-arg GSTREAMER_CHECKOUT=${GSTREAMER_CHECKOUT} \
@@ -40,4 +61,3 @@ docker build -t pravega/gstreamer:pravega-dev \
     --build-arg DOCKER_REPOSITORY=${DOCKER_REPOSITORY} \
     -t pravega-dev \
     -f ${ROOT_DIR}/docker/pravega-dev.Dockerfile ${ROOT_DIR}
-
