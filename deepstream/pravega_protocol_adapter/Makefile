@@ -13,14 +13,15 @@ DS_INC:=/opt/nvidia/deepstream/deepstream/sources/includes
 DS_LIB:=/opt/nvidia/deepstream/deepstream/lib
 PRAVEGA_PROTOCOL_ADAPTER:=nvds_pravega_proto
 
-PRAVEGA_PROTOCOL_ADAPTER_DYLIB:=target/release/lib$(PRAVEGA_PROTOCOL_ADAPTER).so
-TEST_BIN:=target/test_pravega_protocol_adapter
+PRAVEGA_PROTOCOL_ADAPTER_DYLIB:=../../target/release/lib$(PRAVEGA_PROTOCOL_ADAPTER).so
+TEST_BIN:=../../target/test_pravega_protocol_adapter
 
 PRAVEGA_PROTOCOL_ADAPTER_SRC:=src/lib.rs Cargo.toml
 TEST_SRCS:=test_pravega_protocol_adapter.cpp
 
 CXXFLAGS:=-I$(DS_INC)
-LDFLAGS:=-L./target/release -L$(DS_LIB) -l$(PRAVEGA_PROTOCOL_ADAPTER) -Wl,-rpath,'$$ORIGIN'/release -Wl,-rpath,$(DS_LIB)
+# specify the linked path of dynamic library of libnvds_pravega_proto.so for both compile time(by -L) and run time(by -Wl,-rpath)
+LDFLAGS:=-L../../target/release -L$(DS_LIB) -l$(PRAVEGA_PROTOCOL_ADAPTER) -Wl,-rpath,'$$ORIGIN'/release -Wl,-rpath,$(DS_LIB)
 
 default: all
 

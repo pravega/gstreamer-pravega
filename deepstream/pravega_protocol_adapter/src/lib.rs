@@ -14,7 +14,6 @@
 use anyhow::anyhow;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::event_stream_writer::EventStreamWriter;
-use pravega_client_config::ClientConfigBuilder;
 use pravega_client_shared::{StreamConfiguration, ScopedStream, Scaling, ScaleType};
 use std::collections::HashMap;
 use std::ffi::CStr;

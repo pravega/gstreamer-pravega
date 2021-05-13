@@ -22,33 +22,10 @@ const int num_events = 5;
 
 // Set the msg payload for each test sent event
 const char SEND_MSG[] = "{ \
-   \"messageid\" : \"84a3a0ad-7eb8-49a2-9aa7-104ded6764d0_c788ea9efa50\", \
-   \"mdsversion\" : \"1.0\", \
-   \"@timestamp\" : \"\", \
-   \"place\" : { \
-    \"id\" : \"1\", \
-    \"name\" : \"HQ\", \
-    \"type\" : \"building/garage\", \
-    \"location\" : { \
-      \"lat\" : 0, \
-      \"lon\" : 0, \
-      \"alt\" : 0 \
-    }, \
-    \"aisle\" : { \
-      \"id\" : \"C_126_135\", \
-      \"name\" : \"Lane 1\", \
-      \"level\" : \"P1\", \
-      \"coordinate\" : { \
-        \"x\" : 1, \
-        \"y\" : 2, \
-        \"z\" : 3 \
-      } \
-     }\
-    },\
    \"sensor\" : { \
-    \"id\" : \"10_110_126_135_A0\", \
+    \"id\" : \"CAMERA_A0\", \
     \"type\" : \"Camera\", \
-    \"description\" : \"Aisle Camera\", \
+    \"description\" : \"RTSP Camera\", \
     \"location\" : { \
       \"lat\" : 0, \
       \"lon\" : 0, \
@@ -133,10 +110,10 @@ int main(int argc, char *argv[])
         exit(-1);
     }
 
-    // Subscribe to topics
-    const char *topics[] = {"examples/topic1", "examples/topic2"};
-    const int num_topics = 2;
-    if (nvds_msgapi_subscribe(conn_handle, (char **)topics, num_topics, subscribe_cb, &consumed_count) != NVDS_MSGAPI_OK)
+    // Subscribe to streams
+    const char *streams[] = {"examples/stream1", "examples/stream2"};
+    const int num_streams = 2;
+    if (nvds_msgapi_subscribe(conn_handle, (char **)streams, num_streams, subscribe_cb, &consumed_count) != NVDS_MSGAPI_OK)
     {
         printf("Pravega subscription to topic[s] failed. Exiting \n");
         exit(-1);
@@ -145,7 +122,7 @@ int main(int argc, char *argv[])
     printf("Proceeding %d synchronized send test...\n", num_events);
     for (int i = 0; i < num_events; i++)
     {
-        if (nvds_msgapi_send(conn_handle, (char *)topics[0], (const uint8_t *)SEND_MSG, strlen(SEND_MSG)) != NVDS_MSGAPI_OK)
+        if (nvds_msgapi_send(conn_handle, (char *)streams[0], (const uint8_t *)SEND_MSG, strlen(SEND_MSG)) != NVDS_MSGAPI_OK)
         {
             printf("Send [%d] failed\n", i);
         }
@@ -166,7 +143,7 @@ int main(int argc, char *argv[])
     
     for (int i = 0; i < num_events; i++)
     {
-        if (nvds_msgapi_send_async(conn_handle, (char *)topics[1], (const uint8_t *)SEND_MSG,
+        if (nvds_msgapi_send_async(conn_handle, (char *)streams[1], (const uint8_t *)SEND_MSG,
                                    strlen(SEND_MSG), send_cb, send_cb_str[i]) != NVDS_MSGAPI_OK)
             printf("Send [%d] failed\n", i);
         else
