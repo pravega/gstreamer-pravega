@@ -19,9 +19,9 @@ DOCKER_REPOSITORY=${DOCKER_REPOSITORY}
 
 # Make sure to always have fresh base image
 #docker pull ${DOCKER_REPOSITORY}ubuntu:20.10
-pushd ${ROOT_DIR}/docker
 
-docker build -t pravega/gstreamer:${GSTREAMER_CHECKOUT}-dev-with-source \
+# Build pravega-dev image which includes the source code and binaries for all applications.
+docker build -t pravega/gstreamer:pravega-dev \
     --build-arg GSTREAMER_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gstreamer.git \
     --build-arg GSTREAMER_CHECKOUT=${GSTREAMER_CHECKOUT} \
     --build-arg GST_PLUGINS_BASE_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gst-plugins-base.git \
@@ -38,15 +38,6 @@ docker build -t pravega/gstreamer:${GSTREAMER_CHECKOUT}-dev-with-source \
     --build-arg GST_RTSP_SERVER_CHECKOUT=${GSTREAMER_CHECKOUT} \
     --build-arg RUST_JOBS=${RUST_JOBS} \
     --build-arg DOCKER_REPOSITORY=${DOCKER_REPOSITORY} \
-    --target dev-with-source \
-    -f dev.Dockerfile \
-    .
-popd
-
-# Build pravega-dev image which includes the source code and binaries for all applications.
-docker build -t pravega/gstreamer:pravega-dev \
-    --build-arg FROM_IMAGE=pravega/gstreamer:${GSTREAMER_CHECKOUT}-dev-with-source \
-    --build-arg RUST_JOBS=${RUST_JOBS} \
-    --build-arg DOCKER_REPOSITORY=${DOCKER_REPOSITORY} \
+    -t pravega-dev \
     -f ${ROOT_DIR}/docker/pravega-dev.Dockerfile ${ROOT_DIR}
 
