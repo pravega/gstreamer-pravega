@@ -8,12 +8,56 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
-ARG FROM_IMAGE
+ARG DOCKER_REPOSITORY=""
 
-FROM ${FROM_IMAGE} as builder-base
+FROM "${DOCKER_REPOSITORY}ubuntu:20.10" as gstreamer-source-code
 
 ARG RUST_JOBS=1
 
+COPY docker/build-gstreamer/install-dependencies /
+
+RUN ["/install-dependencies"]
+
+COPY docker/ca-certificates /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+
+ARG GSTREAMER_REPOSITORY=https://gitlab.freedesktop.org/nazar-pc/gstreamer.git
+ARG GSTREAMER_CHECKOUT=master
+
+ARG GST_PLUGINS_BASE_REPOSITORY=https://gitlab.freedesktop.org/nazar-pc/gst-plugins-base.git
+ARG GST_PLUGINS_BASE_CHECKOUT=master
+
+ARG GST_PLUGINS_BAD_REPOSITORY=https://gitlab.freedesktop.org/nazar-pc/gst-plugins-bad.git
+ARG GST_PLUGINS_BAD_CHECKOUT=master
+
+ARG GST_PLUGINS_GOOD_REPOSITORY=https://gitlab.freedesktop.org/nazar-pc/gst-plugins-good.git
+ARG GST_PLUGINS_GOOD_CHECKOUT=master
+
+ARG GST_PLUGINS_UGLY_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gst-plugins-ugly.git
+ARG GST_PLUGINS_UGLY_CHECKOUT=master
+
+ARG GST_LIBAV_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gst-libav.git
+ARG GST_LIBAV_CHECKOUT=master
+
+ARG GST_RTSP_SERVER_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gst-rtsp-server.git
+ARG GST_RTSP_SERVER_CHECKOUT=master
+
+ARG LIBNICE_REPOSITORY=https://gitlab.freedesktop.org/libnice/libnice.git
+ARG LIBNICE_CHECKOUT=2b38ba23b726694293de53c90b59b28ca11746ab
+
+ADD docker/build-gstreamer/download /
+
+RUN ["/download"]
+
+ADD docker/build-gstreamer/compile /
+
+FROM gstreamer-source-code as base
+ENV DEBUG=true
+ENV OPTIMIZATIONS=true
+# Compile binaries with debug symbols and keep source code
+RUN ["/compile"]
+
+FROM base as builder-base
 # Install Rust compiler.
 # Based on:
 #   - https://github.com/rust-lang/docker-rust-nightly/blob/master/buster/Dockerfile
@@ -40,24 +84,27 @@ RUN set -eux; \
 
 WORKDIR /usr/src/gstreamer-pravega
 
+FROM builder-base as chef-base
+RUN cargo install cargo-chef --jobs ${RUST_JOBS}
 
-FROM builder-base as planner
-RUN cargo install cargo-chef
+FROM chef-base as planner
 COPY . .
-RUN cargo chef prepare  --recipe-path recipe.json
+RUN cargo chef prepare --recipe-path recipe.json
 
-
-FROM builder-base as cacher
-RUN cargo install cargo-chef
+FROM chef-base as cacher
 COPY --from=planner /usr/src/gstreamer-pravega/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
+FROM builder-base as pravega-dev
 
-FROM builder-base as final
-
-ARG RUST_JOBS=1
-
-COPY . .
+COPY Cargo.toml .
+COPY Cargo.lock .
+COPY apps apps
+COPY gst-plugin-pravega gst-plugin-pravega
+COPY integration-test integration-test
+COPY deepstream deepstream
+COPY pravega-video pravega-video
+COPY pravega-video-server pravega-video-server
 
 # Copy over the cached dependencies
 COPY --from=cacher /usr/src/gstreamer-pravega/target target

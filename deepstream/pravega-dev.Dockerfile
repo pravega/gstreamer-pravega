@@ -69,22 +69,18 @@ FROM builder-base as final
 # Copy over the cached dependencies
 COPY --from=cacher /usr/src/gstreamer-pravega/target target
 COPY --from=cacher /usr/local/cargo /usr/local/cargo
-COPY . .
-
+COPY Cargo.toml .
+COPY Cargo.lock .
+COPY apps apps
 COPY gst-plugin-pravega gst-plugin-pravega
+COPY integration-test integration-test
+COPY deepstream deepstream
 COPY pravega-video pravega-video
+COPY pravega-video-server pravega-video-server
 
 RUN cargo build --package gst-plugin-pravega --release && \
     mv -v target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
-
-## Build pravega-video-server.
-
-COPY pravega-video-server pravega-video-server
-
 RUN cargo install --path pravega-video-server
-
-## Build pravega_protocol_adapter.
-
 COPY deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
 
 RUN cargo build --release --package pravega_protocol_adapter && \
