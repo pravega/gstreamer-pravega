@@ -25,6 +25,7 @@ import os
 import sys
 import time
 import traceback
+import distutils.util
 
 import gi
 gi.require_version("Gst", "1.0")
@@ -408,11 +409,15 @@ def set_event_message_meta_probe(pad, info, u_data):
     logging.info("set_event_message_meta_probe: END")
     return Gst.PadProbeReturn.OK
 
+def str2bool(v):
+    return bool(distutils.util.strtobool(v))
 
 def main():
     parser = argparse.ArgumentParser(
         description="Read video from a Pravega stream, detect objects, write metadata to a Pravega stream")
     parser.add_argument("--controller", default="192.168.1.123:9090")
+    parser.add_argument("--allow-create-scope", type=str2bool, default=True)
+    parser.add_argument("--keycloak-service-account-file")
     parser.add_argument("--log_level", type=int, default=logging.INFO, help="10=DEBUG,20=INFO")
     parser.add_argument("--msgconv-config-file",
         default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "msgconv_config.txt"))
@@ -426,6 +431,7 @@ def main():
     parser.add_argument("--input-stream", default="examples/camera5", metavar="SCOPE/STREAM")
     parser.add_argument("--output-metadata-stream", default="examples/metadata51",
         help="Name of stream for metadata.", metavar="SCOPE/STREAM")
+    parser.add_argument("--msgapi-config-file")
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
@@ -434,7 +440,7 @@ def main():
     # Set GStreamer log level.
     if not "GST_DEBUG" in os.environ:
         os.environ["GST_DEBUG"] = ("WARNING,pravegasrc:INFO," +
-            "h264parse:LOG,nvv4l2decoder:LOG,nvmsgconv:INFO")
+            "h264parse:LOG,nvv4l2decoder:LOG,nvmsgconv:INFO,pravegasrc:LOG")
     if not "PRAVEGA_PROTOCOL_ADAPTER_LOG" in os.environ:
         os.environ["PRAVEGA_PROTOCOL_ADAPTER_LOG"] = ("nvds_pravega_proto=trace,warn")
 
@@ -469,6 +475,8 @@ def main():
     pravegasrc = pipeline.get_by_name("pravegasrc")
     pravegasrc.set_property("controller", args.controller)
     pravegasrc.set_property("stream", args.input_stream)
+    pravegasrc.set_property("allow-create-scope", args.allow_create_scope)
+    pravegasrc.set_property("keycloak-file", args.keycloak_service_account_file)
     streammux = pipeline.get_by_name("streammux")
     if streammux:
         streammux.set_property("width", 1920)
@@ -487,7 +495,8 @@ def main():
     msgbroker = pipeline.get_by_name("msgbroker")
     if msgbroker:
         msgbroker.set_property("proto-lib", args.proto_lib)
-        msgbroker.set_property("conn-str", "pravega://%s" % args.controller)
+        msgbroker.set_property("conn-str", args.controller)
+        msgbroker.set_property("config", args.msgapi_config_file)
         msgbroker.set_property("topic", args.output_metadata_stream)
         msgbroker.set_property("sync", False)
 
