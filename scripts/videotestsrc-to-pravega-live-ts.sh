@@ -10,6 +10,7 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
+# Write a synthetic video stream to Pravega using an MPEG transport stream.
 # TODO: For an unknown reason, the timestamp appears to progress faster than real time.
 
 set -ex
@@ -23,7 +24,7 @@ export GST_DEBUG=pravegasink:DEBUG,basesink:INFO
 export PRAVEGA_VIDEO_LOG=info
 export RUST_LOG=debug
 export RUST_BACKTRACE=full
-TARGET_RATE_KB_PER_SEC=${TARGET_RATE_KB_PER_SEC:-250}
+TARGET_RATE_KB_PER_SEC=${TARGET_RATE_KB_PER_SEC:-25}
 BITRATE_KILOBITS_PER_SEC=$(( ${TARGET_RATE_KB_PER_SEC} * 8 ))
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
 PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
@@ -32,27 +33,21 @@ ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
 SIZE_SEC=${SIZE_SEC:-172800}
 FPS=30
 
-NANOS_SINCE_EPOCH=`date +%s%N`
-NANOS_SINCE_EPOCH_TAI=$(( $NANOS_SINCE_EPOCH + 37000000000 ))
-
 gst-launch-1.0 \
 -v \
-videotestsrc name=src timestamp-offset=${NANOS_SINCE_EPOCH_TAI} num-buffers=$(($SIZE_SEC*$FPS)) \
-! "video/x-raw,format=YUY2,width=640,height=480,framerate=${FPS}/1" \
+videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$FPS)) \
+! "video/x-raw,format=YUY2,width=320,height=180,framerate=${FPS}/1" \
 ! videoconvert \
 ! clockoverlay "font-desc=Sans 48px" "time-format=%F %T" shaded-background=true \
 ! timeoverlay valignment=bottom "font-desc=Sans 48px" shaded-background=true \
 ! videoconvert \
 ! queue \
 ! x264enc tune=zerolatency key-int-max=${FPS} bitrate=${BITRATE_KILOBITS_PER_SEC} \
-! mp4mux streamable=true fragment-duration=100 \
-! fragmp4pay \
+! mpegtsmux alignment=-1 \
 ! queue \
 ! pravegasink \
   allow-create-scope=${ALLOW_CREATE_SCOPE} \
   controller=${PRAVEGA_CONTROLLER_URI} \
   keycloak-file=\"${KEYCLOAK_SERVICE_ACCOUNT_FILE}\" \
   stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
-  sync=true \
-  timestamp-mode=tai \
-  ts-offset=-${NANOS_SINCE_EPOCH_TAI}
+  sync=true

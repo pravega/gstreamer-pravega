@@ -22,6 +22,7 @@ docker run \
 -e JUPYTER_ENABLE_LAB=yes \
 -v "${ROOT_DIR}":/home/jovyan/gstreamer-pravega \
 -v "${DATA_DIR}":/home/jovyan/data \
+-v /tmp:/home/jovyan/tmp \
 --name jupyter-notebook-gstreamer-pravega \
 jupyter/scipy-notebook:6d42503c684f \
 jupyter-lab \
