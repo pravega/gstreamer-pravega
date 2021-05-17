@@ -116,6 +116,9 @@ enum State {
         client_factory: ClientFactory,
         writer: CountingWriter<BufWriter<SeekableByteStreamWriter>>,
         index_writer: ByteStreamWriter,
+        // First received PTS that is not None.
+        first_valid_time: PravegaTimestamp,
+        // PTS of last written index record.
         last_index_time: PravegaTimestamp,
         // The timestamp that will be written to the index upon end-of-stream.
         final_timestamp: PravegaTimestamp,
@@ -559,6 +562,7 @@ impl BaseSinkImpl for PravegaSink {
                 client_factory,
                 writer: counting_writer,
                 index_writer,
+                first_valid_time: PravegaTimestamp::NONE,
                 last_index_time: PravegaTimestamp::NONE,
                 final_timestamp: PravegaTimestamp::NONE,
                 final_offset: None,
@@ -582,6 +586,7 @@ impl BaseSinkImpl for PravegaSink {
             let mut state = self.state.lock().unwrap();
             let (writer,
                 index_writer,
+                first_valid_time,
                 last_index_time,
                 final_timestamp,
                 final_offset,
@@ -589,6 +594,7 @@ impl BaseSinkImpl for PravegaSink {
                 State::Started {
                     ref mut writer,
                     ref mut index_writer,
+                    ref mut first_valid_time,
                     ref mut last_index_time,
                     ref mut final_timestamp,
                     ref mut final_offset,
@@ -596,6 +602,7 @@ impl BaseSinkImpl for PravegaSink {
                     ..
                 } => (writer,
                     index_writer,
+                    first_valid_time,
                     last_index_time,
                     final_timestamp,
                     final_offset,
@@ -638,6 +645,10 @@ impl BaseSinkImpl for PravegaSink {
                 }
             };
 
+            if first_valid_time.is_none() {
+                *first_valid_time = timestamp;
+            }
+
             // Get the writer offset before writing. This offset will be used in the index.
             let writer_offset = writer.seek(SeekFrom::Current(0)).unwrap();
 
@@ -656,6 +667,7 @@ impl BaseSinkImpl for PravegaSink {
                         Some(last_index_time) => {
                             let interval_sec = u64_to_i64_saturating_sub(timestamp, last_index_time) as f64 * 1e-9;
                             if is_delta_unit {
+                                // We are at a delta frame.
                                 if timestamp > last_index_time + index_max_nanos {
                                     gst_fixme!(CAT, obj: element,
                                         "render: Forcing index record at delta unit because no key frame has been received for {} sec", interval_sec);
@@ -678,12 +690,34 @@ impl BaseSinkImpl for PravegaSink {
                         },
                         None => {
                             // An index record has not been written by this element yet.
-                            true
+                            // The timestamp is valid.
+                            if random_access {
+                                true
+                            } else {
+                                // We are at a delta frame.
+                                // Do not write an index record. unless no index record has been written for a while.
+                                match first_valid_time.nanoseconds() {
+                                    Some(first_valid_time) => {
+                                        if timestamp > first_valid_time + index_max_nanos {
+                                            let interval_sec = u64_to_i64_saturating_sub(timestamp, first_valid_time) as f64 * 1e-9;
+                                            gst_fixme!(CAT, obj: element,
+                                                "render: Forcing first index record at delta unit because no key frame has been received for {} sec", interval_sec);
+                                            true
+                                        } else {
+                                            false
+                                        }
+                                    },
+                                    None => {
+                                        // Should be unreachable.
+                                        false
+                                    },
+                                }
+                            }
                         },
                     }
                 },
                 None => {
-                    // Buffer has an invalid timestamp.
+                    // Buffer has an invalid timestamp. Never index.
                     false
                 },
             };
