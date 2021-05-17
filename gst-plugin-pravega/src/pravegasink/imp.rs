@@ -393,7 +393,11 @@ impl ObjectImpl for PravegaSink {
                 let res: Result<(), glib::Error> = match value.get::<String>() {
                     Ok(keycloak_file) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.keycloak_file = Some(keycloak_file);
+                        settings.keycloak_file = if keycloak_file.is_empty() {
+                            None
+                        } else {
+                            Some(keycloak_file)
+                        };
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
