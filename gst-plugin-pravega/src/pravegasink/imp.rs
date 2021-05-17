@@ -765,18 +765,37 @@ impl BaseSinkImpl for PravegaSink {
             }
 
             // Write buffer to Pravega byte stream.
-            let event = EventWithHeader::new(payload, timestamp,
-                include_in_index, random_access, discontinuity);
-            gst_memdump!(CAT, obj: element, "render: writing event={:?}", event);
-            let mut event_writer = EventWriter::new();
-            event_writer.write(&event, writer).map_err(|err| {
-                gst::element_error!(
-                    element,
-                    gst::ResourceError::Write,
-                    ["Failed to write buffer: {}", err]
-                );
-                gst::FlowError::Error
-            })?;
+            // If buffer is greater than ~8 MiB, it will be fragmented into multiple atomic writes, each with an EventHeader.
+            // Once fragmented, buffers will not be reassembled by pravegasrc.
+            // However, demuxers such as qtdemux can correctly handled fragmented buffers.
+            // In the event of an ungraceful pravegasink termination before all fragments are written,
+            // it will mark the first buffer after starting as a discontinuity,
+            // allowing elements downstream from pravegasrc to reinitialize.
+            let mut pos_to_write = 0;
+            loop {
+                let length_to_write = usize::min(payload.len() - pos_to_write, EventWithHeader::max_payload_size());
+                if length_to_write == 0 { break };
+                let event = if pos_to_write == 0 {
+                    EventWithHeader::new(&payload[pos_to_write..pos_to_write+length_to_write],
+                        timestamp, include_in_index, random_access, discontinuity)
+                } else {
+                    gst_debug!(CAT, obj: element, "render: buffer exceeds atomic write size and has been fragmented; writing additional payload of {} bytes", length_to_write);
+                    // Additional writes must not be indexed and must not be marked as a discontinuity as that would reset the demuxer.
+                    EventWithHeader::new(&payload[pos_to_write..pos_to_write+length_to_write],
+                        timestamp, false, false, false)
+                };
+                gst_memdump!(CAT, obj: element, "render: writing event={:?}", event);
+                let mut event_writer = EventWriter::new();
+                event_writer.write(&event, writer).map_err(|err| {
+                    gst::element_error!(
+                        element,
+                        gst::ResourceError::Write,
+                        ["Failed to write buffer: {}", err]
+                    );
+                    gst::FlowError::Error
+                })?;
+                pos_to_write += length_to_write;
+                }
             *buffers_written += 1;
 
             // Get the writer offset after writing.
