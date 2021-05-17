@@ -280,6 +280,14 @@ impl Add<Duration> for PravegaTimestamp {
 pub struct TimeDelta(pub Option<i128>);
 
 impl TimeDelta {
+    pub fn nanoseconds(&self) -> Option<i128> {
+        self.0
+    }
+
+    pub fn milliseconds(&self) -> Option<i128> {
+        self.0.map(|t| t / 1000 / 1000)
+    }
+
     /// Convert to format +h:mm:ss.fffffffff
     /// Based on https://gstreamer.freedesktop.org/documentation/gstreamer/gstclock.html?gi-language=c#GST_STIME_ARGS.
     pub fn to_hms(&self) -> Option<String> {
@@ -295,6 +303,20 @@ impl TimeDelta {
                 Some(format!("{}{}:{:02}:{:02}.{:09}", sign, h, mm, ss, f))
                 },
             None => None,
+        }
+    }
+
+    pub fn or(self, optb: TimeDelta) -> TimeDelta {
+        match self.0 {
+            Some(_) => self,
+            None => optb,
+        }
+    }
+
+    pub fn or_zero(self) -> TimeDelta {
+        match self.0 {
+            Some(_) => self,
+            None => TimeDelta(Some(0)),
         }
     }
 }
