@@ -288,6 +288,10 @@ impl TimeDelta {
         self.0.map(|t| t / 1000 / 1000)
     }
 
+    pub fn seconds(&self) -> Option<i128> {
+        self.0.map(|t| t / 1000 / 1000 / 1000)
+    }
+
     /// Convert to format +h:mm:ss.fffffffff
     /// Based on https://gstreamer.freedesktop.org/documentation/gstreamer/gstclock.html?gi-language=c#GST_STIME_ARGS.
     pub fn to_hms(&self) -> Option<String> {
@@ -339,6 +343,18 @@ impl Sub for TimeDelta {
         match (self.0, rhs.0) {
             (Some(this), Some(rhs)) => TimeDelta(Some(this - rhs)),
             _ => TimeDelta(None),
+        }
+    }
+}
+
+/// This allows expressions such as "time_delta / SECOND".
+impl Div for TimeDelta {
+    type Output = Option<i128>;
+
+    fn div(self, rhs: TimeDelta) -> Self::Output {
+        match (self.0, rhs.0) {
+            (Some(this), Some(rhs)) => Some(this / rhs),
+            _ => None,
         }
     }
 }
