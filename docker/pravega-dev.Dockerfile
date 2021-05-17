@@ -97,6 +97,10 @@ RUN cargo chef cook --release --recipe-path recipe.json
 
 FROM builder-base as pravega-dev
 
+# Copy over the cached dependencies
+COPY --from=cacher /usr/src/gstreamer-pravega/target target
+COPY --from=cacher /usr/local/cargo /usr/local/Cargo
+
 COPY Cargo.toml .
 COPY Cargo.lock .
 COPY apps apps
@@ -105,10 +109,6 @@ COPY integration-test integration-test
 COPY deepstream deepstream
 COPY pravega-video pravega-video
 COPY pravega-video-server pravega-video-server
-
-# Copy over the cached dependencies
-COPY --from=cacher /usr/src/gstreamer-pravega/target target
-COPY --from=cacher /usr/local/cargo /usr/local/cargo
 
 RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
 
@@ -127,3 +127,36 @@ RUN mv -v target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 COPY python_apps python_apps
 
 ENV PATH=/usr/src/gstreamer-pravega/python_apps:$PATH
+ENV GST_PLUGIN_PATH /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+
+FROM "${DOCKER_REPOSITORY}ubuntu:20.10" as prod-base
+
+COPY docker/install-prod-dependencies /
+
+RUN ["/install-prod-dependencies"]
+
+ENV GST_PLUGIN_PATH /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+
+FROM gstreamer-source-code as debug-prod-compile
+ENV DEBUG=true
+ENV OPTIMIZATIONS=true
+RUN ["/compile"]
+
+FROM prod-base as debug-prod
+COPY --from=debug-prod-compile /compiled-binaries /
+COPY --from=pravega-dev /usr/src/gstreamer-pravega/python_apps /usr/src/gstreamer-pravega/python_apps
+ENV PATH=/usr/src/gstreamer-pravega/python_apps:$PATH
+COPY --from=pravega-dev /usr/lib/x86_64-linux-gnu/gstreamer-1.0/ /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+COPY --from=pravega-dev /usr/src/gstreamer-pravega/target/release/pravega-video-server .
+
+FROM gstreamer-source-code as prod-compile
+ENV DEBUG=false
+ENV OPTIMIZATIONS=true
+RUN ["/compile"]
+
+FROM prod-base as prod
+COPY --from=prod-compile /compiled-binaries /
+COPY --from=pravega-dev /usr/src/gstreamer-pravega/python_apps /usr/src/gstreamer-pravega/python_apps
+ENV PATH=/usr/src/gstreamer-pravega/python_apps:$PATH
+COPY --from=pravega-dev /usr/lib/x86_64-linux-gnu/gstreamer-1.0/ /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+COPY --from=pravega-dev /usr/src/gstreamer-pravega/target/release/pravega-video-server .
