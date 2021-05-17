@@ -295,6 +295,22 @@ impl TimeDelta {
         self.0.map(|t| t / 1000 / 1000 / 1000)
     }
 
+    pub const fn none() -> Self {
+        Self(None)
+    }
+
+    pub const fn zero() -> Self {
+        Self(Some(0))
+    }
+
+    pub const fn is_some(&self) -> bool {
+        matches!(self.0, Some(_))
+    }
+
+    pub const fn is_none(&self) -> bool {
+        !self.is_some()
+    }
+
     /// Convert to format +h:mm:ss.fffffffff
     /// Based on https://gstreamer.freedesktop.org/documentation/gstreamer/gstclock.html?gi-language=c#GST_STIME_ARGS.
     pub fn to_hms(&self) -> Option<String> {
