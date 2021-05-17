@@ -12,11 +12,27 @@
 
 set -ex
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
+
 # If PRAVEGA_CONTROLLER_URI is not set, then Pravega standalone will be started and stopped by the integration test.
-#export PRAVEGA_CONTROLLER_URI=127.0.0.1:9090
+# For example: export PRAVEGA_CONTROLLER_URI=127.0.0.1:9090
+
+# If RTSP_URL is set, it will be used for all RTSP tests. This allows for real cameras to be used.
+# Otherwise, the integration test will run an in-process RTSP camera simulator that is appropriate for each test.
+# See rtsp-env-sample.sh for an example.
+
+# Multiple test threads can be used but troubleshooting is easier with just 1 thread.
+# When increasing this, we recommend using a Pravega server started with ../pravega-docker/up.sh
+# to better handle the high load.
+TEST_THREADS=${TEST_THREADS:-1}
+
 pushd ${ROOT_DIR}/integration-test
 export RUST_BACKTRACE=0
-# Multiple test threads should work but troubleshooting is easier with just 1 thread.
-TEST_THREADS=${TEST_THREADS:-1}
-cargo test $* -- --nocapture --test-threads=${TEST_THREADS} \
+
+# Build tests then print list of test names.
+# This will ignore any tests with names containing "ignore".
+cargo test $* -- --skip ignore --list \
 |& tee /tmp/integration-test.log
+
+# Run tests.
+cargo test $* -- --skip ignore --nocapture --test-threads=${TEST_THREADS} \
+|& tee -a /tmp/integration-test.log
