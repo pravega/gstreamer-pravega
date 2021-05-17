@@ -678,7 +678,7 @@ impl BaseSinkImpl for PravegaSink {
                         },
                         None => {
                             // An index record has not been written by this element yet.
-                            true
+                            random_access
                         },
                     }
                 },
