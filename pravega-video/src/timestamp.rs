@@ -388,6 +388,17 @@ impl Mul<TimeDelta> for i32 {
     }
 }
 
+impl Mul<TimeDelta> for u32 {
+    type Output = TimeDelta;
+
+    fn mul(self, rhs: TimeDelta) -> Self::Output {
+        match rhs.0 {
+            Some(rhs) => TimeDelta(Some(self as i128 * rhs)),
+            _ => TimeDelta(None),
+        }
+    }
+}
+
 /// This allows expressions such as "SECOND / 10".
 impl Div<i128> for TimeDelta {
     type Output = TimeDelta;
