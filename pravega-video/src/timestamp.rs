@@ -539,4 +539,16 @@ mod test {
         let delta11: TimeDelta = delta8 / 10;
         assert_eq!(delta11.to_hms().unwrap(), "+0:00:00.300000000");
     }
+
+    #[test]
+    fn test_pravega_timestamp_extreme() {
+        // Limit from chrono-0.4.19/src/naive/datetime.rs:351
+        let s1 = "2262-04-11T23:47:16.854775804Z";
+        let pt1 = PravegaTimestamp::try_from(Some(s1)).unwrap();
+        println!("s1 ={}", s1);
+        println!("pt1={}", pt1);
+        println!("pt1={:?}", pt1);
+        let s2 = pt1.to_iso_8601().unwrap();
+        assert_eq!(s1, s2);
+    }
 }
