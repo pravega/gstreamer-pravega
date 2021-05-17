@@ -34,6 +34,10 @@ impl PravegaTimestamp {
     // See [https://en.wikipedia.org/wiki/International_Atomic_Time].
     const UTC_TO_TAI_SECONDS: u64 = 37;
 
+    // No leap seconds occurred within this many seconds of the TAI epoch.
+    // The first leap second occurred on 1972-01-01.
+    const ZERO_LEAP_SECONDS_UNTIL_SECONDS: u64 = (1972 - 1970) * 365 * 24 * 60 * 60;
+
     // Create a PravegaTimestamp from the number of nanoseconds since the TAI epoch 1970-01-01 00:00:00 TAI.
     pub fn from_nanoseconds(nanoseconds: Option<u64>) -> PravegaTimestamp {
         PravegaTimestamp(nanoseconds)
@@ -87,14 +91,13 @@ impl PravegaTimestamp {
         self.0
     }
 
-    /// TODO: Return an error if time cannot be represented.
     pub fn to_unix_nanoseconds(&self) -> Option<u64> {
         match self.nanoseconds() {
             Some(nanoseconds) => {
-                if nanoseconds >= PravegaTimestamp::UTC_TO_TAI_SECONDS * 1_000_000_000 {
-                    Some(nanoseconds - PravegaTimestamp::UTC_TO_TAI_SECONDS * 1_000_000_000)
+                if nanoseconds < PravegaTimestamp::ZERO_LEAP_SECONDS_UNTIL_SECONDS * 1_000_000_000 {
+                    Some(nanoseconds)
                 } else {
-                    None
+                    Some(nanoseconds - PravegaTimestamp::UTC_TO_TAI_SECONDS * 1_000_000_000)
                 }
             },
             None => None,
