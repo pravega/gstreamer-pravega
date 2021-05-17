@@ -280,6 +280,18 @@ impl Add<Duration> for PravegaTimestamp {
 pub struct TimeDelta(pub Option<i128>);
 
 impl TimeDelta {
+    pub fn nanoseconds(&self) -> Option<i128> {
+        self.0
+    }
+
+    pub fn milliseconds(&self) -> Option<i128> {
+        self.0.map(|t| t / 1000 / 1000)
+    }
+
+    pub fn seconds(&self) -> Option<i128> {
+        self.0.map(|t| t / 1000 / 1000 / 1000)
+    }
+
     /// Convert to format +h:mm:ss.fffffffff
     /// Based on https://gstreamer.freedesktop.org/documentation/gstreamer/gstclock.html?gi-language=c#GST_STIME_ARGS.
     pub fn to_hms(&self) -> Option<String> {
@@ -295,6 +307,20 @@ impl TimeDelta {
                 Some(format!("{}{}:{:02}:{:02}.{:09}", sign, h, mm, ss, f))
                 },
             None => None,
+        }
+    }
+
+    pub fn or(self, optb: TimeDelta) -> TimeDelta {
+        match self.0 {
+            Some(_) => self,
+            None => optb,
+        }
+    }
+
+    pub fn or_zero(self) -> TimeDelta {
+        match self.0 {
+            Some(_) => self,
+            None => TimeDelta(Some(0)),
         }
     }
 }
@@ -317,6 +343,18 @@ impl Sub for TimeDelta {
         match (self.0, rhs.0) {
             (Some(this), Some(rhs)) => TimeDelta(Some(this - rhs)),
             _ => TimeDelta(None),
+        }
+    }
+}
+
+/// This allows expressions such as "time_delta / SECOND".
+impl Div for TimeDelta {
+    type Output = Option<i128>;
+
+    fn div(self, rhs: TimeDelta) -> Self::Output {
+        match (self.0, rhs.0) {
+            (Some(this), Some(rhs)) => Some(this / rhs),
+            _ => None,
         }
     }
 }
@@ -356,6 +394,17 @@ impl Mul<TimeDelta> for u64 {
 }
 
 impl Mul<TimeDelta> for i32 {
+    type Output = TimeDelta;
+
+    fn mul(self, rhs: TimeDelta) -> Self::Output {
+        match rhs.0 {
+            Some(rhs) => TimeDelta(Some(self as i128 * rhs)),
+            _ => TimeDelta(None),
+        }
+    }
+}
+
+impl Mul<TimeDelta> for u32 {
     type Output = TimeDelta;
 
     fn mul(self, rhs: TimeDelta) -> Self::Output {
@@ -489,5 +538,17 @@ mod test {
 
         let delta11: TimeDelta = delta8 / 10;
         assert_eq!(delta11.to_hms().unwrap(), "+0:00:00.300000000");
+    }
+
+    #[test]
+    fn test_pravega_timestamp_extreme() {
+        // Limit from chrono-0.4.19/src/naive/datetime.rs:351
+        let s1 = "2262-04-11T23:47:16.854775804Z";
+        let pt1 = PravegaTimestamp::try_from(Some(s1)).unwrap();
+        println!("s1 ={}", s1);
+        println!("pt1={}", pt1);
+        println!("pt1={:?}", pt1);
+        let s2 = pt1.to_iso_8601().unwrap();
+        assert_eq!(s1, s2);
     }
 }
