@@ -13,7 +13,7 @@
 set -ex
 
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
-LOG_FILE=/mnt/data/logs/rtsp-camera-to-file.log
+LOG_FILE=/tmp/rtsp-camera-to-file.log
 CAMERA_USER=${CAMERA_USER:-admin}
 CAMERA_IP=${CAMERA_IP:-192.168.1.102}
 export GST_DEBUG="rtspsrc:LOG,rtpbin:LOG,rtpsession:LOG,rtpjitterbuffer:LOG,rtph264depay:LOG,h264parse:LOG,mpegtsmux:LOG,mpegtsbase:LOG,mpegtspacketizer:LOG,filesink:LOG,basesink:INFO,identity:LOG"
@@ -40,6 +40,6 @@ rtspsrc \
 ! identity name=identity-from-mpegtsmux silent=false \
 ! queue max-size-buffers=0 max-size-bytes=10485760 max-size-time=0 silent=true leaky=downstream \
 ! identity name=from-queue silent=false \
-! filesink location=/mnt/data/tmp/rtsp-camera.ts \
+! filesink location=/tmp/rtsp-camera.ts \
   sync=false \
 $* |& rotatelogs -L ${LOG_FILE} -p ${ROOT_DIR}/scripts/rotatelogs-compress.sh ${LOG_FILE} 1G

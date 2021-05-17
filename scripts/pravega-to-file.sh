@@ -16,18 +16,22 @@ pushd ${ROOT_DIR}/gst-plugin-pravega
 cargo build
 ls -lh ${ROOT_DIR}/target/debug/*.so
 export GST_PLUGIN_PATH=${ROOT_DIR}/target/debug:${GST_PLUGIN_PATH}
-export GST_DEBUG=pravegasrc:LOG
+export GST_DEBUG=pravegasrc:INFO
 export PRAVEGA_VIDEO_LOG=info
-export RUST_BACKTRACE=1
+export RUST_BACKTRACE=0
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
 PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
 PRAVEGA_STREAM=${PRAVEGA_STREAM:-test1}
 ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
-OUTPUT_FILE=${HOME}/${PRAVEGA_STREAM}.ts
+OUTPUT_FILE=${HOME}/${PRAVEGA_STREAM}.mp4
 
 gst-launch-1.0 \
 -v \
-pravegasrc stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} allow-create-scope=${ALLOW_CREATE_SCOPE} \
+pravegasrc \
+  stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
+  controller=${PRAVEGA_CONTROLLER_URI} \
+  allow-create-scope=${ALLOW_CREATE_SCOPE} \
+  end-mode=latest \
 ! filesink location=${OUTPUT_FILE} sync=false
 
-ls -l ${OUTPUT_FILE}
+ls -lh ${OUTPUT_FILE}

@@ -362,23 +362,18 @@ ninja -C builddir
 For more details, refer to https://www.collabora.com/news-and-blog/blog/2020/03/19/getting-started-with-gstreamer-gst-build/.
 
 Use this command to open a shell with environment variables set to use this new build.
+This allows you to use this build without installing it.
 
 ```bash
-scripts/devenv.sh
+ninja -C builddir devenv
 ```
 
 Optionally install this version.
+This will be installed in `/usr/local` and it will be used instead of the version installed by your operating system.
 
 ```bash
-cd gst-build
-rm -rf builddir
-meson --prefix=/usr/local/gstreamer builddir
-ninja -C builddir
-meson install -C builddir
-export PATH=/usr/local/gstreamer/bin:${PATH}
-export LD_LIBRARY_PATH=/usr/local/gstreamer/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH}
-# Not sure if below is needed.
-#sudo ldconfig
+sudo meson install -C builddir
+sudo ldconfig
 ```
 
 # Testing
@@ -395,13 +390,40 @@ test-all.sh: All tests completed successfully.
 
 # Implementation Details
 
-## Data Stream Frame Format
+## Storing Media in Pravega
 
-See `EventWriter` in [event_serde.rs](pravega-video/src/event_serde.rs).
+GStreamer Plugins for Pravega stores video and/or audio media in a Pravega byte stream.
+A single write (referred to as an event) is always 8 MiB or less and it is atomic.
+Each event includes a 20 byte header followed by a user-defined sequence of bytes (payload).
+The header includes the length of the event, a 64-bit timestamp, and some flags.
 
-## Index Stream Frame Format
+The timestamp counts the number of nanoseconds since the epoch 1970-01-01 00:00 TAI (International Atomic Time).
+This definition is used to avoid problems with the time going backwards during positive leap seconds.
+As of 2020-01-09, TAI is exactly 37 seconds ahead of UTC.
+This offset will change when additional leap seconds are scheduled.
+This 64-bit counter will wrap in the year 2554.
+This timestamp reflects the sampling instant of the first octet in the payload, as in RFC 3550.
+For video frames, the timestamp will reflect when the image was captured by the camera.
+This allows different streams to be correlated precisely.
 
-See `IndexRecordWriter` in [index.rs](pravega-video/src/index.rs).
+Typically, the payload will be a single 188-byte frame of an MPEG transport stream
+or a single fragment of a fragmented MP4 (fMP4).
+An fMP4 fragment can be as small as a single video frame.
+For most use cases, fMP4 is recommended.
+fMP4 will store the PTS (presentaton timestamp) and DTS (decode timestamp) values with sufficient resolution
+and range so that wrapping is not a practical concern.
+When using fMP4, the timestamp in the event header is actually redundant with the PTS.
+
+For details, see `EventWriter` in [event_serde.rs](pravega-video/src/event_serde.rs).
+
+## The Media Index
+
+GStreamer Plugins for Pravega writes a separate Pravega byte stream containing a time-based index,
+allowing rapid seeks to any timestamp.
+Each record in the index contains a 64-bit timestamp, a byte offset into the associated media stream, and some flags.
+Typically, only video key frames are indexed.
+
+For details, see `IndexRecordWriter` in [index.rs](pravega-video/src/index.rs).
 
 # Time in GStreamer
 
@@ -594,6 +616,12 @@ This thread will run in the background.
 - [MPEG Timing Model](http://www.bretl.com/mpeghtml/timemdl.HTM)
 - [A Guide to MPEG Fundamentals and Protocol Analysis](http://www.img.lx.it.pt/~fp/cav/Additional_material/MPEG2_overview.pdf)
 - [TSDuck, The MPEG Transport Stream Toolkit](https://tsduck.io/)
+- [RFC 8216: HTTP Live Streaming](https://tools.ietf.org/html/rfc8216)
+- [HTTP Live Streaming Overview](https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/StreamingMediaGuide/Introduction/Introduction.html#//apple_ref/doc/uid/TP40008332-CH1-SW1)
+- [ONVIF Streaming Spec](https://www.onvif.org/specs/stream/ONVIF-Streaming-Spec-v221.pdf)
+- [RFC 3550: RTP: A Transport Protocol for Real-Time Applications](https://www.rfc-editor.org/rfc/rfc3550)
+- [RFC 6184: RTP Payload Format for H.264 Video](https://datatracker.ietf.org/doc/html/rfc6184)
+- [RFC 7826: Real-Time Streaming Protocol (RTSP)](https://www.rfc-editor.org/rfc/rfc7826.html)
 
 # License
 

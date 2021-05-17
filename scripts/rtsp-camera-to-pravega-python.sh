@@ -15,7 +15,7 @@
 set -ex
 
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
-LOG_FILE=/tmp/rtsp-camera-to-pravega.log
+LOG_FILE="/tmp/$(basename "${0}" .sh).log"
 
 pushd ${ROOT_DIR}/gst-plugin-pravega
 cargo build
@@ -37,6 +37,6 @@ export PRAVEGA_STREAM=${PRAVEGA_STREAM:-rtsp1}
 export RUST_BACKTRACE=1
 
 ${ROOT_DIR}/python_apps/rtsp-camera-to-pravega.py \
-$*   # |& tee ${LOG_FILE}
+$* |& tee ${LOG_FILE}
 
 echo rtsp-camera-to-pravega-python.sh: END

@@ -22,5 +22,5 @@ videotestsrc pattern=blue num-buffers=$(($SIZE_SEC*$FPS)) \
 ! "video/x-raw,width=320,height=240,framerate=30/1" \
 ! videoconvert \
 ! x264enc \
-! mp4mux fragment-duration=1000 \
-! filesink location=${ROOT_DIR}/pravega-video-server/static/gap-${SIZE_SEC}s.mp4
+! mpegtsmux name=mux \
+! filesink location=${ROOT_DIR}/pravega-video-server/static/gap-${SIZE_SEC}s.ts
