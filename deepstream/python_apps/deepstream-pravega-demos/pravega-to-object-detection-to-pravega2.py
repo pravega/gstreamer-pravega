@@ -14,8 +14,6 @@
 # Read video from a Pravega stream, detect objects, write metadata to a Pravega stream.
 # To ingest video into a Pravega stream, use rtsp-camera-to-pravega.sh or similar.
 #
-# TODO: For unknown reasons, timestamps are off 125 ms in a roundtrip from mpegtsmux to tsdemux.
-#
 
 import argparse
 import ctypes
@@ -92,15 +90,21 @@ def bus_call(bus, message, loop):
     """Callback for GStreamer bus messages"""
     t = message.type
     if t == Gst.MessageType.EOS:
-        logging.info('End-of-stream')
+        logging.info("End-of-stream")
         loop.quit()
     elif t == Gst.MessageType.WARNING:
         err, debug = message.parse_warning()
-        logging.warn('%s: %s' % (err, debug))
+        logging.warning("%s: %s" % (err, debug))
     elif t == Gst.MessageType.ERROR:
         err, debug = message.parse_error()
-        logging.error('%s: %s' % (err, debug))
+        logging.error("%s: %s" % (err, debug))
         loop.quit()
+    elif t == Gst.MessageType.ELEMENT:
+        details = message.get_structure().to_string()
+        logging.info("%s: %s" % (message.src.name, str(details),))
+    elif t == Gst.MessageType.PROPERTY_NOTIFY:
+        details = message.get_structure().to_string()
+        logging.debug("%s: %s" % (message.src.name, str(details),))
     return True
 
 
@@ -429,8 +433,10 @@ def main():
     parser.add_argument("-s", "--schema-type", dest="schema_type", type=int, default=0,
         help="Type of message schema (0=Full, 1=minimal), default=0", metavar="<0|1>")
     parser.add_argument("--input-stream", default="examples/camera5", metavar="SCOPE/STREAM")
+    parser.add_argument("--output-video-stream", default="examples/nvosd1",
+        help="Name of output stream for video with on-screen display.", metavar="SCOPE/STREAM")
     parser.add_argument("--output-metadata-stream", default="examples/metadata51",
-        help="Name of stream for metadata.", metavar="SCOPE/STREAM")
+        help="Name of output stream for metadata.", metavar="SCOPE/STREAM")
     parser.add_argument("--msgapi-config-file")
     args = parser.parse_args()
 
@@ -453,7 +459,7 @@ def main():
     # Create Pipeline element that will form a connection of other elements.
     pipeline_description = (
         "pravegasrc name=pravegasrc\n" +
-        "   ! tsdemux name=tsdemux\n" +
+        "   ! qtdemux name=qtdemux\n" +
         "   ! h264parse name=h264parse\n" +
         "   ! video/x-h264,alignment=au\n" +
         "   ! nvv4l2decoder name=decoder\n" +
@@ -462,15 +468,27 @@ def main():
         "nvstreammux name=streammux\n" +
         "   ! queue name=q_after_streammux\n" +
         "   ! nvinfer name=pgie\n" +
-        "   ! queue name=q_after_infer\n" +
+        "   ! tee name=t\n" +
+        "t. ! queue name=q_before_stream\n" +
         "   ! nvstreamdemux name=streamdemux\n" +
         "streamdemux.src_0\n" +
         "   ! identity name=before_msgconv\n" +
         "   ! nvmsgconv name=msgconv\n" +
         "   ! nvmsgbroker name=msgbroker\n" +
+        "t. ! queue\n" +
+        "   ! nvvidconv\n" +
+        "   ! nvosd\n" +
+        "   ! identity silent=false\n" +
+        "   ! x264enc tune=zerolatency\n" +
+        "   ! mp4mux\n" +
+        "   ! fragmp4pay\n" +
+        "   ! pravegasink name=pravegasink\n" +
         "")
     logging.info("Creating pipeline:\n" +  pipeline_description)
     pipeline = Gst.parse_launch(pipeline_description)
+
+    # This will cause property changes to be logged as PROPERTY_NOTIFY messages.
+    pipeline.add_property_deep_notify_watch(None, True)
 
     pravegasrc = pipeline.get_by_name("pravegasrc")
     pravegasrc.set_property("controller", args.controller)
@@ -499,6 +517,18 @@ def main():
         msgbroker.set_property("config", args.msgapi_config_file)
         msgbroker.set_property("topic", args.output_metadata_stream)
         msgbroker.set_property("sync", False)
+    pravegasink = pipeline.get_by_name("pravegasink")
+    if pravegasink:
+        pravegasink.set_property("allow-create-scope", args.allow_create_scope)
+        pravegasink.set_property("controller", args.pravega_controller_uri)
+        if args.keycloak_service_account_file:
+            pravegasink.set_property("keycloak-file", args.keycloak_service_account_file)
+        pravegasink.set_property("stream", "%s/%s" % (args.pravega_scope, args.pravega_stream))
+        # Always write to Pravega immediately regardless of PTS
+        pravegasink.set_property("sync", False)
+        # Required to use NTP timestamps in PTS
+        if not args.fakesource:
+            pravegasink.set_property("timestamp-mode", "tai")
 
     add_probe(pipeline, "pravegasrc", show_metadata_probe, pad_name='src')
     add_probe(pipeline, "tsdemux", show_metadata_probe, pad_name='sink')
