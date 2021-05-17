@@ -8,13 +8,16 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-mod gst_plugin_pravega_tests;
+#![allow(dead_code)]
+
+mod extreme_tests;
 mod hls_tests;
 mod pravegasrc_seek_tests;
 mod pravegasrc_tests;
 mod pravega_service;
 mod rtsp_camera_simulator;
 mod rtsp_tests;
+mod truncation_tests;
 mod utils;
 
 use lazy_static::lazy_static;
@@ -35,10 +38,13 @@ extern crate derive_new;
 /// Default logging configuration for GStreamer and GStreamer plugins.
 /// Valid levels are: none, ERROR, WARNING, FIXME, INFO, DEBUG, LOG, TRACE, MEMDUMP
 /// See [https://gstreamer.freedesktop.org/documentation/tutorials/basic/debugging-tools.html?gi-language=c#the-debug-log].
-pub const DEFAULT_GST_DEBUG: &str = "pravegasrc:LOG,pravegasink:DEBUG,basesink:INFO,FIXME";
+/// This is overridden by the environment variable GST_DEBUG.
+pub const DEFAULT_GST_DEBUG: &str = "pravegasrc:DEBUG,pravegasink:DEBUG,fragmp4pay:DEBUG,timestampcvt:LOG,\
+rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:FIXME,rtph264depay:INFO,h264parse:INFO,qtmux:INFO,basesink:INFO,FIXME";
 /// Default logging configuration for for Rust tracing (includes this integration test and the Pravega client).
 /// Valid levels are: error, warn, info, debug, trace
-pub const DEFAULT_GST_PRAVEGA_INTEGRATION_TEST_LOG: &str = "gstreamer_pravega_integration_test=debug,pravega_video=debug,warn";
+/// This is overridden by the environment variable GST_PRAVEGA_INTEGRATION_TEST_LOG.
+pub const DEFAULT_GST_PRAVEGA_INTEGRATION_TEST_LOG: &str = "integration_test=debug,pravega_video=debug,warn";
 
 #[derive(Clone, Debug)]
 pub struct TestConfig {

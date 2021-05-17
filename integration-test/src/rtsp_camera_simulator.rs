@@ -29,11 +29,11 @@ use tracing::{info, debug};
 /// The in-process RTSP server will be stopped when the returned value is dropped.
 pub fn start_or_get_rtsp_test_source(config: RTSPCameraSimulatorConfig) -> (String, Option<RTSPCameraSimulator>) {
     match std::env::var("RTSP_URL") {
-        Ok(rtsp_url) => {
+        Ok(rtsp_url) if !rtsp_url.is_empty() => {
             info!("Using external RTSP server at {}", rtsp_url);
             (rtsp_url, None)
         },
-        Err(_) => {
+        _ => {
             let mut rtsp_server = RTSPCameraSimulator::new(config).unwrap();
             rtsp_server.start().unwrap();
             let rtsp_url = rtsp_server.get_url().unwrap();
@@ -46,17 +46,20 @@ pub fn start_or_get_rtsp_test_source(config: RTSPCameraSimulatorConfig) -> (Stri
 #[derive(Builder)]
 pub struct RTSPCameraSimulatorConfig {
     #[builder(default = "640")]
-    width: u64,
+    pub width: u64,
     #[builder(default = "480")]
-    height: u64,
+    pub height: u64,
     #[builder(default = "20")]
-    fps: u64,
+    pub fps: u64,
     #[builder(default = "30")]
-    key_frame_interval_max: u64,
+    pub key_frame_interval_max: u64,
     #[builder(default = "10.0")]
-    target_rate_kilobytes_per_sec: f64,
+    pub target_rate_kilobytes_per_sec: f64,
+    // Default tune ("zerolatency") does not use B-frames and is typical for RTSP cameras. Use "0" to use B-frames.
+    #[builder(default = "\"/zerolatency\".to_owned()")]
+    pub tune: String,
     #[builder(default = "\"/cam/realmonitor\".to_owned()")]
-    path: String,
+    pub path: String,
 }
 
 pub struct RTSPCameraSimulator {
@@ -79,14 +82,15 @@ impl RTSPCameraSimulator {
             ! videoconvert \
             ! clockoverlay font-desc=\"Sans, 48\" time-format=\"%F %T\" shaded-background=true \
             ! timeoverlay valignment=bottom font-desc=\"Sans, 48\" shaded-background=true \
-            ! x264enc tune=zerolatency key-int-max={key_frame_interval_max} bitrate={target_rate_kbits_per_sec} \
+            ! x264enc bitrate={target_rate_kbits_per_sec} key-int-max={key_frame_interval_max} tune={tune} \
             ! h264parse \
             ! rtph264pay name=pay0 pt=96",
             width = config.width,
             height = config.height,
             fps = config.fps,
-            key_frame_interval_max = config.key_frame_interval_max,
             target_rate_kbits_per_sec = target_rate_kilobits_per_sec,
+            key_frame_interval_max = config.key_frame_interval_max,
+            tune = config.tune,
         );
         info!("Launch Pipeline: {}", pipeline_description);
         factory.set_launch(&pipeline_description[..]);

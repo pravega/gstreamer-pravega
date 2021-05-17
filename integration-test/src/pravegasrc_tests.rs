@@ -32,8 +32,9 @@ mod test {
         let length_sec = 5;
         let num_buffers_written = length_sec * fps;
 
-        // We write an MP4 stream because the first few buffers have no timestamp and will not be indexed.
+        // We write an MP4 stream without fragmp4pay because the first few buffers have no timestamp and will not be indexed.
         // This allows us to distinguish between starting at the first buffer in the data stream vs. the first indexed buffer.
+        // The tests in this module do not decode the video so the encoder and container are not significant.
         info!("#### Write video stream to Pravega");
         let pipeline_description = format!(
             "videotestsrc name=src timestamp-offset={timestamp_offset} num-buffers={num_buffers} \
@@ -80,6 +81,7 @@ mod test {
         info!("Expected: summary={:?}", summary_written);
         info!("Actual:   summary={:?}", summary);
         assert_eq!(summary, summary_written);
+        assert!(summary.buffer_summary_list.first().unwrap().flags.contains(gst::BufferFlags::DISCONT));
         if sync {
             assert!(wallclock_elapsed_time >= summary.pts_range());
         }
