@@ -239,6 +239,10 @@ impl<'a> EventWithHeader<'a> {
             payload: payload,
         }
     }
+
+    pub fn max_payload_size() -> usize {
+        EventWithHeader::MAX_PAYLOAD_SIZE
+    }
 }
 
 #[cfg(test)]
