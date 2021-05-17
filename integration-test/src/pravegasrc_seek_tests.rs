@@ -13,7 +13,8 @@ mod test {
     use anyhow::Error;
     use gst::prelude::*;
     use gstpravega::utils::{clocktime_to_pravega, pravega_to_clocktime};
-    use pravega_video::timestamp::{PravegaTimestamp, SECOND};
+    use pravega_video::timestamp::{PravegaTimestamp, MSECOND, SECOND};
+    use rstest::rstest;
     use std::convert::TryFrom;
     use std::sync::Arc;
     use std::time::Instant;
@@ -23,24 +24,25 @@ mod test {
     use crate::*;
     use crate::utils::*;
 
-    fn pravegasrc_seek_test_data_gen(test_config: &TestConfig, stream_name: &str) -> Result<BufferListSummary, Error> {
+    fn pravegasrc_seek_test_data_gen(test_config: &TestConfig, stream_name: &str, video_encoder: VideoEncoder, container_format: ContainerFormat) -> Result<BufferListSummary, Error> {
         gst_init();
         // first_timestamp: 2001-02-03T04:00:00.000000000Z (981172837000000000 ns, 272548:00:37.000000000)
         let first_utc = "2001-02-03T04:00:00.000Z".to_owned();
         let first_timestamp = PravegaTimestamp::try_from(Some(first_utc)).unwrap();
         info!("first_timestamp={:?}", first_timestamp);
         let fps = 30;
-        let key_int_max = 30;
         let length_sec = 60;
         let num_buffers_written = length_sec * fps;
+        let video_encoder_pipeline = video_encoder.pipeline();
+        let container_pipeline = container_format.pipeline();
 
         info!("#### Write video stream to Pravega");
         let pipeline_description = format!(
             "videotestsrc name=src timestamp-offset={timestamp_offset} num-buffers={num_buffers} \
             ! video/x-raw,width=320,height=180,framerate={fps}/1 \
             ! videoconvert \
-            ! x264enc key-int-max={key_int_max} bitrate=100 \
-            ! mpegtsmux \
+            ! {video_encoder_pipeline} \
+            ! {container_pipeline} \
             ! tee name=t \
             t. ! queue ! appsink name=sink sync=false \
             t. ! pravegasink {pravega_plugin_properties} \
@@ -49,7 +51,8 @@ mod test {
             timestamp_offset = first_timestamp.nanoseconds().unwrap(),
             num_buffers = num_buffers_written,
             fps = fps,
-            key_int_max = key_int_max,
+            video_encoder_pipeline = video_encoder_pipeline,
+            container_pipeline = container_pipeline,
         );
         let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary={}", summary);
@@ -59,12 +62,32 @@ mod test {
     /// Test seeking that occurs in Pravega Video Player.
     /// This starts playback from the beginning, with sync=true, then skips over several seconds.
     /// Based on https://gitlab.freedesktop.org/gstreamer/gstreamer-rs/-/blob/master/tutorials/src/bin/basic-tutorial-4.rs
-    #[test]
-    fn test_pravegasrc_seek_player() {
+    #[rstest]
+    #[case(
+        VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(30).build().unwrap()),
+        ContainerFormat::Mp4(Mp4MuxConfigBuilder::default().fragment_duration(1 * MSECOND).build().unwrap()),
+    )]
+    #[case(
+        VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(60).build().unwrap()),
+        ContainerFormat::Mp4(Mp4MuxConfigBuilder::default().fragment_duration(1 * MSECOND).build().unwrap()),
+    )]
+    #[case(
+        VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(60).tune("0".to_owned()).build().unwrap()),
+        ContainerFormat::Mp4(Mp4MuxConfigBuilder::default().fragment_duration(500 * MSECOND).build().unwrap()),
+    )]
+    #[case(
+        VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(30).tune("0".to_owned()).build().unwrap()),
+        ContainerFormat::Mp4(Mp4MuxConfigBuilder::default().fragment_duration(200 * MSECOND).build().unwrap()),
+    )]
+    #[case(
+        VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(30).build().unwrap()),
+        ContainerFormat::MpegTs,
+    )]
+    fn test_pravegasrc_seek_player(#[case] video_encoder: VideoEncoder, #[case] container_format: ContainerFormat) {
         let test_config = &get_test_config();
         info!("test_config={:?}", test_config);
         let stream_name = &format!("test-pravegasrc-{}-{}", test_config.test_id, Uuid::new_v4())[..];
-        let summary_written = pravegasrc_seek_test_data_gen(test_config, stream_name).unwrap();
+        let summary_written = pravegasrc_seek_test_data_gen(test_config, stream_name, video_encoder, container_format).unwrap();
         debug!("summary_written={}", summary_written);
         let first_pts_written = summary_written.first_valid_pts();
         let last_pts_written = summary_written.last_valid_pts();
@@ -99,14 +122,7 @@ mod test {
                             let sample = sink.pull_sample().unwrap();
                             debug!("sample={:?}", sample);
                             let buffer = sample.buffer().unwrap();
-                            let pts = clocktime_to_pravega(buffer.pts());
-                            let summary = BufferSummary {
-                                pts,
-                                size: buffer.size() as u64,
-                                offset: buffer.offset(),
-                                offset_end: buffer.offset_end(),
-                                flags: buffer.flags(),
-                            };
+                            let summary = BufferSummary::from(buffer);
                             let mut summary_list = summary_list_clone.lock().unwrap();
                             summary_list.push(summary);
                             Ok(gst::FlowSuccess::Ok)
@@ -138,15 +154,16 @@ mod test {
             // Perform the seek at the desired pts.
             let now = Instant::now();
             if (now - last_query_time).as_millis() > 100 {
-                let position = pipeline.query_position::<gst::ClockTime>().unwrap();
-                info!("position={}", position);
-                let timestamp = clocktime_to_pravega(position);
-                if seek_at_pts <= timestamp && timestamp < seek_to_pts {
-                    info!("Performing seek");
-                    pipeline.seek_simple(
-                            gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT,
-                            pravega_to_clocktime(seek_to_pts),
-                    ).unwrap();
+                if let Some(position) = pipeline.query_position::<gst::ClockTime>() {
+                    info!("position={}", position);
+                    let timestamp = clocktime_to_pravega(position);
+                    if seek_at_pts <= timestamp && timestamp < seek_to_pts {
+                        info!("Performing seek");
+                        pipeline.seek_simple(
+                                gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT,
+                                pravega_to_clocktime(seek_to_pts),
+                        ).unwrap();
+                    }
                 }
                 last_query_time = now;
             }
@@ -167,8 +184,17 @@ mod test {
                         },
                         gst::MessageView::PropertyNotify(p) => {
                             // Identity elements with silent=false will produce this message after watching with `pipeline.add_property_deep_notify_watch(None, true)`.
-                            debug!("{:?}", p);
-                        }
+                            let (_, property_name, value) = p.get();
+                            match value {
+                                Some(value) => match value.get::<String>() {
+                                    Ok(value) => if !value.is_empty() {
+                                        debug!("PropertyNotify: {}={}", property_name, value);
+                                    },
+                                    _ => {}
+                                },
+                                _ => (),
+                            };
+                        },
                         _ => (),
                     }
                 },
