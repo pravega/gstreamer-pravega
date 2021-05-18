@@ -24,7 +24,7 @@ use std::{convert::TryInto, os::raw::c_void, time::SystemTime};
 use std::process;
 use std::ops;
 #[allow(unused_imports)]
-use tracing::{error, info, info_span, warn, trace, event, Level, span};
+use tracing::{error, warn, info, debug, trace, event, Level, span};
 use tracing_subscriber::fmt::format::FmtSpan;
 
 /// Default logging configuration for GStreamer and GStreamer plugins.
@@ -147,7 +147,7 @@ fn create_ui(playbin: &gst::Pipeline, video_sink: &gst::Element) -> AppWindow {
             )
             .is_err()
         {
-            eprintln!("Seeking to {} failed", value);
+            error!("Seeking to {} failed", value);
         }
     });
 
@@ -157,7 +157,7 @@ fn create_ui(playbin: &gst::Pipeline, video_sink: &gst::Element) -> AppWindow {
     let lposition_textview = position_textview.clone();
     let lseek_range_textview = seek_range_textview.clone();
     // Update the UI (seekbar) periodically.
-    let timeout_id = glib::timeout_add_local(std::time::Duration::from_millis(250), move || {
+    let timeout_id = glib::timeout_add_local(std::time::Duration::from_millis(4000), move || {
         let pipeline = &pipeline;
         let lslider = &lslider;
         let lposition_textview = &lposition_textview;
@@ -169,7 +169,7 @@ fn create_ui(playbin: &gst::Pipeline, video_sink: &gst::Element) -> AppWindow {
             match pipeline.query(&mut seeking_query) {
                 true => {
                     let (_seekable, start, end) = seeking_query.result();
-                    info!("create_ui: seeking_query={:?}, start={:?}, end={:?}", seeking_query, start, end);
+                    debug!("create_ui: seeking_query={:?}, start={:?}, end={:?}", seeking_query, start, end);
                     let start = match start {
                         gst::GenericFormattedValue::Time(start) => start.nanoseconds(),
                         _ => None,
@@ -187,7 +187,7 @@ fn create_ui(playbin: &gst::Pipeline, video_sink: &gst::Element) -> AppWindow {
             .query_position::<gst::ClockTime>()
             .and_then(|pos| pos.nanoseconds());
 
-        info!("create_ui: start={:?}, end={:?}, pos={:?}", start, end, pos);
+        debug!("create_ui: start={:?}, end={:?}, pos={:?}", start, end, pos);
 
         if let (Some(start), Some(end), Some(pos)) = (start, end, pos) {
             let end = std::cmp::max(end, pos);
@@ -240,7 +240,7 @@ fn create_ui(playbin: &gst::Pipeline, video_sink: &gst::Element) -> AppWindow {
         let gdk_window = video_window.window().unwrap();
 
         if !gdk_window.ensure_native() {
-            info!("Can't create native window for widget");
+            error!("Can't create native window for widget");
             process::exit(-1);
         }
 
@@ -261,7 +261,7 @@ fn create_ui(playbin: &gst::Pipeline, video_sink: &gst::Element) -> AppWindow {
                     video_overlay.set_window_handle(xid as usize);
                 }
             } else {
-                info!("Add support for display type '{}'", display_type_name);
+                error!("Add support for display type '{}'", display_type_name);
                 process::exit(-1);
             }
         }
@@ -327,7 +327,7 @@ pub fn run() {
     #[allow(clippy::eq_op)]
     {
         if !cfg!(feature = "x11") && !cfg!(feature = "quartz") {
-            eprintln!(
+            error!(
                 "No Gdk backend selected, compile with --features x11|quartz."
             );
 
@@ -337,13 +337,13 @@ pub fn run() {
 
     // Initialize GTK
     if let Err(err) = gtk::init() {
-        eprintln!("Failed to initialize GTK: {}", err);
+        error!("Failed to initialize GTK: {}", err);
         return;
     }
 
     // Initialize GStreamer
     if let Err(err) = gst::init() {
-        eprintln!("Failed to initialize Gst: {}", err);
+        error!("Failed to initialize Gst: {}", err);
         return;
     }
 
@@ -560,5 +560,5 @@ pub fn run() {
 
 fn main() {
     run();
-    println!("main: END");
+    info!("main: END");
 }
