@@ -32,6 +32,9 @@ struct Opts {
     /// Pravega controller in format "127.0.0.1:9090"
     #[clap(short, long, default_value = "127.0.0.1:9090")]
     controller: String,
+    /// The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.
+    #[clap(short, long)]
+    keycloak_file: Option<String>,
     /// Pravega scope/stream
     #[clap(short, long)]
     stream: String,
@@ -337,6 +340,8 @@ pub fn run() {
         .by_name("src").unwrap();
     pravegasrc.set_property("controller", &opts.controller).unwrap();
     pravegasrc.set_property("stream", &opts.stream).unwrap();
+    pravegasrc.set_property("keycloak-file", &opts.keycloak_file.unwrap()).unwrap();
+    pravegasrc.set_property("allow-create-scope", &false).unwrap();
 
     let decodebin = playbin
         .clone()
