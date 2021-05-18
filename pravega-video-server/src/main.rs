@@ -338,7 +338,6 @@ mod models {
 
             let playlist = tokio::task::spawn_blocking(move || {
                 let span = span!(Level::INFO, "get_m3u8_playlist: SPAWNED THREAD");
-                // let _ = span.enter();
                 span.in_scope(|| {
                     info!("BEGIN");
                     let client_factory = self.client_factory;
