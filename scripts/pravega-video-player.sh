@@ -22,9 +22,14 @@ export RUST_LOG=info
 export RUST_BACKTRACE=1
 PRAVEGA_STREAM=${PRAVEGA_STREAM:-camera8}
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
+PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
 export GST_DEBUG_DUMP_DOT_DIR=/tmp/gst-dot/pravega-video-player
 mkdir -p ${GST_DEBUG_DUMP_DOT_DIR}
 pushd ${ROOT_DIR}/apps
-cargo run --bin pravega-video-player -- --stream examples/${PRAVEGA_STREAM} --controller ${PRAVEGA_CONTROLLER_URI} $* \
+cargo run --bin pravega-video-player -- \
+--stream ${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
+--controller ${PRAVEGA_CONTROLLER_URI} \
+--keycloak-file "${KEYCLOAK_SERVICE_ACCOUNT_FILE}" \
+$* \
 |& tee /tmp/pravega-video-player.log
 popd
