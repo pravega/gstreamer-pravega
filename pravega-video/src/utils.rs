@@ -57,13 +57,17 @@ pub fn create_client_config(controller: String, keycloak_file: Option<String>) -
         } else {
             controller
         };
-    let is_auth_enabled = match keycloak_file {
+        let is_auth_enabled = match keycloak_file {
         Some(keycloak_file) => {
-            // The Pravega API requires Keycloak credentials to be passed through these environment variables.
-            // This will be fixed with https://github.com/pravega/pravega-client-rust/issues/243.
-            env::set_var(ENV_VAR_NAME_AUTH_METHOD, "Bearer");
-            env::set_var(ENV_VAR_NAME_AUTH_KEYCLOAK, keycloak_file);
-            true
+            if keycloak_file.is_empty() {
+                false
+            } else {
+                // The Pravega API requires Keycloak credentials to be passed through these environment variables.
+                // This will be fixed with https://github.com/pravega/pravega-client-rust/issues/243.
+                env::set_var(ENV_VAR_NAME_AUTH_METHOD, "Bearer");
+                env::set_var(ENV_VAR_NAME_AUTH_KEYCLOAK, keycloak_file);
+                true
+            }
         },
         None => false
     };
