@@ -509,7 +509,9 @@ def main():
         "t. ! queue\n" +
         "   ! identity name=from_t_2 silent=false\n" +
         "   ! nvvideoconvert\n" +
-        "   ! nvv4l2h264enc control-rate=1 bitrate=100000\n" +
+        "   ! nvdsosd\n" +
+        "   ! nvvideoconvert\n" +
+        "   ! nvv4l2h264enc control-rate=1 bitrate=300000\n" +
         "   ! h264parse\n" +
         "   ! mp4mux streamable=true fragment-duration=1\n" +
         "   ! fragmp4pay\n" +
