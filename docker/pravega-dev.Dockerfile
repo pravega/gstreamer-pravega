@@ -12,8 +12,6 @@ ARG DOCKER_REPOSITORY=""
 
 FROM "${DOCKER_REPOSITORY}ubuntu:20.10" as gstreamer-source-code
 
-ARG RUST_JOBS=1
-
 COPY docker/build-gstreamer/install-dependencies /
 
 RUN ["/install-dependencies"]
@@ -85,6 +83,7 @@ RUN set -eux; \
 WORKDIR /usr/src/gstreamer-pravega
 
 FROM builder-base as chef-base
+ARG RUST_JOBS=1
 RUN cargo install cargo-chef --jobs ${RUST_JOBS}
 
 FROM chef-base as planner
@@ -96,10 +95,11 @@ COPY --from=planner /usr/src/gstreamer-pravega/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
 FROM builder-base as pravega-dev
+ARG RUST_JOBS=1
 
 # Copy over the cached dependencies
 COPY --from=cacher /usr/src/gstreamer-pravega/target target
-COPY --from=cacher /usr/local/cargo /usr/local/Cargo
+COPY --from=cacher /usr/local/cargo /usr/local/cargo
 
 COPY Cargo.toml .
 COPY Cargo.lock .
