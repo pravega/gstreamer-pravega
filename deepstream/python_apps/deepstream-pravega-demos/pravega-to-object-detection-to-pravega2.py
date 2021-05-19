@@ -515,6 +515,7 @@ def main():
         # "   ! video/x-h264,format=RGBA\n" +
         "   ! h264parse\n" +
         "   ! mp4mux streamable=true fragment-duration=1\n" +
+        "   ! fragmp4pay\n" +
         # # "   ! video/x-raw,format=RGBA\n" +
         "   ! identity name=to_fakesink silent=false\n" +
         "   ! fakesink sync=false\n" +
