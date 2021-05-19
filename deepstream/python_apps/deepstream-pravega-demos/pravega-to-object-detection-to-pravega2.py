@@ -491,6 +491,7 @@ def main():
         "   ! h264parse name=h264parse\n" +
         "   ! video/x-h264,alignment=au\n" +
         "   ! nvv4l2decoder name=decoder\n" +
+        "   ! identity name=from_decoder silent=false\n" +
         "   ! queue name=q_after_decode\n" +
         "   ! streammux.sink_0\n" +
         "nvstreammux name=streammux\n" +
@@ -500,11 +501,15 @@ def main():
         "t. ! queue name=q_before_stream\n" +
         "   ! nvstreamdemux name=streamdemux\n" +
         "streamdemux.src_0\n" +
-        "   ! identity name=before_msgconv\n" +
+        "   ! identity name=before_msgconv silent=false\n" +
         "   ! nvmsgconv name=msgconv\n" +
+        "   ! identity name=before_msgbroker silent=false\n" +
         "   ! nvmsgbroker name=msgbroker\n" +
         "t. ! queue\n" +
         "   ! identity name=from_t_2 silent=false" +
+        "   ! nvvideoconvert\n" +
+        "   ! video/x-raw,format=RGBA\n" +
+        "   ! identity name=to_fakesink silent=false" +
         "   ! fakesink\n" +
         # "   ! nvvideoconvert\n" +
         # "   ! nvdsosd\n" +
