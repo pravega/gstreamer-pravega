@@ -497,28 +497,31 @@ def main():
         "nvstreammux name=streammux\n" +
         "   ! queue name=q_after_streammux\n" +
         "   ! nvinfer name=pgie\n" +
-        "   ! tee name=t\n" +
-        "t. ! queue name=q_before_stream\n" +
         "   ! nvstreamdemux name=streamdemux\n" +
         "streamdemux.src_0\n" +
+        "   ! identity name=from_streamdemux silent=false\n" +
+        "   ! tee name=t\n" +
+        "t. ! queue\n" +
         "   ! identity name=before_msgconv silent=false\n" +
         "   ! nvmsgconv name=msgconv\n" +
         "   ! identity name=before_msgbroker silent=false\n" +
         "   ! nvmsgbroker name=msgbroker\n" +
         "t. ! queue\n" +
         "   ! identity name=from_t_2 silent=false" +
-        "   ! nvvideoconvert\n" +
-        "   ! video/x-raw,format=RGBA\n" +
+        # "   ! nvvideoconvert\n" +
+        # "   ! video/x-raw,format=RGBA\n" +
         "   ! identity name=to_fakesink silent=false" +
-        "   ! fakesink\n" +
+        "   ! fakesink sync=false\n" +
         # "   ! nvvideoconvert\n" +
         # "   ! nvdsosd\n" +
         # "   ! identity name=from_nvdsosd silent=false\n" +
         # "   ! nvvideoconvert\n" +
         # "   ! identity name=from_nvvideoconvert silent=false\n" +
+        # "   ! videoconvert\n" +
         # "   ! x264enc tune=zerolatency\n" +
         # "   ! mp4mux\n" +
         # "   ! fragmp4pay\n" +
+        # "   ! identity name=to_pravegasink silent=false\n" +
         # "   ! pravegasink name=pravegasink\n" +
         "")
     logging.info("Creating pipeline:\n" +  pipeline_description)
