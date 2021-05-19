@@ -514,7 +514,7 @@ def main():
         # "   ! nvvideoconvert\n" +
         # "   ! video/x-h264,format=RGBA\n" +
         "   ! h264parse\n" +
-        # "   ! qtmux\n" +
+        "   ! mp4mux streamable=true fragment-duration=1\n" +
         # # "   ! video/x-raw,format=RGBA\n" +
         "   ! identity name=to_fakesink silent=false\n" +
         "   ! fakesink sync=false\n" +
