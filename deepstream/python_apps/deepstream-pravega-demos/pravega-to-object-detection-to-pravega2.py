@@ -501,11 +501,11 @@ def main():
         "streamdemux.src_0\n" +
         "   ! identity name=from_streamdemux silent=false\n" +
         "   ! tee name=t\n" +
-        "t. ! queue\n" +
-        "   ! identity name=before_msgconv silent=false\n" +
-        "   ! nvmsgconv name=msgconv\n" +
-        "   ! identity name=before_msgbroker silent=false\n" +
-        "   ! nvmsgbroker name=msgbroker\n" +
+        # "t. ! queue\n" +
+        # "   ! identity name=before_msgconv silent=false\n" +
+        # "   ! nvmsgconv name=msgconv\n" +
+        # "   ! identity name=before_msgbroker silent=false\n" +
+        # "   ! nvmsgbroker name=msgbroker\n" +
         "t. ! queue\n" +
         "   ! identity name=from_t_2 silent=false\n" +
         "   ! nvvideoconvert\n" +
@@ -565,11 +565,11 @@ def main():
         pravegasink.set_property("sync", False)
         pravegasink.set_property("timestamp-mode", "tai")
 
-    add_probe(pipeline, "pravegasrc", show_metadata_probe, pad_name='src')
-    add_probe(pipeline, "demux", show_metadata_probe, pad_name='sink')
-    add_probe(pipeline, "h264parse", show_metadata_probe, pad_name='src')
-    add_probe(pipeline, "before_msgconv", set_event_message_meta_probe, pad_name='sink')
-    add_probe(pipeline, "before_msgconv", show_metadata_probe, pad_name='src')
+    # add_probe(pipeline, "pravegasrc", show_metadata_probe, pad_name='src')
+    # add_probe(pipeline, "demux", show_metadata_probe, pad_name='sink')
+    # add_probe(pipeline, "h264parse", show_metadata_probe, pad_name='src')
+    # add_probe(pipeline, "before_msgconv", set_event_message_meta_probe, pad_name='sink')
+    # add_probe(pipeline, "before_msgconv", show_metadata_probe, pad_name='src')
 
     pipelines += [pipeline]
 
