@@ -223,7 +223,7 @@ impl EventReader {
 
 impl<'a> EventWithHeader<'a> {
     // Maximum size of the entire frame from type code through payload.
-    // Corresponds to pravega_client_rust::event_stream_writer::EventStreamWriter.
+    // Corresponds to pravega_client_rust::event_stream_writer::EventWriter.
     const MAX_ATOMIC_WRITE_SIZE: usize = 8 * 1024 * 1024;
     const MAX_PAYLOAD_SIZE: usize = EventWithHeader::MAX_ATOMIC_WRITE_SIZE - 20;
 

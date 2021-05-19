@@ -27,6 +27,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ahash"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f200cbb1e856866d9eade941cf3aa0c5d7dd36f74311c4273b494f4ef036957"
+dependencies = [
+ "getrandom 0.2.2",
+ "once_cell",
+ "version_check",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -978,7 +989,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf539fba70056b50f40a22e0da30639518a12ee18c35807858a63b158cb6dde7"
 dependencies = [
  "memoffset 0.6.3",
- "rustc_version",
+ "rustc_version 0.3.3",
 ]
 
 [[package]]
@@ -1748,6 +1759,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d7afe4a420e3fe79967a00898cc1f4db7c8a49a9333a29f8a4bd76a253d5cd04"
 
 [[package]]
+name = "hashbrown"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
+dependencies = [
+ "ahash 0.7.2",
+]
+
+[[package]]
 name = "headers"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1908,7 +1928,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "824845a0bf897a9042383849b02c1bc219c2383772efcd5c6f9766fa4b81aef3"
 dependencies = [
  "autocfg",
- "hashbrown",
+ "hashbrown 0.9.1",
 ]
 
 [[package]]
@@ -2145,19 +2165,20 @@ dependencies = [
 
 [[package]]
 name = "metrics"
-version = "0.13.1"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6d31b8f6fe04ed4ac33f735f97576b37750df3baf684107d545a8d30efcf584"
+checksum = "c53c23fff9a59f261498953cf41dc9ffc2522fd79723bdf283c1e88dc1633624"
 dependencies = [
  "metrics-macros",
  "proc-macro-hack",
+ "t1ha",
 ]
 
 [[package]]
 name = "metrics-exporter-prometheus"
-version = "0.1.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77d64a3b8b054ab8cea2c96188b468650859596b3e6c7593e902340079649a2f"
+checksum = "954533c2d91c118cf2405264a4ac3a5592e84efac12b1f18561400ffef0597eb"
 dependencies = [
  "hyper",
  "metrics",
@@ -2170,9 +2191,9 @@ dependencies = [
 
 [[package]]
 name = "metrics-macros"
-version = "0.1.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "487119a99660e9b2879132f1b84e067b6d68c85cc228e31789567c14bcaa6a1a"
+checksum = "b22572ba9964744e261d34553568683b76db277bcd309ebf7215e28e0982505d"
 dependencies = [
  "lazy_static",
  "proc-macro-hack",
@@ -2184,21 +2205,24 @@ dependencies = [
 
 [[package]]
 name = "metrics-util"
-version = "0.4.1"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9960809bf79863dbd8152da097833d355cb9f90285c128439f963370e62e15f5"
+checksum = "6586f4c52af81a3f7832cf0bc86141d2fca7207bedd09fdd3f7da60c8dcd0c4a"
 dependencies = [
  "aho-corasick",
  "atomic-shim",
  "crossbeam-epoch 0.9.4",
  "crossbeam-utils 0.8.4",
  "dashmap 4.0.2",
+ "hashbrown 0.11.2",
  "indexmap",
  "metrics",
+ "num_cpus",
  "ordered-float 2.2.0",
  "parking_lot 0.11.1",
  "quanta",
  "sketches-ddsketch",
+ "t1ha",
 ]
 
 [[package]]
@@ -2651,8 +2675,8 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 
 [[package]]
 name = "pravega-client"
-version = "0.1.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+version = "0.2.0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
 dependencies = [
  "ahash 0.6.3",
  "async-stream 0.2.1",
@@ -2660,7 +2684,6 @@ dependencies = [
  "bytes 0.5.6",
  "cfg-if 1.0.0",
  "chrono",
- "clap 2.33.3",
  "derive-new",
  "enum-iterator",
  "futures",
@@ -2681,7 +2704,6 @@ dependencies = [
  "serde",
  "serde_cbor",
  "snafu",
- "structopt",
  "tokio 1.5.0",
  "tokio-util 0.3.1",
  "tracing",
@@ -2692,8 +2714,8 @@ dependencies = [
 
 [[package]]
 name = "pravega-client-auth"
-version = "0.1.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+version = "0.2.0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
 dependencies = [
  "async-trait",
  "base64 0.12.3",
@@ -2707,8 +2729,8 @@ dependencies = [
 
 [[package]]
 name = "pravega-client-channel"
-version = "0.1.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+version = "0.2.0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
 dependencies = [
  "futures-intrusive 0.4.0",
  "tokio 1.5.0",
@@ -2716,8 +2738,8 @@ dependencies = [
 
 [[package]]
 name = "pravega-client-config"
-version = "0.1.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+version = "0.2.0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
 dependencies = [
  "async-trait",
  "base64 0.12.3",
@@ -2729,12 +2751,14 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio 1.5.0",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
 name = "pravega-client-retry"
-version = "0.1.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+version = "0.2.0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
 dependencies = [
  "snafu",
  "tokio 1.5.0",
@@ -2742,8 +2766,8 @@ dependencies = [
 
 [[package]]
 name = "pravega-client-shared"
-version = "0.1.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+version = "0.2.0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
 dependencies = [
  "async-trait",
  "bytes 0.4.12",
@@ -2762,8 +2786,8 @@ dependencies = [
 
 [[package]]
 name = "pravega-connection-pool"
-version = "0.1.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+version = "0.2.0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
 dependencies = [
  "async-trait",
  "dashmap 3.11.10",
@@ -2776,8 +2800,8 @@ dependencies = [
 
 [[package]]
 name = "pravega-controller-client"
-version = "0.1.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+version = "0.2.0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
 dependencies = [
  "async-trait",
  "clap 2.33.3",
@@ -2846,8 +2870,8 @@ dependencies = [
 
 [[package]]
 name = "pravega-wire-protocol"
-version = "0.1.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=94a435111ae93cdef22e3afb3fb2cbe0dc32ba79#94a435111ae93cdef22e3afb3fb2cbe0dc32ba79"
+version = "0.2.0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
 dependencies = [
  "async-trait",
  "bincode2",
@@ -3241,8 +3265,17 @@ dependencies = [
  "cfg-if 1.0.0",
  "proc-macro2",
  "quote",
- "rustc_version",
+ "rustc_version 0.3.3",
  "syn",
+]
+
+[[package]]
+name = "rustc_version"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
+dependencies = [
+ "semver 0.9.0",
 ]
 
 [[package]]
@@ -3251,7 +3284,7 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0dfe2087c51c460008730de8b57e6a320782fbfb312e1f4d520e6c6fae155ee"
 dependencies = [
- "semver",
+ "semver 0.11.0",
 ]
 
 [[package]]
@@ -3336,12 +3369,27 @@ dependencies = [
 
 [[package]]
 name = "semver"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
+dependencies = [
+ "semver-parser 0.7.0",
+]
+
+[[package]]
+name = "semver"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f301af10236f6df4160f7c3f04eec6dbc70ace82d23326abad5edee88801c6b6"
 dependencies = [
- "semver-parser",
+ "semver-parser 0.10.2",
 ]
+
+[[package]]
+name = "semver-parser"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "semver-parser"
@@ -3633,6 +3681,18 @@ dependencies = [
  "thiserror",
  "toml",
  "version-compare",
+]
+
+[[package]]
+name = "t1ha"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa44aa51ae1a544e2c35a38831ba54ae40591f21384816f531b84f3e984b9ccc"
+dependencies = [
+ "cfg-if 0.1.10",
+ "lazy_static",
+ "num-traits",
+ "rustc_version 0.2.3",
 ]
 
 [[package]]

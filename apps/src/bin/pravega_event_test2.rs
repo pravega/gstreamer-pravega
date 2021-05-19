@@ -40,7 +40,7 @@ fn main() {
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(client_config);
-    let runtime = client_factory.get_runtime();
+    let runtime = client_factory.runtime();
     let num_events: u64 = 1;
     let scope = Scope::from(opts.scope);
     let stream_name = format!("{}-{}", opts.stream, Uuid::new_v4());
@@ -52,7 +52,7 @@ fn main() {
     };
 
     let mut writer = runtime.block_on(async {
-        let controller_client = client_factory.get_controller_client();
+        let controller_client = client_factory.controller_client();
 
         // Create stream.
         let stream_config = StreamConfiguration {
@@ -69,7 +69,7 @@ fn main() {
         };
         controller_client.create_stream(&stream_config).await.unwrap();
 
-        let writer = client_factory.create_event_stream_writer(scoped_stream.clone());
+        let writer = client_factory.create_event_writer(scoped_stream.clone());
         writer
     });
 

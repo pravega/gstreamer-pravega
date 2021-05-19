@@ -15,9 +15,9 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use pravega_client::client_factory::ClientFactory;
-use pravega_client::tablemap::{TableError, Version};
+use pravega_client::sync::table::{TableError, Version};
 use pravega_client_config::ClientConfigBuilder;
-use pravega_client_shared::{Scope};
+use pravega_client_shared::Scope;
 
 #[derive(Clap)]
 struct Opts {
@@ -46,14 +46,14 @@ fn main() {
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(client_config);
-    let runtime = client_factory.get_runtime();
+    let runtime = client_factory.runtime();
 
     let scope = Scope::from(opts.scope);
     let table_name = format!("{}-{}", opts.table, Uuid::new_v4());
     info!("table_name={}", table_name);
 
     runtime.block_on(async {
-        let map = client_factory.create_table_map(scope, table_name).await;
+        let map = client_factory.create_table(scope, table_name).await;
 
         // let k: String = "key".into();
         // let v: String = "val".into();
