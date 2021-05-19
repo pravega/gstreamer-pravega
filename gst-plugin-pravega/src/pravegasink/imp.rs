@@ -26,7 +26,7 @@ use std::sync::Mutex;
 use once_cell::sync::Lazy;
 
 use pravega_client::client_factory::ClientFactory;
-use pravega_client::byte_stream::ByteStreamWriter;
+use pravega_client::byte::ByteWriter;
 use pravega_client_shared::{Scope, Stream, Segment, ScopedSegment, StreamConfiguration, ScopedStream, Scaling, ScaleType};
 use pravega_video::event_serde::{EventWithHeader, EventWriter};
 use pravega_video::index::{IndexRecord, IndexRecordWriter, get_index_stream_name};
@@ -35,7 +35,7 @@ use pravega_video::utils;
 
 use crate::counting_writer::CountingWriter;
 use crate::numeric::u64_to_i64_saturating_sub;
-use crate::seekable_byte_stream_writer::SeekableByteStreamWriter;
+use crate::seekable_byte_stream_writer::SeekableByteWriter;
 
 const PROPERTY_NAME_STREAM: &str = "stream";
 const PROPERTY_NAME_CONTROLLER: &str = "controller";
@@ -114,8 +114,8 @@ enum State {
     Stopped,
     Started {
         client_factory: ClientFactory,
-        writer: CountingWriter<BufWriter<SeekableByteStreamWriter>>,
-        index_writer: ByteStreamWriter,
+        writer: CountingWriter<BufWriter<SeekableByteWriter>>,
+        index_writer: ByteWriter,
         // First received PTS that is not None.
         first_valid_time: PravegaTimestamp,
         // PTS of last written index record.
@@ -494,8 +494,8 @@ impl BaseSinkImpl for PravegaSink {
             gst_info!(CAT, obj: element, "start: is_auth_enabled={}", config.is_auth_enabled);
 
             let client_factory = ClientFactory::new(config);
-            let controller_client = client_factory.get_controller_client();
-            let runtime = client_factory.get_runtime();
+            let controller_client = client_factory.controller_client();
+            let runtime = client_factory.runtime();
 
             // Create scope.
             gst_info!(CAT, obj: element, "start: allow_create_scope={}", settings.allow_create_scope);
@@ -544,7 +544,7 @@ impl BaseSinkImpl for PravegaSink {
                 stream: stream.clone(),
                 segment: Segment::from(0),
             };
-            let mut writer = client_factory.create_byte_stream_writer(scoped_segment);
+            let mut writer = client_factory.create_byte_writer(scoped_segment);
             gst_info!(CAT, obj: element, "start: Opened Pravega writer for data");
             writer.seek_to_tail();
 
@@ -553,11 +553,11 @@ impl BaseSinkImpl for PravegaSink {
                 stream: index_stream.clone(),
                 segment: Segment::from(0),
             };
-            let mut index_writer = client_factory.create_byte_stream_writer(index_scoped_segment);
+            let mut index_writer = client_factory.create_byte_writer(index_scoped_segment);
             gst_info!(CAT, obj: element, "start: Opened Pravega writer for index");
             index_writer.seek_to_tail();
 
-            let seekable_writer = SeekableByteStreamWriter::new(writer).unwrap();
+            let seekable_writer = SeekableByteWriter::new(writer).unwrap();
             gst_info!(CAT, obj: element, "start: Buffer size is {}", settings.buffer_size);
             let buf_writer = BufWriter::with_capacity(settings.buffer_size, seekable_writer);
             let counting_writer = CountingWriter::new(buf_writer).unwrap();
@@ -898,10 +898,10 @@ impl BaseSinkImpl for PravegaSink {
             if seal {
                 gst_info!(CAT, obj: element, "stop: Sealing streams");
                 let writer = writer.get_mut().get_mut().get_mut();
-                client_factory.get_runtime().block_on(writer.seal()).map_err(|error| {
+                client_factory.runtime().block_on(writer.seal()).map_err(|error| {
                     gst::error_msg!(gst::ResourceError::Write, ["Failed to seal Pravega data stream: {}", error])
                 })?;
-                client_factory.get_runtime().block_on(index_writer.seal()).map_err(|error| {
+                client_factory.runtime().block_on(index_writer.seal()).map_err(|error| {
                     gst::error_msg!(gst::ResourceError::Write, ["Failed to seal Pravega index stream: {}", error])
                 })?;
                 gst_info!(CAT, obj: element, "stop: Streams sealed");

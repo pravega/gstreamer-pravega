@@ -10,34 +10,34 @@
 
 #![allow(dead_code)]
 
-use pravega_client::byte_stream::ByteStreamWriter;
+use pravega_client::byte::ByteWriter;
 use std::io::{Error, ErrorKind, Result, Seek, SeekFrom, Write};
 
-/// A ByteStreamWriter that implements Seek.
-pub struct SeekableByteStreamWriter {
-    inner: ByteStreamWriter,
+/// A ByteWriter that implements Seek.
+pub struct SeekableByteWriter {
+    inner: ByteWriter,
 }
 
-impl SeekableByteStreamWriter {
-    pub fn new(writer: ByteStreamWriter) -> Result<SeekableByteStreamWriter> {
-        let writer = SeekableByteStreamWriter {
+impl SeekableByteWriter {
+    pub fn new(writer: ByteWriter) -> Result<SeekableByteWriter> {
+        let writer = SeekableByteWriter {
             inner: writer
         };
         Ok(writer)
     }
 
     /// Gets a reference to the underlying reader.
-    pub fn get_ref(&self) -> &ByteStreamWriter {
+    pub fn get_ref(&self) -> &ByteWriter {
         &self.inner
     }
 
     /// Gets a mutable reference to the underlying writer.
-    pub fn get_mut(&mut self) -> &mut ByteStreamWriter {
+    pub fn get_mut(&mut self) -> &mut ByteWriter {
         &mut self.inner
     }
 }
 
-impl Write for SeekableByteStreamWriter {
+impl Write for SeekableByteWriter {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         self.inner.write(buf)
     }
@@ -47,7 +47,7 @@ impl Write for SeekableByteStreamWriter {
     }
 }
 
-impl Seek  for SeekableByteStreamWriter {
+impl Seek  for SeekableByteWriter {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         match pos {
             SeekFrom::Current(0) => Ok(self.inner.current_write_offset() as u64),

@@ -14,7 +14,7 @@ use std::net::{SocketAddr, AddrParseError};
 use std::time::{Duration, UNIX_EPOCH};
 use std::env;
 
-use pravega_client::byte_stream::ByteStreamReader;
+use pravega_client::byte::ByteReader;
 use pravega_client_config::ClientConfigBuilder;
 use pravega_client_config::ClientConfig;
 
@@ -29,7 +29,7 @@ pub trait CurrentHead {
     }
 }
 
-impl CurrentHead for ByteStreamReader {
+impl CurrentHead for ByteReader {
     fn current_head(&self) -> std::io::Result<u64> {
         self.current_head()
     }

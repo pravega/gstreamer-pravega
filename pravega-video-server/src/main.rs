@@ -45,7 +45,7 @@ fn main() {
         .expect("creating config");
     let client_factory = ClientFactory::new(config);
     let client_factory_db = client_factory.clone();
-    let runtime = client_factory.get_runtime();
+    let runtime = client_factory.runtime();
 
     runtime.block_on(async {
         let db = models::new(client_factory_db);
@@ -69,7 +69,6 @@ fn main() {
 mod filters {
     use super::handlers;
     use super::models::{Db, GetMediaSegmentOptions, GetM3u8PlaylistOptions};
-    use super::*;
     use warp::Filter;
 
     pub fn get_all_filters(
@@ -124,7 +123,6 @@ mod ui {
     use chrono::{DateTime, Utc};
     use handlebars::Handlebars;
     use serde_derive::{Deserialize, Serialize};
-    use super::*;
     use warp::Filter;
 
     #[derive(Debug, Deserialize, Serialize)]
@@ -270,7 +268,7 @@ mod models {
                         stream: Stream::from(stream_name),
                         segment: Segment::from(0),
                     };
-                    let mut reader = client_factory.create_byte_stream_reader(scoped_segment);
+                    let mut reader = client_factory.create_byte_reader(scoped_segment);
                     info!("Opened Pravega reader");
 
                     reader.seek(SeekFrom::Start(opts.begin)).unwrap();
@@ -350,7 +348,7 @@ mod models {
                         stream: Stream::from(index_stream_name),
                         segment: Segment::from(0),
                     };
-                    let index_reader = client_factory.create_byte_stream_reader(scoped_segment);
+                    let index_reader = client_factory.create_byte_reader(scoped_segment);
                     info!("Opened Pravega reader");
 
                     let mut index_searcher = IndexSearcher::new(index_reader);
@@ -496,7 +494,7 @@ mod models {
         ) -> anyhow::Result<ListStreamsResult> {
 
             info!("list_video_streams: scope_name={}", scope_name.clone());
-            let controller_client = self.client_factory.get_controller_client();
+            let controller_client = self.client_factory.controller_client();
             let scope = Scope { name : scope_name.clone() };
             let mut streams = Vec::new();
             let mut had_error = false;

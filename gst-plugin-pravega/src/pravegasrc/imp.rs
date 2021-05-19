@@ -28,7 +28,7 @@ use std::u8;
 use once_cell::sync::Lazy;
 
 use pravega_client::client_factory::ClientFactory;
-use pravega_client::byte_stream::ByteStreamReader;
+use pravega_client::byte::ByteReader;
 use pravega_client_shared::{Scope, Stream, Segment, ScopedSegment, StreamConfiguration, ScopedStream, Scaling, ScaleType};
 use pravega_video::event_serde::EventReader;
 use pravega_video::index::{IndexSearcher, get_index_stream_name};
@@ -152,8 +152,8 @@ impl Default for Settings {
 enum State {
     Stopped,
     Started {
-        reader: Arc<Mutex<CountingReader<BufReader<SeekableTake<ByteStreamReader>>>>>,
-        index_searcher: Arc<Mutex<IndexSearcher<ByteStreamReader>>>,
+        reader: Arc<Mutex<CountingReader<BufReader<SeekableTake<ByteReader>>>>>,
+        index_searcher: Arc<Mutex<IndexSearcher<ByteReader>>>,
     },
 }
 
@@ -554,8 +554,8 @@ impl BaseSrcImpl for PravegaSrc {
             gst_info!(CAT, obj: element, "start: is_auth_enabled={}", config.is_auth_enabled);
 
             let client_factory = ClientFactory::new(config);
-            let controller_client = client_factory.get_controller_client();
-            let runtime = client_factory.get_runtime();
+            let controller_client = client_factory.controller_client();
+            let runtime = client_factory.runtime();
 
             // Create scope.
             gst_info!(CAT, obj: element, "start: allow_create_scope={}", settings.allow_create_scope);
@@ -604,7 +604,7 @@ impl BaseSrcImpl for PravegaSrc {
                 stream: stream.clone(),
                 segment: Segment::from(0),
             };
-            let mut reader = client_factory.create_byte_stream_reader(scoped_segment);
+            let mut reader = client_factory.create_byte_reader(scoped_segment);
             gst_info!(CAT, obj: element, "start: Opened Pravega reader for data");
 
             let index_scoped_segment = ScopedSegment {
@@ -612,7 +612,7 @@ impl BaseSrcImpl for PravegaSrc {
                 stream: index_stream.clone(),
                 segment: Segment::from(0),
             };
-            let index_reader = client_factory.create_byte_stream_reader(index_scoped_segment);
+            let index_reader = client_factory.create_byte_reader(index_scoped_segment);
             gst_info!(CAT, obj: element, "start: Opened Pravega reader for index");
 
             let mut index_searcher = IndexSearcher::new(index_reader);

@@ -75,20 +75,20 @@ fn truncate_stream(controller: String, scope_name: String, stream_name: String, 
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(client_config);
-    let runtime = client_factory.get_runtime();
+    let runtime = client_factory.runtime();
     let scoped_segment = ScopedSegment {
         scope: scope.clone(),
         stream: stream.clone(),
         segment: Segment::from(0),
     };
-    let writer = client_factory.create_byte_stream_writer(scoped_segment);
+    let writer = client_factory.create_byte_writer(scoped_segment);
     let index_scoped_segment = ScopedSegment {
         scope: scope.clone(),
         stream: index_stream.clone(),
         segment: Segment::from(0),
     };
-    let index_writer = client_factory.create_byte_stream_writer(index_scoped_segment.clone());
-    let index_reader = client_factory.create_byte_stream_reader(index_scoped_segment.clone());
+    let index_writer = client_factory.create_byte_writer(index_scoped_segment.clone());
+    let index_reader = client_factory.create_byte_reader(index_scoped_segment.clone());
     let mut index_searcher = IndexSearcher::new(index_reader);
     let index_record = index_searcher.search_timestamp_and_return_index_offset(
         truncate_at_timestamp, SearchMethod::Before).unwrap();

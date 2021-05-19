@@ -13,7 +13,7 @@
 
 use anyhow::anyhow;
 use pravega_client::client_factory::ClientFactory;
-use pravega_client::event_stream_writer::EventStreamWriter;
+use pravega_client::event::EventWriter;
 use pravega_client_shared::{StreamConfiguration, ScopedStream, Scaling, ScaleType};
 use std::collections::HashMap;
 use std::ffi::CStr;
@@ -74,34 +74,34 @@ pub enum RoutingKeyMethod {
     /// The routing key will be the specified string.
     Fixed { routing_key: String },
 }
-/// This provides a pool of EventStreamWriter instances with one instance per stream.
+/// This provides a pool of EventWriter instances with one instance per stream.
 /// Instances are created dynamically for any new streams.
 /// Instances are not dropped until the pool is dropped.
-pub struct EventStreamWriterPool {
+pub struct EventWriterPool {
     pub client_factory: ClientFactory,
-    pub writers: Mutex<HashMap<ScopedStream, Arc<Mutex<EventStreamWriter>>>>,
+    pub writers: Mutex<HashMap<ScopedStream, Arc<Mutex<EventWriter>>>>,
 }
 
-impl EventStreamWriterPool {
+impl EventWriterPool {
     pub fn new(client_factory: ClientFactory) -> Self {
-        EventStreamWriterPool {
+        EventWriterPool {
             client_factory,
             writers: Mutex::new(HashMap::new()),
         }
     }
 
-    pub async fn get_or_create(&self, scoped_stream: ScopedStream) -> Arc<Mutex<EventStreamWriter>> {
+    pub async fn get_or_create(&self, scoped_stream: ScopedStream) -> Arc<Mutex<EventWriter>> {
         let mut writers = self.writers.lock().await;
         let writer = writers.get(&scoped_stream.clone());
         match writer {
             Some(writer) => {
-                debug!("EventStreamWriterPool::get_or_create: Using existing writer for {}", scoped_stream);
+                debug!("EventWriterPool::get_or_create: Using existing writer for {}", scoped_stream);
                 writer.clone()
             },
             None => {
-                info!("EventStreamWriterPool::get_or_create: Creating new writer for {}", scoped_stream);
+                info!("EventWriterPool::get_or_create: Creating new writer for {}", scoped_stream);
                 // Create stream if needed.
-                let controller_client = self.client_factory.get_controller_client();
+                let controller_client = self.client_factory.controller_client();
                 // This StreamConfiguration will be used only if the stream does not yet exist.
                 // If the stream already exists, it will not be changed.
                 let stream_config = StreamConfiguration {
@@ -114,8 +114,8 @@ impl EventStreamWriterPool {
                     retention: Default::default(),
                 };
                 let create_stream_result = controller_client.create_stream(&stream_config).await.unwrap();
-                info!("EventStreamWriterPool::get_or_create: Stream created, create_stream_result={}", create_stream_result);
-                let writer = self.client_factory.create_event_stream_writer(scoped_stream.clone());
+                info!("EventWriterPool::get_or_create: Stream created, create_stream_result={}", create_stream_result);
+                let writer = self.client_factory.create_event_writer(scoped_stream.clone());
                 let writer = Arc::new(Mutex::new(writer));
                 writers.insert(scoped_stream.clone(), writer.clone());
                 writer
@@ -124,9 +124,9 @@ impl EventStreamWriterPool {
     }
 }
 
-impl fmt::Debug for EventStreamWriterPool {
+impl fmt::Debug for EventWriterPool {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("EventStreamWriterPool")
+        f.debug_struct("EventWriterPool")
             // .field("writers", &self.writers)
             .finish()
     }
@@ -134,7 +134,7 @@ impl fmt::Debug for EventStreamWriterPool {
 
 pub struct NvDsPravegaClientHandle {
     pub client_factory: ClientFactory,
-    pub writer_pool: EventStreamWriterPool,
+    pub writer_pool: EventWriterPool,
     pub routing_key_method: RoutingKeyMethod,
 }
 
@@ -142,7 +142,7 @@ impl NvDsPravegaClientHandle {
     pub fn new(client_factory: ClientFactory, routing_key_method: RoutingKeyMethod) -> Self {
         NvDsPravegaClientHandle {
             client_factory: client_factory.clone(),
-            writer_pool: EventStreamWriterPool::new(client_factory.clone()),
+            writer_pool: EventWriterPool::new(client_factory.clone()),
             routing_key_method,
         }
     }
@@ -254,7 +254,7 @@ pub extern "C" fn nvds_msgapi_send(h_ptr: *mut NvDsPravegaClientHandle, topic: *
     let payload_string = String::from_utf8_lossy(payload);
     trace!("nvds_msgapi_send: payload_string={}", payload_string);
     let scoped_stream = client_handle.resolve_topic(topic).unwrap();
-    let runtime = client_handle.client_factory.get_runtime();
+    let runtime = client_handle.client_factory.runtime();
     let routing_key_method = client_handle.routing_key_method.clone();
     let routing_key = match routing_key_method {
         RoutingKeyMethod::Fixed { routing_key } => routing_key,
@@ -308,7 +308,7 @@ pub extern "C" fn nvds_msgapi_send_async(
     let payload_string = String::from_utf8_lossy(payload);
     trace!("nvds_msgapi_send_async: payload_string={}", payload_string);
     let scoped_stream = client_handle.resolve_topic(topic).unwrap();
-    let runtime = client_handle.client_factory.get_runtime();
+    let runtime = client_handle.client_factory.runtime();
     let routing_key_method = client_handle.routing_key_method.clone();
     let routing_key = match routing_key_method {
         RoutingKeyMethod::Fixed { routing_key } => routing_key,

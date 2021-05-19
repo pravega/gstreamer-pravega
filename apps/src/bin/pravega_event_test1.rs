@@ -44,7 +44,7 @@ fn main() {
         .build()
         .expect("creating config");
     let client_factory = ClientFactory::new(client_config);
-    let runtime = client_factory.get_runtime();
+    let runtime = client_factory.runtime();
 
     runtime.block_on(async {
         let opts: Opts = Opts::parse();
@@ -52,7 +52,7 @@ fn main() {
         let stream_name = format!("{}-{}", opts.stream, Uuid::new_v4());
         info!("stream_name={}", stream_name);
         let stream = Stream::from(stream_name);
-        let controller_client = client_factory.get_controller_client();
+        let controller_client = client_factory.controller_client();
 
         let scoped_segment = ScopedSegment {
             scope: scope.clone(),
@@ -83,7 +83,7 @@ fn main() {
         if opts.use_byte_stream_writer {
             let client_factory = client_factory.clone();
             runtime.spawn_blocking(move || {
-                let mut writer = client_factory.create_byte_stream_writer(scoped_segment);
+                let mut writer = client_factory.create_byte_writer(scoped_segment);
                 for i in 0..num_events {
                     let payload = format!("event {}", i).into_bytes();
                     let payload_length = payload.len();
@@ -97,7 +97,7 @@ fn main() {
                 }
             });
         } else {
-            let mut writer = client_factory.create_event_stream_writer(scoped_stream.clone());
+            let mut writer = client_factory.create_event_writer(scoped_stream.clone());
             let payload = "hello world".to_string().into_bytes();
             info!("Calling write_event");
             let future = writer.write_event(payload);
