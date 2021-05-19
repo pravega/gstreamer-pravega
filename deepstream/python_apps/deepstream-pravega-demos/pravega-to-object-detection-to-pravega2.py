@@ -484,8 +484,10 @@ def main():
     loop = GObject.MainLoop()
     pipelines = []
 
-    # Create Pipeline element that will form a connection of other elements.
-    pipeline_description = (
+    # Create pipelines.
+    # We create 2 independent pipelines because attempting to share buffers across tees fails with a seg fault.
+
+    inference_pipeline_desc = (
         "pravegasrc name=pravegasrc\n" +
         "   ! qtdemux name=demux\n" +
         "   ! h264parse name=h264parse\n" +
@@ -500,80 +502,92 @@ def main():
         "   ! nvstreamdemux name=streamdemux\n" +
         "streamdemux.src_0\n" +
         "   ! identity name=from_streamdemux silent=false\n" +
+        "")
+
+    metadata_pipeline_desc = (
+        inference_pipeline_desc +
+        "   ! identity name=before_msgconv silent=false\n" +
+        "   ! nvmsgconv name=msgconv\n" +
+        "   ! identity name=before_msgbroker silent=false\n" +
+        "   ! nvmsgbroker name=msgbroker\n" +
+        "")
+
+    osd_pipeline_desc = (
+        inference_pipeline_desc +
         "   ! nvvideoconvert\n" +
         "   ! nvdsosd\n" +
         "   ! nvvideoconvert\n" +
-        "   ! tee name=t\n" +
-        # "t. ! queue\n" +
-        # "   ! identity name=before_msgconv silent=false\n" +
-        # "   ! nvmsgconv name=msgconv\n" +
-        # "   ! identity name=before_msgbroker silent=false\n" +
-        # "   ! nvmsgbroker name=msgbroker\n" +
-        "t. ! queue\n" +
-        "   ! identity name=from_t_2 silent=false\n" +
+        # Remove buffers with no PTS because mp4mux will stop. streamdemux sometime sends buffers with NvDsMeta and no PTS.
+        # (Not needed for mpegtsmux.)
+        # "   ! timestampcvt\n" +
+        "   ! identity name=before_encoder silent=false\n" +
         "   ! nvv4l2h264enc control-rate=1 bitrate=300000\n" +
+        "   ! identity name=after_encoder silent=false\n" +
         "   ! h264parse\n" +
-        "   ! mp4mux streamable=true fragment-duration=1\n" +
-        "   ! fragmp4pay\n" +
-        # "   ! identity name=to_fakesink silent=false\n" +
-        # "   ! fakesink sync=false\n" +
+        "   ! identity name=after_h264parse silent=false\n" +
+        # MP4 mux does not work reliably. Use MPEG TS instead.
+        # "   ! mp4mux streamable=true fragment-duration=1\n" +
+        # "   ! fragmp4pay\n" +
+        "   ! mpegtsmux\n" +
         "   ! identity name=to_pravegasink silent=false\n" +
         "   ! pravegasink name=pravegasink\n" +
         "")
-    logging.info("Creating pipeline:\n" +  pipeline_description)
-    pipeline = Gst.parse_launch(pipeline_description)
 
-    # This will cause property changes to be logged as PROPERTY_NOTIFY messages.
-    pipeline.add_property_deep_notify_watch(None, True)
+    logging.info("Creating metadata pipeline:\n" +  metadata_pipeline_desc)
+    metadata_pipeline = Gst.parse_launch(metadata_pipeline_desc)
+    pipelines += [metadata_pipeline]
 
-    pravegasrc = pipeline.get_by_name("pravegasrc")
-    pravegasrc.set_property("controller", args.pravega_controller_uri)
-    pravegasrc.set_property("stream", args.input_stream)
-    pravegasrc.set_property("allow-create-scope", args.allow_create_scope)
-    pravegasrc.set_property("keycloak-file", args.keycloak_service_account_file)
-    # pravegasrc.set_property("end-mode", "latest")
-    streammux = pipeline.get_by_name("streammux")
-    if streammux:
-        streammux.set_property("width", 640)
-        streammux.set_property("height", 480)
-        streammux.set_property("batch-size", 1)
-        streammux.set_property("batched-push-timeout", 4000000)
-        streammux.set_property("live-source", 1)
-        streammux.set_property("attach-sys-ts", False)
-    pgie = pipeline.get_by_name("pgie")
-    if pgie:
-        pgie.set_property("config-file-path", args.pgie_config_file)
-    msgconv = pipeline.get_by_name("msgconv")
-    if msgconv:
-        msgconv.set_property("config", args.msgconv_config_file)
-        msgconv.set_property("payload-type", args.schema_type)
-    msgbroker = pipeline.get_by_name("msgbroker")
-    if msgbroker:
-        msgbroker.set_property("proto-lib", args.proto_lib)
-        msgbroker.set_property("conn-str", args.pravega_controller_uri)
-        msgbroker.set_property("config", args.msgapi_config_file)
-        msgbroker.set_property("topic", args.output_metadata_stream)
-        msgbroker.set_property("sync", False)
-    pravegasink = pipeline.get_by_name("pravegasink")
-    if pravegasink:
-        pravegasink.set_property("allow-create-scope", args.allow_create_scope)
-        pravegasink.set_property("controller", args.pravega_controller_uri)
-        if args.keycloak_service_account_file:
-            pravegasink.set_property("keycloak-file", args.keycloak_service_account_file)
-        pravegasink.set_property("stream", args.output_video_stream)
-        # Always write to Pravega immediately regardless of PTS
-        pravegasink.set_property("sync", False)
-        pravegasink.set_property("timestamp-mode", "tai")
+    logging.info("Creating OSD pipeline:\n" +  osd_pipeline_desc)
+    osd_pipeline = Gst.parse_launch(osd_pipeline_desc)
+    pipelines += [osd_pipeline]
 
-    # add_probe(pipeline, "pravegasrc", show_metadata_probe, pad_name='src')
-    # add_probe(pipeline, "demux", show_metadata_probe, pad_name='sink')
-    # add_probe(pipeline, "h264parse", show_metadata_probe, pad_name='src')
-    before_msgconv = pipeline.get_by_name("before_msgconv")
-    if before_msgconv:
-        add_probe(pipeline, "before_msgconv", set_event_message_meta_probe, pad_name='sink')
-        add_probe(pipeline, "before_msgconv", show_metadata_probe, pad_name='src')
+    for pipeline in pipelines:
+        # This will cause property changes to be logged as PROPERTY_NOTIFY messages.
+        pipeline.add_property_deep_notify_watch(None, True)
 
-    pipelines += [pipeline]
+        pravegasrc = pipeline.get_by_name("pravegasrc")
+        pravegasrc.set_property("controller", args.pravega_controller_uri)
+        pravegasrc.set_property("stream", args.input_stream)
+        pravegasrc.set_property("allow-create-scope", args.allow_create_scope)
+        pravegasrc.set_property("keycloak-file", args.keycloak_service_account_file)
+        pravegasrc.set_property("start-mode", "latest")
+        # pravegasrc.set_property("end-mode", "latest")
+        streammux = pipeline.get_by_name("streammux")
+        if streammux:
+            streammux.set_property("width", 640)
+            streammux.set_property("height", 480)
+            streammux.set_property("batch-size", 1)
+            streammux.set_property("batched-push-timeout", 4000000)
+            streammux.set_property("live-source", 1)
+            streammux.set_property("attach-sys-ts", False)
+        pgie = pipeline.get_by_name("pgie")
+        if pgie:
+            pgie.set_property("config-file-path", args.pgie_config_file)
+        msgconv = pipeline.get_by_name("msgconv")
+        if msgconv:
+            msgconv.set_property("config", args.msgconv_config_file)
+            msgconv.set_property("payload-type", args.schema_type)
+        msgbroker = pipeline.get_by_name("msgbroker")
+        if msgbroker:
+            msgbroker.set_property("proto-lib", args.proto_lib)
+            msgbroker.set_property("conn-str", args.pravega_controller_uri)
+            msgbroker.set_property("config", args.msgapi_config_file)
+            msgbroker.set_property("topic", args.output_metadata_stream)
+            msgbroker.set_property("sync", False)
+        pravegasink = pipeline.get_by_name("pravegasink")
+        if pravegasink:
+            pravegasink.set_property("allow-create-scope", args.allow_create_scope)
+            pravegasink.set_property("controller", args.pravega_controller_uri)
+            if args.keycloak_service_account_file:
+                pravegasink.set_property("keycloak-file", args.keycloak_service_account_file)
+            pravegasink.set_property("stream", args.output_video_stream)
+            # Always write to Pravega immediately regardless of PTS
+            pravegasink.set_property("sync", False)
+            pravegasink.set_property("timestamp-mode", "tai")
+
+        before_msgconv = pipeline.get_by_name("before_msgconv")
+        if before_msgconv:
+            add_probe(pipeline, "before_msgconv", set_event_message_meta_probe, pad_name='sink')
 
     #
     # Start pipelines.
