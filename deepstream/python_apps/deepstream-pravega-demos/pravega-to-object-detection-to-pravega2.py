@@ -527,6 +527,7 @@ def main():
     pravegasrc.set_property("stream", args.input_stream)
     pravegasrc.set_property("allow-create-scope", args.allow_create_scope)
     pravegasrc.set_property("keycloak-file", args.keycloak_service_account_file)
+    pravegasrc.set_property("end-mode", "latest")
     streammux = pipeline.get_by_name("streammux")
     if streammux:
         streammux.set_property("width", 640)
