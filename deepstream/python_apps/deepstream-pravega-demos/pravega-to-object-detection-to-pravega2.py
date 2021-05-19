@@ -474,7 +474,7 @@ def main():
     # Set GStreamer log level.
     os.environ["GST_DEBUG"] = args.gst_debug
     # Initialize a Rust tracing subscriber which is used by the Pravega Rust Client in pravegasrc, pravegasink, and libnvds_pravega_proto.
-    # Either of this environment variables may be used, depending on the load order.
+    # Either of these environment variables may be used, depending on the load order.
     os.environ["PRAVEGA_VIDEO_LOG"] = args.rust_log
     os.environ["PRAVEGA_PROTOCOL_ADAPTER_LOG"] = args.rust_log
 
@@ -500,6 +500,9 @@ def main():
         "   ! nvstreamdemux name=streamdemux\n" +
         "streamdemux.src_0\n" +
         "   ! identity name=from_streamdemux silent=false\n" +
+        "   ! nvvideoconvert\n" +
+        "   ! nvdsosd\n" +
+        "   ! nvvideoconvert\n" +
         "   ! tee name=t\n" +
         # "t. ! queue\n" +
         # "   ! identity name=before_msgconv silent=false\n" +
@@ -508,9 +511,6 @@ def main():
         # "   ! nvmsgbroker name=msgbroker\n" +
         "t. ! queue\n" +
         "   ! identity name=from_t_2 silent=false\n" +
-        "   ! nvvideoconvert\n" +
-        "   ! nvdsosd\n" +
-        "   ! nvvideoconvert\n" +
         "   ! nvv4l2h264enc control-rate=1 bitrate=300000\n" +
         "   ! h264parse\n" +
         "   ! mp4mux streamable=true fragment-duration=1\n" +
@@ -568,8 +568,10 @@ def main():
     # add_probe(pipeline, "pravegasrc", show_metadata_probe, pad_name='src')
     # add_probe(pipeline, "demux", show_metadata_probe, pad_name='sink')
     # add_probe(pipeline, "h264parse", show_metadata_probe, pad_name='src')
-    # add_probe(pipeline, "before_msgconv", set_event_message_meta_probe, pad_name='sink')
-    # add_probe(pipeline, "before_msgconv", show_metadata_probe, pad_name='src')
+    before_msgconv = pipeline.get_by_name("before_msgconv")
+    if before_msgconv:
+        add_probe(pipeline, "before_msgconv", set_event_message_meta_probe, pad_name='sink')
+        add_probe(pipeline, "before_msgconv", show_metadata_probe, pad_name='src')
 
     pipelines += [pipeline]
 
