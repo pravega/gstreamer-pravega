@@ -271,11 +271,11 @@ def meta_free_func(data, user_data):
 
 def generate_vehicle_meta(data):
     obj = pyds.NvDsVehicleObject.cast(data)
-    obj.type = "sedan"
-    obj.color = "blue"
-    obj.make = "Bugatti"
-    obj.model = "M"
-    obj.license = "XX1234"
+    obj.type = "sports car"
+    obj.color = "yellow/green"
+    obj.make = "Ford"
+    obj.model = "Mustang"
+    obj.license = "HOT302"
     obj.region = "CA"
     return obj
 
@@ -284,9 +284,9 @@ def generate_person_meta(data):
     obj = pyds.NvDsPersonObject.cast(data)
     obj.age = 45
     obj.cap = "none"
-    obj.hair = "black"
+    obj.hair = "brown"
     obj.gender = "male"
-    obj.apparel= "formal"
+    obj.apparel= "casual"
     return obj
 
 
