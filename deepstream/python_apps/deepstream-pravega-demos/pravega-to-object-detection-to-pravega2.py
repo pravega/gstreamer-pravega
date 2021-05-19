@@ -435,6 +435,7 @@ def main():
         description="Read video from a Pravega stream, detect objects, write metadata to a Pravega stream",
         auto_env_var_prefix="")
     parser.add_argument("--allow-create-scope", type=str2bool, default=True)
+    parser.add_argument("--container-format", default="mp4", help="mpegts or mp4")
     parser.add_argument("--input-stream", required=True, metavar="SCOPE/STREAM")
     parser.add_argument("--gst-debug",
         default="WARNING,pravegasrc:INFO,h264parse:LOG,nvv4l2decoder:LOG,nvmsgconv:INFO,pravegasrc:LOG")
@@ -487,9 +488,16 @@ def main():
     # Create pipelines.
     # We create 2 independent pipelines because attempting to share buffers across tees fails with a seg fault.
 
+    if args.container_format == "mpegts":
+        container_pipeline = "tsdemux name=tsdemux"
+    elif args.container_format == "mp4":
+        container_pipeline = "qtdemux name=qtdemux"
+    else:
+        raise Exception("Unsupported container-format '%s'." % args.container_format)
+
     inference_pipeline_desc = (
         "pravegasrc name=pravegasrc\n" +
-        "   ! qtdemux name=demux\n" +
+        "   ! " + container_pipeline + "\n" +
         "   ! h264parse name=h264parse\n" +
         "   ! video/x-h264,alignment=au\n" +
         "   ! nvv4l2decoder name=decoder\n" +
@@ -521,7 +529,7 @@ def main():
         # (Not needed for mpegtsmux.)
         # "   ! timestampcvt\n" +
         "   ! identity name=before_encoder silent=false\n" +
-        "   ! nvv4l2h264enc control-rate=1 bitrate=300000\n" +
+        "   ! nvv4l2h264enc control-rate=1 bitrate=1000000\n" +
         "   ! identity name=after_encoder silent=false\n" +
         "   ! h264parse\n" +
         "   ! identity name=after_h264parse silent=false\n" +
