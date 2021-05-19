@@ -507,10 +507,16 @@ def main():
         "   ! identity name=before_msgbroker silent=false\n" +
         "   ! nvmsgbroker name=msgbroker\n" +
         "t. ! queue\n" +
-        "   ! identity name=from_t_2 silent=false" +
+        "   ! identity name=from_t_2 silent=false\n" +
+        "   ! nvvideoconvert\n" +
+        # # "   ! video/x-raw,format=RGBA\n" +
+        "   ! nvv4l2h264enc control-rate=1 bitrate=100000\n" +
         # "   ! nvvideoconvert\n" +
-        # "   ! video/x-raw,format=RGBA\n" +
-        "   ! identity name=to_fakesink silent=false" +
+        # "   ! video/x-h264,format=RGBA\n" +
+        "   ! h264parse\n" +
+        # "   ! qtmux\n" +
+        # # "   ! video/x-raw,format=RGBA\n" +
+        "   ! identity name=to_fakesink silent=false\n" +
         "   ! fakesink sync=false\n" +
         # "   ! nvvideoconvert\n" +
         # "   ! nvdsosd\n" +
