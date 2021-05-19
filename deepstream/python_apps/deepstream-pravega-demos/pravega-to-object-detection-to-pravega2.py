@@ -509,27 +509,14 @@ def main():
         "t. ! queue\n" +
         "   ! identity name=from_t_2 silent=false\n" +
         "   ! nvvideoconvert\n" +
-        # # "   ! video/x-raw,format=RGBA\n" +
         "   ! nvv4l2h264enc control-rate=1 bitrate=100000\n" +
-        # "   ! nvvideoconvert\n" +
-        # "   ! video/x-h264,format=RGBA\n" +
         "   ! h264parse\n" +
         "   ! mp4mux streamable=true fragment-duration=1\n" +
         "   ! fragmp4pay\n" +
-        # # "   ! video/x-raw,format=RGBA\n" +
-        "   ! identity name=to_fakesink silent=false\n" +
-        "   ! fakesink sync=false\n" +
-        # "   ! nvvideoconvert\n" +
-        # "   ! nvdsosd\n" +
-        # "   ! identity name=from_nvdsosd silent=false\n" +
-        # "   ! nvvideoconvert\n" +
-        # "   ! identity name=from_nvvideoconvert silent=false\n" +
-        # "   ! videoconvert\n" +
-        # "   ! x264enc tune=zerolatency\n" +
-        # "   ! mp4mux\n" +
-        # "   ! fragmp4pay\n" +
-        # "   ! identity name=to_pravegasink silent=false\n" +
-        # "   ! pravegasink name=pravegasink\n" +
+        # "   ! identity name=to_fakesink silent=false\n" +
+        # "   ! fakesink sync=false\n" +
+        "   ! identity name=to_pravegasink silent=false\n" +
+        "   ! pravegasink name=pravegasink\n" +
         "")
     logging.info("Creating pipeline:\n" +  pipeline_description)
     pipeline = Gst.parse_launch(pipeline_description)
