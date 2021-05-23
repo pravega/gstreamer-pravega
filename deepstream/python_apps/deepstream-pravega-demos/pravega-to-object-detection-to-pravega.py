@@ -11,8 +11,7 @@
 #
 
 #
-# Read video from a Pravega stream, detect objects, write metadata to a Pravega stream.
-# To ingest video into a Pravega stream, use rtsp-camera-to-pravega.sh or similar.
+# Read video from a Pravega stream, detect objects, write metadata and/or video with on-screen display to Pravega streams.
 #
 
 import configargparse as argparse
@@ -432,7 +431,7 @@ def resolve_pravega_stream(stream_name, default_scope):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Read video from a Pravega stream, detect objects, write metadata to a Pravega stream",
+        description="Read video from a Pravega stream, detect objects, write metadata and/or video with on-screen display to Pravega streams",
         auto_env_var_prefix="")
     parser.add_argument("--allow-create-scope", type=str2bool, default=True)
     parser.add_argument("--container-format", default="mp4", help="mpegts or mp4")
