@@ -24,5 +24,5 @@ docker build \
     -t ${TO_IMAGE} \
     -t ${TO_IMAGE_NAME}:latest \
     --build-arg FROM_IMAGE=${FROM_IMAGE}\
-    -f ${ROOT_DIR}/deepstream/pravega-dev.Dockerfile \
+    -f ${ROOT_DIR}/deepstream/pravega-deepstream.Dockerfile \
     ${ROOT_DIR}

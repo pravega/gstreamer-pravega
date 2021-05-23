@@ -10,6 +10,7 @@
 
 ARG FROM_IMAGE
 
+# Build DeepStream image with Python bindings and Rust compiler.
 FROM ${FROM_IMAGE} as builder-base
 
 # Install Python Bindings for DeepStream.
@@ -49,39 +50,50 @@ RUN set -eux; \
     cargo --version; \
     rustc --version;
 
-# Build GStreamer Pravega libraries and applications.
-
 WORKDIR /usr/src/gstreamer-pravega
 
-FROM builder-base as planner
-RUN cargo install cargo-chef
+
+# Install Cargo Chef build tool.
+FROM builder-base as chef-base
+ARG RUST_JOBS=1
+RUN cargo install cargo-chef --jobs ${RUST_JOBS}
+
+
+# Create Cargo Chef recipe.
+FROM chef-base as planner
 COPY . .
-RUN cargo chef prepare  --recipe-path recipe.json
+RUN cargo chef prepare --recipe-path recipe.json
 
-FROM builder-base as cacher
-RUN cargo install cargo-chef
+
+# Download and build Rust dependencies for gstreamer-pravega.
+FROM chef-base as cacher
 COPY --from=planner /usr/src/gstreamer-pravega/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json | cat -
 
+
+# Build GStreamer Pravega libraries and applications.
 FROM builder-base as final
-## Build gst-plugin-pravega.
 
-# Copy over the cached dependencies
+# Copy over the cached dependencies.
 COPY --from=cacher /usr/src/gstreamer-pravega/target target
 COPY --from=cacher /usr/local/cargo /usr/local/cargo
+
 COPY Cargo.toml .
 COPY Cargo.lock .
 COPY apps apps
+COPY deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
 COPY gst-plugin-pravega gst-plugin-pravega
 COPY integration-test integration-test
-COPY deepstream deepstream
 COPY pravega-video pravega-video
 COPY pravega-video-server pravega-video-server
 
+# Build gst-plugin-pravega.
 RUN cargo build --package gst-plugin-pravega --release && \
     mv -v target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
-RUN cargo install --path pravega-video-server
-COPY deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
 
+# Build pravega_protocol_adapter.
 RUN cargo build --release --package pravega_protocol_adapter && \
     mv -v target/release/*.so /opt/nvidia/deepstream/deepstream/lib/
+
+# Copy applications.
+COPY deepstream deepstream
