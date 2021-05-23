@@ -86,6 +86,7 @@ def main():
     parser.add_argument("--pravega-controller-uri", default="tcp://127.0.0.1:9090")
     parser.add_argument("--pravega-scope", required=True)
     parser.add_argument("--pravega-stream", required=True)
+    parser.add_argument("--pravega-buffer-size", type=int, default=1024, help='Pravega writer buffer size in bytes')
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
@@ -94,7 +95,7 @@ def main():
     # Set default GStreamer logging.
     if not "GST_DEBUG" in os.environ:
         os.environ["GST_DEBUG"] = ("WARNING,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO," +
-            "h264parse:WARN,qtmux:FIXME,fragmp4pay:INFO,pravegasink:INFO")
+            "h264parse:WARN,qtmux:FIXME,fragmp4pay:INFO,pravegasink:DEBUG")
 
     # Set default logging for pravega-video, which sets a Rust tracing subscriber used by the Pravega Rust Client.
     if not "PRAVEGA_VIDEO_LOG" in os.environ:
@@ -223,6 +224,7 @@ def main():
         pravegasink.set_property("stream", "%s/%s" % (args.pravega_scope, args.pravega_stream))
         # Always write to Pravega immediately regardless of PTS
         pravegasink.set_property("sync", False)
+        pravegasink.set_property("buffer-size", args.pravega_buffer_size)
         # Required to use NTP timestamps in PTS
         if not args.fakesource:
             pravegasink.set_property("timestamp-mode", "tai")
