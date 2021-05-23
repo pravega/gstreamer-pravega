@@ -61,7 +61,14 @@ RUN cargo install cargo-chef --jobs ${RUST_JOBS}
 
 # Create Cargo Chef recipe.
 FROM chef-base as planner
-COPY . .
+COPY Cargo.toml .
+COPY Cargo.lock .
+COPY apps apps
+COPY deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
+COPY gst-plugin-pravega gst-plugin-pravega
+COPY integration-test integration-test
+COPY pravega-video pravega-video
+COPY pravega-video-server pravega-video-server
 RUN cargo chef prepare --recipe-path recipe.json
 
 

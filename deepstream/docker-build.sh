@@ -19,10 +19,12 @@ FROM_IMAGE=${FROM_IMAGE_NAME}:${FROM_TAG}
 TO_IMAGE_NAME=pravega/deepstream
 TO_TAG=${FROM_TAG}-pravega
 TO_IMAGE=${TO_IMAGE_NAME}:${TO_TAG}
+RUST_JOBS=${RUST_JOBS:-4}
 
 docker build \
     -t ${TO_IMAGE} \
     -t ${TO_IMAGE_NAME}:latest \
-    --build-arg FROM_IMAGE=${FROM_IMAGE}\
+    --build-arg FROM_IMAGE=${FROM_IMAGE} \
+    --build-arg RUST_JOBS=${RUST_JOBS} \
     -f ${ROOT_DIR}/deepstream/pravega-deepstream.Dockerfile \
     ${ROOT_DIR}
