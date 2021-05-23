@@ -72,5 +72,6 @@ pub fn create_client_config(controller: String, keycloak_file: Option<String>) -
         .controller_uri(controller_uri)
         .is_auth_enabled(is_auth_enabled)
         .is_tls_enabled(is_tls_enabled)
+        .max_connections_in_pool(0u32)
         .build()
 }
