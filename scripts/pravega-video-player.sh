@@ -18,7 +18,7 @@ popd
 export GST_PLUGIN_PATH=${ROOT_DIR}/target/debug:${GST_PLUGIN_PATH}
 # log level can be INFO or LOG (verbose)
 export GST_DEBUG="pravegasrc:INFO,basesrc:INFO,mpegtsbase:INFO,mpegtspacketizer:INFO"
-export RUST_LOG=info
+export RUST_LOG=info,pravega_video:debug
 export RUST_BACKTRACE=1
 PRAVEGA_STREAM=${PRAVEGA_STREAM:-camera8}
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}

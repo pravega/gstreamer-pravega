@@ -11,13 +11,8 @@
 // Pravega video player.
 // Based on https://github.com/sdroege/gstreamer-rs/blob/master/tutorials/src/bin/basic-tutorial-5.rs
 
-use clap::Clap;
-use std::{convert::TryInto, os::raw::c_void, time::SystemTime};
-use std::process;
-use std::ops;
-use log::info;
 use anyhow::Error;
-
+use clap::Clap;
 use gst::prelude::*;
 use gstreamer_video as gst_video;
 use gst_video::prelude::*;
@@ -25,6 +20,20 @@ use glib::object::ObjectType;
 use gtk::prelude::*;
 use gtk::{Box, DrawingArea, Inhibit, Orientation, Window, WindowType};
 use pravega_video::timestamp::PravegaTimestamp;
+use std::{convert::TryInto, os::raw::c_void, time::SystemTime};
+use std::process;
+use std::ops;
+#[allow(unused_imports)]
+use tracing::{error, info, info_span, warn, trace, event, Level, span};
+use tracing_subscriber::fmt::format::FmtSpan;
+
+/// Default logging configuration for GStreamer and GStreamer plugins.
+/// Valid levels are: none, ERROR, WARNING, FIXME, INFO, DEBUG, LOG, TRACE, MEMDUMP
+/// See [https://gstreamer.freedesktop.org/documentation/tutorials/basic/debugging-tools.html?gi-language=c#the-debug-log].
+pub const DEFAULT_GST_DEBUG: &str = "FIXME";
+/// Default logging configuration for for Rust tracing.
+/// Valid levels are: error, warn, info, debug, trace
+pub const DEFAULT_RUST_LOG: &str = "pravega_video_player=info,warn";
 
 /// Pravega video player.
 #[derive(Clap)]
@@ -32,6 +41,9 @@ struct Opts {
     /// Pravega controller in format "127.0.0.1:9090"
     #[clap(short, long, default_value = "127.0.0.1:9090")]
     controller: String,
+    /// The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.
+    #[clap(short, long)]
+    keycloak_file: Option<String>,
     /// Pravega scope/stream
     #[clap(short, long)]
     stream: String,
@@ -151,23 +163,26 @@ fn create_ui(playbin: &gst::Pipeline, video_sink: &gst::Element) -> AppWindow {
         let lposition_textview = &lposition_textview;
         let lseek_range_textview = &lseek_range_textview;
 
-        let mut seeking_query = gst::query::Seeking::new(gst::Format::Time);
-        let (start, end) = match pipeline.query(&mut seeking_query) {
-            true => {
-                let (_seekable, start, end) = seeking_query.result();
-                info!("create_ui: seeking_query={:?}, start={:?}, end={:?}", seeking_query, start, end);
-                let start = match start {
-                    gst::GenericFormattedValue::Time(start) => start.nanoseconds(),
-                    _ => None,
-                };
-                let end = match end {
-                    gst::GenericFormattedValue::Time(end) => end.nanoseconds(),
-                    _ => None,
-                };
-                (start, end)
-            },
-            false => (None, None),
-        };
+        let span = span!(Level::INFO, "create_ui: seeking query");
+        let (start, end) = span.in_scope(|| {
+            let mut seeking_query = gst::query::Seeking::new(gst::Format::Time);
+            match pipeline.query(&mut seeking_query) {
+                true => {
+                    let (_seekable, start, end) = seeking_query.result();
+                    info!("create_ui: seeking_query={:?}, start={:?}, end={:?}", seeking_query, start, end);
+                    let start = match start {
+                        gst::GenericFormattedValue::Time(start) => start.nanoseconds(),
+                        _ => None,
+                    };
+                    let end = match end {
+                        gst::GenericFormattedValue::Time(end) => end.nanoseconds(),
+                        _ => None,
+                    };
+                    (start, end)
+                },
+                false => (None, None),
+            }
+        });
         let pos = pipeline
             .query_position::<gst::ClockTime>()
             .and_then(|pos| pos.nanoseconds());
@@ -294,8 +309,19 @@ fn create_ui(playbin: &gst::Pipeline, video_sink: &gst::Element) -> AppWindow {
 }
 
 pub fn run() {
-    env_logger::init();
     let opts: Opts = Opts::parse();
+
+    let filter = std::env::var("RUST_LOG")
+        .unwrap_or_else(|_| DEFAULT_RUST_LOG.to_owned());
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_span_events(FmtSpan::CLOSE)
+        .init();
+
+    match std::env::var("GST_DEBUG") {
+        Ok(_) => (),
+        Err(_) => std::env::set_var("GST_DEBUG", DEFAULT_GST_DEBUG),
+    };
 
     // Make sure the right features were activated
     #[allow(clippy::eq_op)]
@@ -337,6 +363,8 @@ pub fn run() {
         .by_name("src").unwrap();
     pravegasrc.set_property("controller", &opts.controller).unwrap();
     pravegasrc.set_property("stream", &opts.stream).unwrap();
+    pravegasrc.set_property("keycloak-file", &opts.keycloak_file.unwrap()).unwrap();
+    pravegasrc.set_property("allow-create-scope", &false).unwrap();
 
     let decodebin = playbin
         .clone()
