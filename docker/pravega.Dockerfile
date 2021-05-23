@@ -114,7 +114,6 @@ RUN cargo chef cook --release --recipe-path recipe.json
 
 # Build GStreamer Pravega libraries and applications.
 FROM builder-base as pravega-dev
-ARG RUST_JOBS=1
 
 ARG RUST_JOBS=1
 
