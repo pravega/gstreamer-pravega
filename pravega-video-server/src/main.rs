@@ -10,7 +10,7 @@
 
 use clap::Clap;
 use pravega_client::client_factory::ClientFactory;
-use pravega_client_config::ClientConfigBuilder;
+use pravega_video::utils::create_client_config;
 use tracing_subscriber::fmt::format::FmtSpan;
 #[allow(unused_imports)]
 use tracing::{error, info, info_span, warn, trace, event, Level, span};
@@ -23,6 +23,9 @@ struct Opts {
     /// Pravega controller in format "127.0.0.1:9090"
     #[clap(short, long, default_value = "127.0.0.1:9090")]
     controller: String,
+    /// The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.
+    #[clap(short, long)]
+    keycloak_file: Option<String>,
 }
 
 fn main() {
@@ -38,11 +41,7 @@ fn main() {
 
     // Let Pravega ClientFactory create the Tokio runtime. It will also be used by Warp.
 
-    let controller_uri = opts.controller;
-    let config = ClientConfigBuilder::default()
-        .controller_uri(controller_uri)
-        .build()
-        .expect("creating config");
+    let config = create_client_config(opts.controller, opts.keycloak_file).expect("creating config");
     let client_factory = ClientFactory::new(config);
     let client_factory_db = client_factory.clone();
     let runtime = client_factory.runtime();
@@ -339,7 +338,6 @@ mod models {
 
             let playlist = tokio::task::spawn_blocking(move || {
                 let span = span!(Level::INFO, "get_m3u8_playlist: SPAWNED THREAD");
-                // let _ = span.enter();
                 span.in_scope(|| {
                     info!("BEGIN");
                     let client_factory = self.client_factory;
