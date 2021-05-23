@@ -14,8 +14,6 @@
 # Read video from a Pravega stream, detect objects, write metadata to a Pravega stream.
 # To ingest video into a Pravega stream, use rtsp-camera-to-pravega.sh or similar.
 #
-# TODO: For unknown reasons, timestamps are off 125 ms in a roundtrip from mpegtsmux to tsdemux.
-#
 
 import configargparse as argparse
 import ctypes
@@ -92,15 +90,21 @@ def bus_call(bus, message, loop):
     """Callback for GStreamer bus messages"""
     t = message.type
     if t == Gst.MessageType.EOS:
-        logging.info('End-of-stream')
+        logging.info("End-of-stream")
         loop.quit()
     elif t == Gst.MessageType.WARNING:
         err, debug = message.parse_warning()
-        logging.warn('%s: %s' % (err, debug))
+        logging.warning("%s: %s" % (err, debug))
     elif t == Gst.MessageType.ERROR:
         err, debug = message.parse_error()
-        logging.error('%s: %s' % (err, debug))
+        logging.error("%s: %s" % (err, debug))
         loop.quit()
+    elif t == Gst.MessageType.ELEMENT:
+        details = message.get_structure().to_string()
+        logging.info("%s: %s" % (message.src.name, str(details),))
+    elif t == Gst.MessageType.PROPERTY_NOTIFY:
+        details = message.get_structure().to_string()
+        logging.debug("%s: %s" % (message.src.name, str(details),))
     return True
 
 
@@ -267,11 +271,11 @@ def meta_free_func(data, user_data):
 
 def generate_vehicle_meta(data):
     obj = pyds.NvDsVehicleObject.cast(data)
-    obj.type = "sedan"
-    obj.color = "blue"
-    obj.make = "Bugatti"
-    obj.model = "M"
-    obj.license = "XX1234"
+    obj.type = "sports car"
+    obj.color = "yellow/green"
+    obj.make = "Ford"
+    obj.model = "Mustang"
+    obj.license = "HOT302"
     obj.region = "CA"
     return obj
 
@@ -280,9 +284,9 @@ def generate_person_meta(data):
     obj = pyds.NvDsPersonObject.cast(data)
     obj.age = 45
     obj.cap = "none"
-    obj.hair = "black"
+    obj.hair = "brown"
     obj.gender = "male"
-    obj.apparel= "formal"
+    obj.apparel= "casual"
     return obj
 
 
@@ -409,19 +413,45 @@ def set_event_message_meta_probe(pad, info, u_data):
     logging.info("set_event_message_meta_probe: END")
     return Gst.PadProbeReturn.OK
 
+
 def str2bool(v):
     return bool(distutils.util.strtobool(v))
+
+
+def resolve_pravega_stream(stream_name, default_scope):
+    if stream_name:
+        if "/" in stream_name:
+            return stream_name
+        else:
+            if not default_scope:
+                raise Exception("Stream %s given without a scope but pravega-scope has not been provided" % stream_name)
+            return "%s/%s" % (default_scope, stream_name)
+    else:
+        return None
+
 
 def main():
     parser = argparse.ArgumentParser(
         description="Read video from a Pravega stream, detect objects, write metadata to a Pravega stream",
         auto_env_var_prefix="")
-    parser.add_argument("--pravega-controller-uri", default="tcp://127.0.0.1:9090")
     parser.add_argument("--allow-create-scope", type=str2bool, default=True)
+    parser.add_argument("--container-format", default="mp4", help="mpegts or mp4")
+    parser.add_argument("--input-stream", required=True, metavar="SCOPE/STREAM")
+    parser.add_argument("--gst-debug",
+        default="WARNING,pravegasrc:INFO,h264parse:LOG,nvv4l2decoder:LOG,nvmsgconv:INFO,pravegasrc:LOG")
+    parser.add_argument("--pravega-controller-uri", default="tcp://127.0.0.1:9090")
+    parser.add_argument("--pravega-scope")
     parser.add_argument("--keycloak-service-account-file")
-    parser.add_argument("--log_level", type=int, default=logging.INFO, help="10=DEBUG,20=INFO")
+    parser.add_argument("--log-level", type=int, default=logging.INFO, help="10=DEBUG,20=INFO")
+    parser.add_argument("--rust-log",
+        default="nvds_pravega_proto=trace,warn")
+    parser.add_argument("--msgapi-config-file")
     parser.add_argument("--msgconv-config-file",
         default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "msgconv_config.txt"))
+    parser.add_argument("--output-video-stream",
+        help="Name of output stream for video with on-screen display.", metavar="SCOPE/STREAM")
+    parser.add_argument("--output-metadata-stream",
+        help="Name of output stream for metadata.", metavar="SCOPE/STREAM")
     parser.add_argument("--pgie_config_file",
         default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "pgie_config.txt"))
     parser.add_argument("-p", "--proto-lib", dest="proto_lib",
@@ -429,21 +459,25 @@ def main():
         default="/opt/nvidia/deepstream/deepstream/lib/libnvds_pravega_proto.so")
     parser.add_argument("-s", "--schema-type", dest="schema_type", type=int, default=0,
         help="Type of message schema (0=Full, 1=minimal), default=0", metavar="<0|1>")
-    parser.add_argument("--input-stream", default="examples/camera5", metavar="SCOPE/STREAM")
-    parser.add_argument("--output-metadata-stream", default="examples/metadata51",
-        help="Name of stream for metadata.", metavar="SCOPE/STREAM")
-    parser.add_argument("--msgapi-config-file")
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
     logging.info("args=%s" % str(args))
 
+    args.input_stream = resolve_pravega_stream(args.input_stream, args.pravega_scope)
+    args.output_video_stream = resolve_pravega_stream(args.output_video_stream, args.pravega_scope)
+    args.output_metadata_stream = resolve_pravega_stream(args.output_metadata_stream, args.pravega_scope)
+
+    # Print configuration parameters.
+    for arg in vars(args):
+        logging.info("argument: %s: %s" % (arg, getattr(args, arg)))
+
     # Set GStreamer log level.
-    if not "GST_DEBUG" in os.environ:
-        os.environ["GST_DEBUG"] = ("WARNING,pravegasrc:INFO," +
-            "h264parse:LOG,nvv4l2decoder:LOG,nvmsgconv:INFO,pravegasrc:LOG")
-    if not "PRAVEGA_PROTOCOL_ADAPTER_LOG" in os.environ:
-        os.environ["PRAVEGA_PROTOCOL_ADAPTER_LOG"] = ("nvds_pravega_proto=trace,warn")
+    os.environ["GST_DEBUG"] = args.gst_debug
+    # Initialize a Rust tracing subscriber which is used by the Pravega Rust Client in pravegasrc, pravegasink, and libnvds_pravega_proto.
+    # Either of these environment variables may be used, depending on the load order.
+    os.environ["PRAVEGA_VIDEO_LOG"] = args.rust_log
+    os.environ["PRAVEGA_PROTOCOL_ADAPTER_LOG"] = args.rust_log
 
     # Standard GStreamer initialization.
     Gst.init(None)
@@ -451,63 +485,119 @@ def main():
     loop = GObject.MainLoop()
     pipelines = []
 
-    # Create Pipeline element that will form a connection of other elements.
-    pipeline_description = (
+    # Create pipelines.
+    # We create 2 independent pipelines because attempting to share buffers across tees fails with a seg fault.
+
+    if args.container_format == "mpegts":
+        container_pipeline = "tsdemux name=tsdemux"
+    elif args.container_format == "mp4":
+        container_pipeline = "qtdemux name=qtdemux"
+    else:
+        raise Exception("Unsupported container-format '%s'." % args.container_format)
+
+    inference_pipeline_desc = (
         "pravegasrc name=pravegasrc\n" +
-        "   ! qtdemux name=demux\n" +
+        "   ! " + container_pipeline + "\n" +
         "   ! h264parse name=h264parse\n" +
         "   ! video/x-h264,alignment=au\n" +
         "   ! nvv4l2decoder name=decoder\n" +
+        "   ! identity name=from_decoder silent=false\n" +
         "   ! queue name=q_after_decode\n" +
         "   ! streammux.sink_0\n" +
         "nvstreammux name=streammux\n" +
         "   ! queue name=q_after_streammux\n" +
         "   ! nvinfer name=pgie\n" +
-        "   ! queue name=q_after_infer\n" +
         "   ! nvstreamdemux name=streamdemux\n" +
         "streamdemux.src_0\n" +
+        "   ! identity name=from_streamdemux silent=false\n" +
+        "")
+
+    metadata_pipeline_desc = (
+        inference_pipeline_desc +
         "   ! identity name=before_msgconv silent=false\n" +
         "   ! nvmsgconv name=msgconv\n" +
+        "   ! identity name=before_msgbroker silent=false\n" +
         "   ! nvmsgbroker name=msgbroker\n" +
         "")
-    logging.info("Creating pipeline:\n" +  pipeline_description)
-    pipeline = Gst.parse_launch(pipeline_description)
 
-    pravegasrc = pipeline.get_by_name("pravegasrc")
-    pravegasrc.set_property("controller", args.pravega_controller_uri)
-    pravegasrc.set_property("stream", args.input_stream)
-    pravegasrc.set_property("allow-create-scope", args.allow_create_scope)
-    pravegasrc.set_property("keycloak-file", args.keycloak_service_account_file)
-    streammux = pipeline.get_by_name("streammux")
-    if streammux:
-        streammux.set_property("width", 640)
-        streammux.set_property("height", 480)
-        streammux.set_property("batch-size", 1)
-        streammux.set_property("batched-push-timeout", 4000000)
-        streammux.set_property("live-source", 1)
-        streammux.set_property("attach-sys-ts", False)
-    pgie = pipeline.get_by_name("pgie")
-    if pgie:
-        pgie.set_property("config-file-path", args.pgie_config_file)
-    msgconv = pipeline.get_by_name("msgconv")
-    if msgconv:
-        msgconv.set_property("config", args.msgconv_config_file)
-        msgconv.set_property("payload-type", args.schema_type)
-    msgbroker = pipeline.get_by_name("msgbroker")
-    if msgbroker:
-        msgbroker.set_property("proto-lib", args.proto_lib)
-        msgbroker.set_property("conn-str", args.pravega_controller_uri)
-        msgbroker.set_property("config", args.msgapi_config_file)
-        msgbroker.set_property("topic", args.output_metadata_stream)
-        msgbroker.set_property("sync", False)
+    osd_pipeline_desc = (
+        inference_pipeline_desc +
+        "   ! nvvideoconvert\n" +
+        "   ! nvdsosd\n" +
+        "   ! nvvideoconvert\n" +
+        # Remove buffers with no PTS because mp4mux will stop. streamdemux sometime sends buffers with NvDsMeta and no PTS.
+        # (Not needed for mpegtsmux.)
+        # "   ! timestampcvt\n" +
+        "   ! identity name=before_encoder silent=false\n" +
+        "   ! nvv4l2h264enc control-rate=1 bitrate=1000000\n" +
+        "   ! identity name=after_encoder silent=false\n" +
+        "   ! h264parse\n" +
+        "   ! identity name=after_h264parse silent=false\n" +
+        # MP4 mux does not work reliably. Use MPEG TS instead.
+        # "   ! mp4mux streamable=true fragment-duration=1\n" +
+        # "   ! fragmp4pay\n" +
+        "   ! mpegtsmux\n" +
+        "   ! identity name=to_pravegasink silent=false\n" +
+        "   ! pravegasink name=pravegasink\n" +
+        "")
 
-    add_probe(pipeline, "pravegasrc", show_metadata_probe, pad_name='src')
-    add_probe(pipeline, "demux", show_metadata_probe, pad_name='sink')
-    add_probe(pipeline, "h264parse", show_metadata_probe, pad_name='src')
-    add_probe(pipeline, "before_msgconv", set_event_message_meta_probe, pad_name='sink')
-    add_probe(pipeline, "before_msgconv", show_metadata_probe, pad_name='src')
+    if args.output_metadata_stream:
+        logging.info("Creating metadata pipeline:\n" +  metadata_pipeline_desc)
+        metadata_pipeline = Gst.parse_launch(metadata_pipeline_desc)
+        pipelines += [metadata_pipeline]
 
-    pipelines += [pipeline]
+    if args.output_video_stream:
+        logging.info("Creating OSD pipeline:\n" +  osd_pipeline_desc)
+        osd_pipeline = Gst.parse_launch(osd_pipeline_desc)
+        pipelines += [osd_pipeline]
+
+    for pipeline in pipelines:
+        # This will cause property changes to be logged as PROPERTY_NOTIFY messages.
+        pipeline.add_property_deep_notify_watch(None, True)
+
+        pravegasrc = pipeline.get_by_name("pravegasrc")
+        pravegasrc.set_property("controller", args.pravega_controller_uri)
+        pravegasrc.set_property("stream", args.input_stream)
+        pravegasrc.set_property("allow-create-scope", args.allow_create_scope)
+        pravegasrc.set_property("keycloak-file", args.keycloak_service_account_file)
+        pravegasrc.set_property("start-mode", "latest")
+        # pravegasrc.set_property("end-mode", "latest")
+        streammux = pipeline.get_by_name("streammux")
+        if streammux:
+            streammux.set_property("width", 640)
+            streammux.set_property("height", 480)
+            streammux.set_property("batch-size", 1)
+            streammux.set_property("batched-push-timeout", 4000000)
+            streammux.set_property("live-source", 1)
+            streammux.set_property("attach-sys-ts", False)
+        pgie = pipeline.get_by_name("pgie")
+        if pgie:
+            pgie.set_property("config-file-path", args.pgie_config_file)
+        msgconv = pipeline.get_by_name("msgconv")
+        if msgconv:
+            msgconv.set_property("config", args.msgconv_config_file)
+            msgconv.set_property("payload-type", args.schema_type)
+        msgbroker = pipeline.get_by_name("msgbroker")
+        if msgbroker:
+            msgbroker.set_property("proto-lib", args.proto_lib)
+            msgbroker.set_property("conn-str", args.pravega_controller_uri)
+            msgbroker.set_property("config", args.msgapi_config_file)
+            msgbroker.set_property("topic", args.output_metadata_stream)
+            msgbroker.set_property("sync", False)
+        pravegasink = pipeline.get_by_name("pravegasink")
+        if pravegasink:
+            pravegasink.set_property("allow-create-scope", args.allow_create_scope)
+            pravegasink.set_property("controller", args.pravega_controller_uri)
+            if args.keycloak_service_account_file:
+                pravegasink.set_property("keycloak-file", args.keycloak_service_account_file)
+            pravegasink.set_property("stream", args.output_video_stream)
+            # Always write to Pravega immediately regardless of PTS
+            pravegasink.set_property("sync", False)
+            pravegasink.set_property("timestamp-mode", "tai")
+
+        before_msgconv = pipeline.get_by_name("before_msgconv")
+        if before_msgconv:
+            add_probe(pipeline, "before_msgconv", set_event_message_meta_probe, pad_name='sink')
 
     #
     # Start pipelines.
