@@ -17,7 +17,7 @@
 # TODO: For unknown reasons, timestamps are off 125 ms in a roundtrip from mpegtsmux to tsdemux.
 #
 
-import argparse
+import configargparse as argparse
 import ctypes
 import datetime
 import logging
@@ -414,8 +414,9 @@ def str2bool(v):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Read video from a Pravega stream, detect objects, write metadata to a Pravega stream")
-    parser.add_argument("--controller", default="192.168.1.123:9090")
+        description="Read video from a Pravega stream, detect objects, write metadata to a Pravega stream",
+        auto_env_var_prefix="")
+    parser.add_argument("--pravega-controller-uri", default="tcp://127.0.0.1:9090")
     parser.add_argument("--allow-create-scope", type=str2bool, default=True)
     parser.add_argument("--keycloak-service-account-file")
     parser.add_argument("--log_level", type=int, default=logging.INFO, help="10=DEBUG,20=INFO")
@@ -453,7 +454,7 @@ def main():
     # Create Pipeline element that will form a connection of other elements.
     pipeline_description = (
         "pravegasrc name=pravegasrc\n" +
-        "   ! tsdemux name=tsdemux\n" +
+        "   ! qtdemux name=demux\n" +
         "   ! h264parse name=h264parse\n" +
         "   ! video/x-h264,alignment=au\n" +
         "   ! nvv4l2decoder name=decoder\n" +
@@ -465,7 +466,7 @@ def main():
         "   ! queue name=q_after_infer\n" +
         "   ! nvstreamdemux name=streamdemux\n" +
         "streamdemux.src_0\n" +
-        "   ! identity name=before_msgconv\n" +
+        "   ! identity name=before_msgconv silent=false\n" +
         "   ! nvmsgconv name=msgconv\n" +
         "   ! nvmsgbroker name=msgbroker\n" +
         "")
@@ -473,14 +474,14 @@ def main():
     pipeline = Gst.parse_launch(pipeline_description)
 
     pravegasrc = pipeline.get_by_name("pravegasrc")
-    pravegasrc.set_property("controller", args.controller)
+    pravegasrc.set_property("controller", args.pravega_controller_uri)
     pravegasrc.set_property("stream", args.input_stream)
     pravegasrc.set_property("allow-create-scope", args.allow_create_scope)
     pravegasrc.set_property("keycloak-file", args.keycloak_service_account_file)
     streammux = pipeline.get_by_name("streammux")
     if streammux:
-        streammux.set_property("width", 1920)
-        streammux.set_property("height", 1080)
+        streammux.set_property("width", 640)
+        streammux.set_property("height", 480)
         streammux.set_property("batch-size", 1)
         streammux.set_property("batched-push-timeout", 4000000)
         streammux.set_property("live-source", 1)
@@ -495,13 +496,13 @@ def main():
     msgbroker = pipeline.get_by_name("msgbroker")
     if msgbroker:
         msgbroker.set_property("proto-lib", args.proto_lib)
-        msgbroker.set_property("conn-str", args.controller)
+        msgbroker.set_property("conn-str", args.pravega_controller_uri)
         msgbroker.set_property("config", args.msgapi_config_file)
         msgbroker.set_property("topic", args.output_metadata_stream)
         msgbroker.set_property("sync", False)
 
     add_probe(pipeline, "pravegasrc", show_metadata_probe, pad_name='src')
-    add_probe(pipeline, "tsdemux", show_metadata_probe, pad_name='sink')
+    add_probe(pipeline, "demux", show_metadata_probe, pad_name='sink')
     add_probe(pipeline, "h264parse", show_metadata_probe, pad_name='src')
     add_probe(pipeline, "before_msgconv", set_event_message_meta_probe, pad_name='sink')
     add_probe(pipeline, "before_msgconv", show_metadata_probe, pad_name='src')
