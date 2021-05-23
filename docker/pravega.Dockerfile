@@ -10,6 +10,8 @@
 
 ARG DOCKER_REPOSITORY=""
 
+
+# Build image that that will contain the GStreamer source code.
 FROM "${DOCKER_REPOSITORY}ubuntu:20.10" as gstreamer-source-code
 
 COPY docker/build-gstreamer/install-dependencies /
@@ -49,13 +51,17 @@ RUN ["/download"]
 
 ADD docker/build-gstreamer/compile /
 
-FROM gstreamer-source-code as base
+
+# Compile GStreamer with debug symbols.
+FROM gstreamer-source-code as debug-prod-compile
 ENV DEBUG=true
 ENV OPTIMIZATIONS=true
-# Compile binaries with debug symbols and keep source code
 RUN ["/compile"]
 
-FROM base as builder-base
+
+# Build image with Rust compiler.
+FROM debug-prod-compile as builder-base
+
 # Install Rust compiler.
 # Based on:
 #   - https://github.com/rust-lang/docker-rust-nightly/blob/master/buster/Dockerfile
@@ -78,70 +84,71 @@ RUN set -eux; \
     cargo --version; \
     rustc --version;
 
-# Build GStreamer Pravega libraries and applications.
-
 WORKDIR /usr/src/gstreamer-pravega
 
+
+# Install Cargo Chef build tool.
 FROM builder-base as chef-base
 ARG RUST_JOBS=1
 RUN cargo install cargo-chef --jobs ${RUST_JOBS}
 
+
+# Create Cargo Chef recipe.
 FROM chef-base as planner
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
+
+# Download and build Rust dependencies for gstreamer-pravega.
 FROM chef-base as cacher
 COPY --from=planner /usr/src/gstreamer-pravega/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
+
+# Build GStreamer Pravega libraries and applications.
 FROM builder-base as pravega-dev
 ARG RUST_JOBS=1
 
-# Copy over the cached dependencies
+ARG RUST_JOBS=1
+
+## Copy over the cached dependencies.
 COPY --from=cacher /usr/src/gstreamer-pravega/target target
 COPY --from=cacher /usr/local/cargo /usr/local/cargo
 
 COPY Cargo.toml .
 COPY Cargo.lock .
 COPY apps apps
+COPY deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
 COPY gst-plugin-pravega gst-plugin-pravega
 COPY integration-test integration-test
-COPY deepstream deepstream
 COPY pravega-video pravega-video
 COPY pravega-video-server pravega-video-server
 
+# Build gst-plugin-pravega.
 RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
+RUN mv -v target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+ENV GST_PLUGIN_PATH /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 
-## Build pravega-video-server
-
+## Build pravega-video-server.
 RUN cargo install --locked --jobs ${RUST_JOBS} --path pravega-video-server
 
-## Build misc. Rust apps
-
+## Build misc. Rust apps.
 RUN cargo install --locked --jobs ${RUST_JOBS} --path apps --bin \
       rtsp-camera-simulator
 
-## Install Python apps
-RUN mv -v target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
-
+## Install Python apps.
 COPY python_apps python_apps
-
 ENV PATH=/usr/src/gstreamer-pravega/python_apps:$PATH
-ENV GST_PLUGIN_PATH /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 
+
+# Build base production image including OS dependencies.
 FROM "${DOCKER_REPOSITORY}ubuntu:20.10" as prod-base
-
 COPY docker/install-prod-dependencies /
-
 RUN ["/install-prod-dependencies"]
-
 ENV GST_PLUGIN_PATH /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 
-FROM gstreamer-source-code as debug-prod-compile
-ENV DEBUG=true
-ENV OPTIMIZATIONS=true
-RUN ["/compile"]
 
+# Build production image with debug symbols.
 FROM prod-base as debug-prod
 COPY --from=debug-prod-compile /compiled-binaries /
 COPY --from=pravega-dev /usr/src/gstreamer-pravega/python_apps /usr/src/gstreamer-pravega/python_apps
@@ -149,11 +156,15 @@ ENV PATH=/usr/src/gstreamer-pravega/python_apps:$PATH
 COPY --from=pravega-dev /usr/lib/x86_64-linux-gnu/gstreamer-1.0/ /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 COPY --from=pravega-dev /usr/src/gstreamer-pravega/target/release/pravega-video-server .
 
+
+# Build GStreamer without debug symbols.
 FROM gstreamer-source-code as prod-compile
 ENV DEBUG=false
 ENV OPTIMIZATIONS=true
 RUN ["/compile"]
 
+
+# Build production image without debug symbols
 FROM prod-base as prod
 COPY --from=prod-compile /compiled-binaries /
 COPY --from=pravega-dev /usr/src/gstreamer-pravega/python_apps /usr/src/gstreamer-pravega/python_apps
