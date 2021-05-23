@@ -541,13 +541,15 @@ def main():
         "   ! pravegasink name=pravegasink\n" +
         "")
 
-    logging.info("Creating metadata pipeline:\n" +  metadata_pipeline_desc)
-    metadata_pipeline = Gst.parse_launch(metadata_pipeline_desc)
-    pipelines += [metadata_pipeline]
+    if args.output_metadata_stream:
+        logging.info("Creating metadata pipeline:\n" +  metadata_pipeline_desc)
+        metadata_pipeline = Gst.parse_launch(metadata_pipeline_desc)
+        pipelines += [metadata_pipeline]
 
-    logging.info("Creating OSD pipeline:\n" +  osd_pipeline_desc)
-    osd_pipeline = Gst.parse_launch(osd_pipeline_desc)
-    pipelines += [osd_pipeline]
+    if args.output_video_stream:
+        logging.info("Creating OSD pipeline:\n" +  osd_pipeline_desc)
+        osd_pipeline = Gst.parse_launch(osd_pipeline_desc)
+        pipelines += [osd_pipeline]
 
     for pipeline in pipelines:
         # This will cause property changes to be logged as PROPERTY_NOTIFY messages.
