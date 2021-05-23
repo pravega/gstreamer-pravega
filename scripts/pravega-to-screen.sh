@@ -17,6 +17,7 @@ cargo build
 ls -lh ${ROOT_DIR}/target/debug/*.so
 export GST_PLUGIN_PATH=${ROOT_DIR}/target/debug:${GST_PLUGIN_PATH}
 export GST_DEBUG="pravegasrc:INFO,mpegtsbase:4,mpegtspacketizer:4,GST_TRACER:7"
+export PRAVEGA_VIDEO_LOG=debug
 export RUST_BACKTRACE=1
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
 PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
@@ -29,6 +30,7 @@ gst-launch-1.0 \
 -v \
 pravegasrc \
   allow-create-scope=${ALLOW_CREATE_SCOPE} \
+  buffer-size=1024 \
   controller=${PRAVEGA_CONTROLLER_URI} \
   keycloak-file=\"${KEYCLOAK_SERVICE_ACCOUNT_FILE}\" \
   stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \

@@ -12,24 +12,29 @@
 
 set -ex
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
+LOG_FILE="/tmp/$(basename "${0}" .sh).log"
 pushd ${ROOT_DIR}/gst-plugin-pravega
 cargo build
-popd
+ls -lh ${ROOT_DIR}/target/debug/*.so
 export GST_PLUGIN_PATH=${ROOT_DIR}/target/debug:${GST_PLUGIN_PATH}
-# log level can be INFO or LOG (verbose)
-export GST_DEBUG="pravegasrc:INFO,basesrc:INFO,mpegtsbase:INFO,mpegtspacketizer:INFO"
-export RUST_LOG=info
+export GST_DEBUG="pravegasrc:TRACE"
+export PRAVEGA_VIDEO_LOG=debug
 export RUST_BACKTRACE=1
-PRAVEGA_STREAM=${PRAVEGA_STREAM:-camera8}
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
 PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
-export GST_DEBUG_DUMP_DOT_DIR=/tmp/gst-dot/pravega-video-player
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-test1}
+ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
+export GST_DEBUG_DUMP_DOT_DIR="/tmp/gst-dot/$(basename "${0}" .sh)"
 mkdir -p ${GST_DEBUG_DUMP_DOT_DIR}
-pushd ${ROOT_DIR}/apps
-cargo run --bin pravega-video-player -- \
---stream ${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
---controller ${PRAVEGA_CONTROLLER_URI} \
---keycloak-file "${KEYCLOAK_SERVICE_ACCOUNT_FILE}" \
-$* \
-|& tee /tmp/pravega-video-player.log
-popd
+
+gst-launch-1.0 \
+-v \
+pravegasrc \
+  allow-create-scope=${ALLOW_CREATE_SCOPE} \
+  controller=${PRAVEGA_CONTROLLER_URI} \
+  keycloak-file=\"${KEYCLOAK_SERVICE_ACCOUNT_FILE}\" \
+  stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
+  $* \
+! identity silent=false \
+! fakesink sync=false \
+|& tee ${LOG_FILE}
