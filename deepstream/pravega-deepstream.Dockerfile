@@ -11,16 +11,22 @@
 ARG FROM_IMAGE
 
 # Build DeepStream image with Python bindings and Rust compiler.
+
 FROM ${FROM_IMAGE} as builder-base
+
+COPY docker/ca-certificates /usr/local/share/ca-certificates/
+RUN update-ca-certificates
 
 # Install Python Bindings for DeepStream.
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         less \
+        nano \
         python3-dev \
         python3-gi \
         python3-gst-1.0 \
+        python3-pip \
         wget
 
 RUN cd /opt/nvidia/deepstream/deepstream/lib && \
@@ -101,6 +107,10 @@ RUN cargo build --package gst-plugin-pravega --release && \
 # Build pravega_protocol_adapter.
 RUN cargo build --release --package pravega_protocol_adapter && \
     mv -v target/release/*.so /opt/nvidia/deepstream/deepstream/lib/
+
+# Install dependencies for applications.
+RUN pip3 install \
+        configargparse
 
 # Copy applications.
 COPY deepstream deepstream
