@@ -25,3 +25,6 @@ pravega-video/Cargo.lock
 integration-test/pravega*
 */pravega/
 pravega-*.tgz
+
+#Junit reports
+junit.xml
