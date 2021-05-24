@@ -13,18 +13,17 @@
 set -ex
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
 
-pushd ${ROOT_DIR}/apps
-cargo test $*
-popd
+for comp in apps gst-plugin-pravega pravega-video pravega-video-server; do
+    pushd ${ROOT_DIR}/$comp
 
-pushd ${ROOT_DIR}/gst-plugin-pravega
-cargo test $*
-popd
+    set +e
+    path_to_cargo2junit=$(which cargo2junit)
+    set -e
+    if [ -x "$path_to_cargo2junit" ] ; then
+        cargo test $* -- -Z unstable-options --format json | cargo2junit | tee junit.xml
+    else
+        cargo test
+    fi
 
-pushd ${ROOT_DIR}/pravega-video
-cargo test $*
-popd
-
-pushd ${ROOT_DIR}/pravega-video-server
-cargo test $*
-popd
+    popd
+done
