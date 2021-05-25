@@ -20,9 +20,9 @@ for comp in apps gst-plugin-pravega pravega-video pravega-video-server; do
     path_to_cargo2junit=$(which cargo2junit)
     set -e
     if [ -x "$path_to_cargo2junit" ] ; then
-        cargo test $* -- -Z unstable-options --format json | cargo2junit | tee junit.xml
+        cargo test --locked --release $* -- -Z unstable-options --format json | cargo2junit | tee junit.xml
     else
-        cargo test
+        cargo test --locked --release
     fi
 
     popd

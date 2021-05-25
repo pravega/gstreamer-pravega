@@ -30,9 +30,9 @@ export RUST_BACKTRACE=0
 
 # Build tests then print list of test names.
 # This will ignore any tests with names containing "ignore".
-cargo test $* -- --skip ignore --list \
+cargo test --release --locked $* -- --skip ignore --list \
 |& tee /tmp/integration-test.log
 
 # Run tests.
-cargo test $* -- --skip ignore --nocapture --test-threads=${TEST_THREADS} \
+cargo test --release --locked $* -- --skip ignore --nocapture --test-threads=${TEST_THREADS} \
 |& tee -a /tmp/integration-test.log
