@@ -444,7 +444,7 @@ pub fn launch_pipeline_and_get_summary(pipeline_description: &str) -> Result<Buf
     Ok(summary)
 }
 
-fn run_pipeline_until_eos(pipeline: &gst::Pipeline) -> Result<(), Error> {
+pub fn run_pipeline_until_eos(pipeline: &gst::Pipeline) -> Result<(), Error> {
     pipeline.set_state(gst::State::Playing)?;
     monitor_pipeline_until_eos(pipeline)?;
     pipeline.set_state(gst::State::Null)?;

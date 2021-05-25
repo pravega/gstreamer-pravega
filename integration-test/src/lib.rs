@@ -18,7 +18,7 @@ mod pravega_service;
 mod rtsp_camera_simulator;
 mod rtsp_tests;
 mod truncation_tests;
-mod utils;
+pub mod utils;
 
 use lazy_static::lazy_static;
 use pravega_client_config::ClientConfig;
