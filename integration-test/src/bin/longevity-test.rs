@@ -12,7 +12,6 @@ use anyhow::Error;
 use clap::Clap;
 use gst::prelude::*;
 use gstpravega::utils::clocktime_to_pravega;
-use integration_test::utils::{run_pipeline_until_eos};
 use pravega_video::timestamp::{PravegaTimestamp, TimeDelta, MSECOND};
 use std::sync::{Arc, Mutex};
 #[allow(unused_imports)]
@@ -47,8 +46,14 @@ pub struct StreamingDecodedBufferValidator {
     max_gap: TimeDelta,
     prev_pts: PravegaTimestamp,
     prev_pts_plus_duration: PravegaTimestamp,
-    pts_is_none_count: u64,
-
+    min_pts: PravegaTimestamp,
+    max_pts: PravegaTimestamp,
+    buffer_count: u64,
+    pts_missing_count: u64,
+    pts_gap_too_large_count: u64,
+    pts_decreasing_count: u64,
+    discontinuity_count: u64,
+    corrupted_count: u64,
 }
 
 impl StreamingDecodedBufferValidator {
@@ -58,19 +63,33 @@ impl StreamingDecodedBufferValidator {
             max_gap: max_gap,
             prev_pts: PravegaTimestamp::none(),
             prev_pts_plus_duration: PravegaTimestamp::none(),
-            pts_is_none_count: 0,
+            min_pts: PravegaTimestamp::none(),
+            max_pts: PravegaTimestamp::none(),
+            buffer_count: 0,
+            pts_missing_count: 0,
+            pts_gap_too_large_count: 0,
+            pts_decreasing_count: 0,
+            discontinuity_count: 0,
+            corrupted_count: 0,
         }
     }
 
     pub fn record_buffer(&mut self, buffer: &gst::BufferRef) {
         let flags = buffer.flags();
         let pts = clocktime_to_pravega(buffer.pts());
+        self.buffer_count += 1;
         if pts.is_none() {
-            event!(Level::WARN, description = "PTS is none",
+            event!(Level::WARN, description = "PTS is missing",
                 prev_pts = ?self.prev_pts,
                 offset = buffer.offset(), size = buffer.size(), flags = ?flags, stream = %self.stream);
-            self.pts_is_none_count += 1;
+            self.pts_missing_count += 1;
         } else {
+            if self.min_pts.is_none() || self.min_pts > pts {
+                self.min_pts = pts;
+            }
+            if self.max_pts.is_none() || self.max_pts < pts {
+                self.max_pts = pts;
+            }
             if self.prev_pts.is_none() {
                 self.prev_pts = pts;
             } else {
@@ -78,31 +97,43 @@ impl StreamingDecodedBufferValidator {
                 if time_delta >= 0 * MSECOND {
                     if time_delta > self.max_gap {
                         event!(Level::WARN, description = "Gap in PTS is too large",
-                        time_delta = ?time_delta, prev_pts = ?self.prev_pts,
-                        pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags, stream = %self.stream);
+                            time_delta = ?time_delta, prev_pts = ?self.prev_pts,
+                            pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags, stream = %self.stream);
+                        self.pts_gap_too_large_count += 1;
                     }
                     self.prev_pts = pts;
                 } else {
                     event!(Level::WARN, description = "PTS is decreasing",
                         time_delta = ?time_delta, prev_pts = ?self.prev_pts,
                         pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags, stream = %self.stream);
+                    self.pts_decreasing_count += 1;
                 }
             }
         }
         if flags.contains(gst::BufferFlags::DISCONT) {
             event!(Level::WARN, description = "discontinuity",
                 pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags, stream = %self.stream);
+            self.discontinuity_count += 1;
         }
         if flags.contains(gst::BufferFlags::CORRUPTED) {
             event!(Level::WARN, description = "corrupted",
                 pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags, stream = %self.stream);
+            self.corrupted_count += 1;
         }
     }
 
     pub fn log_stats(&self) {
         event!(Level::INFO, description = "statistics",
-            pts_is_none_count = self.pts_is_none_count,
-            pts = ?self.prev_pts, stream = %self.stream);
+            buffer_count = self.buffer_count,
+            min_pts = ?self.min_pts,
+            max_pts = ?self.max_pts,
+            pts_range = ?self.max_pts - self.min_pts,
+            pts_missing_count = self.pts_missing_count,
+            pts_gap_too_large_count = self.pts_gap_too_large_count,
+            pts_decreasing_count = self.pts_decreasing_count,
+            discontinuity_count = self.discontinuity_count,
+            corrupted_count = self.corrupted_count,
+            stream = %self.stream);
     }
 }
 
@@ -123,6 +154,7 @@ fn main() -> Result<(), Error> {
 
     gst::init()?;
     gstpravega::plugin_register_static().unwrap();
+    let main_loop = glib::MainLoop::new(None, false);
 
     let pipeline_description = format!(
         "pravegasrc name=src \
@@ -147,15 +179,8 @@ fn main() -> Result<(), Error> {
             &opts.stream[..],
             max_gap,
     )));
+
     let validator_clone = validator.clone();
-
-    // event!(Level::WARN, pts = "12345", description = "test");
-
-    let timeout_id = glib::timeout_add(std::time::Duration::from_millis(4000), move || {
-        info!("timeout");
-        glib::Continue(true)
-    });
-
     let sink = pipeline.by_name("sink");
     match sink {
         Some(sink) => {
@@ -176,8 +201,40 @@ fn main() -> Result<(), Error> {
         None => warn!("Element named 'sink' not found"),
     };
 
-    run_pipeline_until_eos(&pipeline)?;
+    let validator_clone = validator.clone();
+    let timeout_id = glib::timeout_add(std::time::Duration::from_secs(60), move || {
+        let validator = validator_clone.lock().unwrap();
+        validator.log_stats();
+        glib::Continue(true)
+    });
 
+    let bus = pipeline.bus().unwrap();
+    pipeline.set_state(gst::State::Playing)?;
+    let main_loop_clone = main_loop.clone();
+    bus.add_watch(move |_, msg| {
+        let main_loop = &main_loop_clone;
+        match msg.view() {
+            gst::MessageView::Eos(..) => main_loop.quit(),
+            gst::MessageView::Error(err) => {
+                error!(
+                    "Error from {:?}: {} ({:?})",
+                    err.src().map(|s| s.path_string()),
+                    err.error(),
+                    err.debug()
+                );
+                main_loop.quit();
+            },
+            _ => (),
+        };
+        glib::Continue(true)
+    })
+    .expect("Failed to add bus watch");
+
+    main_loop.run();
+
+    pipeline.set_state(gst::State::Null)?;
+    bus.remove_watch().unwrap();
+    glib::source_remove(timeout_id);
     info!("main: END");
     Ok(())
 }
