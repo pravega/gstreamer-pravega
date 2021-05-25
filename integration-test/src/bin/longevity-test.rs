@@ -10,6 +10,7 @@
 
 use anyhow::Error;
 use clap::Clap;
+use derive_builder::*;
 use gst::prelude::*;
 use gstpravega::utils::clocktime_to_pravega;
 use pravega_video::timestamp::{PravegaTimestamp, TimeDelta, MSECOND};
@@ -40,10 +41,17 @@ struct Opts {
     stream: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Builder)]
+pub struct StreamingBufferValidatorConfig {
+    pub stream: String,
+    pub element: String,
+    pub pad: String,
+    pub max_gap: TimeDelta,
+}
+
 #[derive(Clone, Debug, PartialEq)]
-pub struct StreamingDecodedBufferValidator {
-    stream: String,
-    max_gap: TimeDelta,
+pub struct StreamingBufferValidator {
+    config: StreamingBufferValidatorConfig,
     prev_pts: PravegaTimestamp,
     prev_pts_plus_duration: PravegaTimestamp,
     min_pts: PravegaTimestamp,
@@ -56,11 +64,10 @@ pub struct StreamingDecodedBufferValidator {
     corrupted_count: u64,
 }
 
-impl StreamingDecodedBufferValidator {
-    pub fn new(stream: &str, max_gap: TimeDelta) -> StreamingDecodedBufferValidator{
-        StreamingDecodedBufferValidator {
-            stream: stream.to_owned(),
-            max_gap: max_gap,
+impl StreamingBufferValidator {
+    pub fn new(config: StreamingBufferValidatorConfig) -> StreamingBufferValidator{
+        StreamingBufferValidator {
+            config: config,
             prev_pts: PravegaTimestamp::none(),
             prev_pts_plus_duration: PravegaTimestamp::none(),
             min_pts: PravegaTimestamp::none(),
@@ -81,7 +88,8 @@ impl StreamingDecodedBufferValidator {
         if pts.is_none() {
             event!(Level::WARN, description = "PTS is missing",
                 prev_pts = ?self.prev_pts,
-                offset = buffer.offset(), size = buffer.size(), flags = ?flags, stream = %self.stream);
+                offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
             self.pts_missing_count += 1;
         } else {
             if self.min_pts.is_none() || self.min_pts > pts {
@@ -95,29 +103,33 @@ impl StreamingDecodedBufferValidator {
             } else {
                 let time_delta = pts - self.prev_pts;
                 if time_delta >= 0 * MSECOND {
-                    if time_delta > self.max_gap {
+                    if time_delta > self.config.max_gap {
                         event!(Level::WARN, description = "Gap in PTS is too large",
                             time_delta = ?time_delta, prev_pts = ?self.prev_pts,
-                            pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags, stream = %self.stream);
+                            pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                            stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
                         self.pts_gap_too_large_count += 1;
                     }
                     self.prev_pts = pts;
                 } else {
                     event!(Level::WARN, description = "PTS is decreasing",
                         time_delta = ?time_delta, prev_pts = ?self.prev_pts,
-                        pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags, stream = %self.stream);
+                        pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                        stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
                     self.pts_decreasing_count += 1;
                 }
             }
         }
         if flags.contains(gst::BufferFlags::DISCONT) {
             event!(Level::WARN, description = "discontinuity",
-                pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags, stream = %self.stream);
+                pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
             self.discontinuity_count += 1;
         }
         if flags.contains(gst::BufferFlags::CORRUPTED) {
             event!(Level::WARN, description = "corrupted",
-                pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags, stream = %self.stream);
+                pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
             self.corrupted_count += 1;
         }
     }
@@ -133,8 +145,24 @@ impl StreamingDecodedBufferValidator {
             pts_decreasing_count = self.pts_decreasing_count,
             discontinuity_count = self.discontinuity_count,
             corrupted_count = self.corrupted_count,
-            stream = %self.stream);
+            stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad,
+        );
     }
+}
+
+fn install_validator(pipeline: &gst::Pipeline, config: StreamingBufferValidatorConfig) -> Arc<Mutex<StreamingBufferValidator>> {
+    let validator = Arc::new(Mutex::new(StreamingBufferValidator::new(config.clone())));
+    let validator_clone = validator.clone();
+    let element = pipeline.by_name(config.element.as_str()).unwrap();
+    let pad = element.static_pad(config.pad.as_str()).unwrap();
+    pad.add_probe(gst::PadProbeType::BUFFER, move |_, probe_info| {
+        if let Some(gst::PadProbeData::Buffer(ref buffer)) = probe_info.data {
+            let mut validator = validator_clone.lock().unwrap();
+            validator.record_buffer(buffer);
+        }
+        gst::PadProbeReturn::Ok
+    });
+    validator
 }
 
 fn main() -> Result<(), Error> {
@@ -157,54 +185,34 @@ fn main() -> Result<(), Error> {
     let main_loop = glib::MainLoop::new(None, false);
 
     let pipeline_description = format!(
-        "pravegasrc name=src \
+        "pravegasrc name=pravegasrc \
           start-mode=earliest \
-        ! decodebin \
-        ! appsink name=sink sync=false"
+        ! qtdemux name=qtdemux \
+        ! h264parse name=h264parse \
+        ! avdec_h264 name=avdec_h264 \
+        ! fakesink name=sink sync=false"
     );
     info!("Launch Pipeline: {}", pipeline_description);
     let pipeline = gst::parse_launch(&pipeline_description.to_owned()).unwrap();
     let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
 
-    let pravegasrc = pipeline.clone().dynamic_cast::<gst::Pipeline>().unwrap().by_name("src").unwrap();
+    let pravegasrc = pipeline.clone().dynamic_cast::<gst::Pipeline>().unwrap().by_name("pravegasrc").unwrap();
     pravegasrc.set_property("controller", &opts.controller).unwrap();
     pravegasrc.set_property("stream", &opts.stream).unwrap();
     pravegasrc.set_property("keycloak-file", &opts.keycloak_file.unwrap()).unwrap();
     pravegasrc.set_property("allow-create-scope", &false).unwrap();
 
-    let max_gap = 100 * MSECOND;
+    let decoded_validator = install_validator(&pipeline,
+        StreamingBufferValidatorConfigBuilder::default()
+        .stream(opts.stream)
+        .element("sink".to_owned())
+        .pad("sink".to_owned())
+        .max_gap(100 * MSECOND)
+        .build().unwrap());
 
-    let validator = Arc::new(Mutex::new(
-        StreamingDecodedBufferValidator::new(
-            &opts.stream[..],
-            max_gap,
-    )));
-
-    let validator_clone = validator.clone();
-    let sink = pipeline.by_name("sink");
-    match sink {
-        Some(sink) => {
-            let sink = sink.downcast::<gst_app::AppSink>().unwrap();
-            sink.set_callbacks(
-                gst_app::AppSinkCallbacks::builder()
-                    .new_sample(move |sink| {
-                        let sample = sink.pull_sample().unwrap();
-                        trace!("sample={:?}", sample);
-                        let buffer = sample.buffer().unwrap();
-                        let mut validator = validator_clone.lock().unwrap();
-                        validator.record_buffer(buffer);
-                        Ok(gst::FlowSuccess::Ok)
-                    })
-                    .build()
-            );
-        },
-        None => warn!("Element named 'sink' not found"),
-    };
-
-    let validator_clone = validator.clone();
     let timeout_id = glib::timeout_add(std::time::Duration::from_secs(60), move || {
-        let validator = validator_clone.lock().unwrap();
-        validator.log_stats();
+        let decoded_validator = decoded_validator.lock().unwrap();
+        decoded_validator.log_stats();
         glib::Continue(true)
     });
 
