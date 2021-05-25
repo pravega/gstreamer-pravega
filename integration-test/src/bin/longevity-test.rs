@@ -87,7 +87,7 @@ impl StreamingBufferValidator {
         self.buffer_count += 1;
         if pts.is_none() {
             event!(Level::WARN, description = "PTS is missing",
-                prev_pts = ?self.prev_pts,
+                prev_pts = %self.prev_pts,
                 offset = buffer.offset(), size = buffer.size(), flags = ?flags,
                 stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
             self.pts_missing_count += 1;
@@ -105,16 +105,16 @@ impl StreamingBufferValidator {
                 if time_delta >= 0 * MSECOND {
                     if time_delta > self.config.max_gap {
                         event!(Level::WARN, description = "Gap in PTS is too large",
-                            time_delta = ?time_delta, prev_pts = ?self.prev_pts,
-                            pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                            time_delta = %time_delta, prev_pts = %self.prev_pts,
+                            pts = %pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
                             stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
                         self.pts_gap_too_large_count += 1;
                     }
                     self.prev_pts = pts;
                 } else {
                     event!(Level::WARN, description = "PTS is decreasing",
-                        time_delta = ?time_delta, prev_pts = ?self.prev_pts,
-                        pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                        time_delta = %time_delta, prev_pts = %self.prev_pts,
+                        pts = %pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
                         stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
                     self.pts_decreasing_count += 1;
                 }
@@ -122,13 +122,13 @@ impl StreamingBufferValidator {
         }
         if flags.contains(gst::BufferFlags::DISCONT) {
             event!(Level::WARN, description = "discontinuity",
-                pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                pts = %pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
                 stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
             self.discontinuity_count += 1;
         }
         if flags.contains(gst::BufferFlags::CORRUPTED) {
             event!(Level::WARN, description = "corrupted",
-                pts = ?pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                pts = %pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
                 stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
             self.corrupted_count += 1;
         }
@@ -137,8 +137,8 @@ impl StreamingBufferValidator {
     pub fn log_stats(&self) {
         event!(Level::INFO, description = "statistics",
             buffer_count = self.buffer_count,
-            min_pts = ?self.min_pts,
-            max_pts = ?self.max_pts,
+            min_pts = %self.min_pts,
+            max_pts = %self.max_pts,
             pts_range = ?self.max_pts - self.min_pts,
             pts_missing_count = self.pts_missing_count,
             pts_gap_too_large_count = self.pts_gap_too_large_count,
@@ -202,17 +202,56 @@ fn main() -> Result<(), Error> {
     pravegasrc.set_property("keycloak-file", &opts.keycloak_file.unwrap()).unwrap();
     pravegasrc.set_property("allow-create-scope", &false).unwrap();
 
+    let max_gap = 100 * MSECOND;
+
+    let pravegasrc_validator = install_validator(&pipeline,
+        StreamingBufferValidatorConfigBuilder::default()
+        .stream(opts.stream.clone())
+        .element("pravegasrc".to_owned())
+        .pad("src".to_owned())
+        .max_gap(max_gap)
+        .build().unwrap());
+
+    let demux_validator = install_validator(&pipeline,
+        StreamingBufferValidatorConfigBuilder::default()
+        .stream(opts.stream.clone())
+        .element("h264parse".to_owned())
+        .pad("sink".to_owned())
+        .max_gap(max_gap)
+        .build().unwrap());
+
+    let parse_validator = install_validator(&pipeline,
+        StreamingBufferValidatorConfigBuilder::default()
+        .stream(opts.stream.clone())
+        .element("h264parse".to_owned())
+        .pad("src".to_owned())
+        .max_gap(max_gap)
+        .build().unwrap());
+
     let decoded_validator = install_validator(&pipeline,
         StreamingBufferValidatorConfigBuilder::default()
-        .stream(opts.stream)
+        .stream(opts.stream.clone())
         .element("sink".to_owned())
         .pad("sink".to_owned())
-        .max_gap(100 * MSECOND)
+        .max_gap(max_gap)
         .build().unwrap());
 
     let timeout_id = glib::timeout_add(std::time::Duration::from_secs(60), move || {
+        let pravegasrc_validator = pravegasrc_validator.lock().unwrap();
+        pravegasrc_validator.log_stats();
+        drop(pravegasrc_validator);
+
+        let demux_validator = demux_validator.lock().unwrap();
+        demux_validator.log_stats();
+        drop(demux_validator);
+
+        let parse_validator = parse_validator.lock().unwrap();
+        parse_validator.log_stats();
+        drop(parse_validator);
+
         let decoded_validator = decoded_validator.lock().unwrap();
         decoded_validator.log_stats();
+        drop(decoded_validator);
         glib::Continue(true)
     });
 
