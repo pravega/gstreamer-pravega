@@ -23,10 +23,12 @@ PRAVEGA_CONTROLLER_URI=tls://pravega-controller.kubespray.nautilus-platform-dev.
 PRAVEGA_SCOPE=examples
 PRAVEGA_STREAM=camera-claudio-01
 
+export RUST_BACKTRACE=1
+
 pushd ${ROOT_DIR}/integration-test
 
 cargo run --bin longevity-test -- \
 --stream ${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
 --controller ${PRAVEGA_CONTROLLER_URI} \
 --keycloak-file "${KEYCLOAK_SERVICE_ACCOUNT_FILE}" \
-|& tee -a /tmp/longevity-test.log
+|& tee /tmp/longevity-test.log
