@@ -9,12 +9,13 @@
 //
 
 use glib::subclass::prelude::*;
+use gst::ClockTime;
 use gst::prelude::*;
 use gst::subclass::prelude::*;
 #[allow(unused_imports)]
 use gst::{gst_debug, gst_error, gst_warning, gst_info, gst_log, gst_trace};
 use once_cell::sync::Lazy;
-use pravega_video::timestamp::PravegaTimestamp;
+use pravega_video::timestamp::{PravegaTimestamp, MSECOND};
 use std::sync::Mutex;
 use crate::utils::pravega_to_clocktime;
 
@@ -30,13 +31,14 @@ Output buffer timestamps are nanoseconds \
 since 1970-01-01 00:00:00 TAI International Atomic Time, including leap seconds. \
 Use this for pipelines that will eventually write to pravegasink (timestamp-mode=tai). \
 This element drops any buffers without PTS. \
-Additionally, any PTS values that decrease will have their PTS adjusted to the previous PTS.";
+Additionally, any PTS values that decrease will have their PTS corrected.";
 const ELEMENT_AUTHOR: &str = "Claudio Fahey <claudio.fahey@dell.com>";
 const DEBUG_CATEGORY: &str = ELEMENT_NAME;
 
 #[derive(Debug)]
 struct StartedState {
-    prev_pts: PravegaTimestamp,
+    prev_input_pts: ClockTime,
+    prev_output_pts: PravegaTimestamp,
 }
 
 enum State {
@@ -49,7 +51,8 @@ impl Default for State {
     fn default() -> State {
         State::Started {
             state: StartedState {
-                prev_pts: PravegaTimestamp::none(),
+                prev_input_pts: ClockTime::none(),
+                prev_output_pts: PravegaTimestamp::none(),
             }
         }
     }
@@ -82,33 +85,50 @@ impl TimestampCvt {
             State::Started { ref mut state } => state,
         };
 
+        // If PTS is corrected, it will be set to the previous PTS plus this amount.
+        let pts_correction_delta = 1 * MSECOND;
+
         let input_pts = buffer.pts();
         if input_pts.is_some() {
-            let new_pravega_pts = PravegaTimestamp::from_ntp_nanoseconds(input_pts.nseconds());
-            if new_pravega_pts.is_some() {
-                let new_pravega_pts = if state.prev_pts.is_some() {
-                    if new_pravega_pts < state.prev_pts {
-                        gst_warning!(CAT, obj: pad, "PTS decreased by {} from {} to {}. Setting PTS to {}.",
-                            state.prev_pts - new_pravega_pts, state.prev_pts, new_pravega_pts, state.prev_pts);
-                        state.prev_pts
-                    } else {
-                        state.prev_pts = new_pravega_pts;
-                        new_pravega_pts
-                    }
+            let output_pts = if state.prev_input_pts.is_some() {
+                if state.prev_input_pts == input_pts {
+                    // PTS has not changed.
+                    state.prev_output_pts
+                } else if state.prev_input_pts < input_pts {
+                    // PTS has increased.
+                    PravegaTimestamp::from_ntp_nanoseconds(input_pts.nseconds())
                 } else {
-                    state.prev_pts = new_pravega_pts;
-                    new_pravega_pts
-                };
-                let new_pts = pravega_to_clocktime(new_pravega_pts);
-                let buffer_ref = buffer.make_mut();
-                gst_log!(CAT, obj: pad, "Input PTS {}, Output PTS {}, Timestamp {:?}", input_pts, new_pts, new_pravega_pts);
-                buffer_ref.set_pts(new_pts);
-                self.srcpad.push(buffer)
+                    // PTS has decreased
+                    let time_delta = state.prev_input_pts - input_pts;
+                    let corrected_pts = state.prev_output_pts + pts_correction_delta;
+                    gst_warning!(CAT, obj: pad, "Input PTS decreased by {} from {} to {}. Correcting PTS to {}.",
+                        time_delta, state.prev_input_pts, input_pts, corrected_pts);
+                    corrected_pts
+                }
             } else {
-                gst_warning!(CAT, obj: pad, "Dropping buffer because PTS {} is out of range {:?} to {:?}",
+                // This is our first buffer with a PTS.
+                PravegaTimestamp::from_ntp_nanoseconds(input_pts.nseconds())
+            };
+            let success = if output_pts.is_some() {
+                if state.prev_output_pts.is_some() && output_pts < state.prev_output_pts {
+                    gst_error!(CAT, obj: pad, "Internal error. prev_output_pts={}, output_pts={}",
+                        state.prev_output_pts, output_pts);
+                    Err(gst::FlowError::Error)
+                } else {
+                    state.prev_input_pts = input_pts;
+                    state.prev_output_pts = output_pts;
+                    let output_pts_clocktime = pravega_to_clocktime(output_pts);
+                    let buffer_ref = buffer.make_mut();
+                    gst_log!(CAT, obj: pad, "Input PTS {}, Output PTS {:?}", input_pts, output_pts);
+                    buffer_ref.set_pts(output_pts_clocktime);
+                    self.srcpad.push(buffer)
+                }
+            } else {
+                gst_warning!(CAT, obj: pad, "Dropping buffer because input PTS {} cannot be converted to the range {:?} to {:?}",
                     input_pts, PravegaTimestamp::MIN, PravegaTimestamp::MAX);
                 Ok(gst::FlowSuccess::Ok)
-            }
+            };
+            success
         } else {
             gst_warning!(CAT, obj: pad, "Dropping buffer because PTS is none");
             Ok(gst::FlowSuccess::Ok)
