@@ -15,7 +15,6 @@
 set -ex
 
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
-LOG_FILE="/tmp/$(basename "${0}" .sh).log"
 
 pushd ${ROOT_DIR}/gst-plugin-pravega
 cargo build
@@ -35,6 +34,7 @@ export PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-tcp://127.0.0.1:9090}
 export PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
 export PRAVEGA_STREAM=${PRAVEGA_STREAM:-rtsp1}
 export RUST_BACKTRACE=1
+LOG_FILE="/tmp/$(basename "${0}" .sh)-${PRAVEGA_STREAM}.log"
 
 ${ROOT_DIR}/python_apps/rtsp-camera-to-pravega.py \
 $* |& tee ${LOG_FILE}
