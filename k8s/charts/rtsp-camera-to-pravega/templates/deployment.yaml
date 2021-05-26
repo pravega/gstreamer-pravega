@@ -54,6 +54,8 @@ spec:
           value: "/etc/ssl/certs/ca-certificates.crt"
         - name: PRAVEGA_STREAM
           value: {{ .Values.pravega.stream | quote }}
+        - name: HEALTHY_SECONDS
+          value: "30"
         livenessProbe:
           httpGet:
             path: /ishealthy
