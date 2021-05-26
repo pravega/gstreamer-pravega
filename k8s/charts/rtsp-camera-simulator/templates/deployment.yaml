@@ -32,9 +32,6 @@ spec:
         - name: rtsp
           containerPort: {{ .Values.rtspPort }}
           protocol: TCP
-        - name: rtsp554
-          containerPort: 554
-          protocol: TCP
         env:
         - name: CAMERA_PORT
           value: {{ .Values.rtspPort | quote }}
