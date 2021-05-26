@@ -10,16 +10,23 @@
 
 ARG FROM_IMAGE
 
+# Build DeepStream image with Python bindings and Rust compiler.
+
 FROM ${FROM_IMAGE} as builder-base
+
+COPY docker/ca-certificates /usr/local/share/ca-certificates/
+RUN update-ca-certificates
 
 # Install Python Bindings for DeepStream.
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         less \
+        nano \
         python3-dev \
         python3-gi \
         python3-gst-1.0 \
+        python3-pip \
         wget
 
 RUN cd /opt/nvidia/deepstream/deepstream/lib && \
@@ -49,39 +56,61 @@ RUN set -eux; \
     cargo --version; \
     rustc --version;
 
-# Build GStreamer Pravega libraries and applications.
-
 WORKDIR /usr/src/gstreamer-pravega
 
-FROM builder-base as planner
-RUN cargo install cargo-chef
-COPY . .
-RUN cargo chef prepare  --recipe-path recipe.json
 
-FROM builder-base as cacher
-RUN cargo install cargo-chef
-COPY --from=planner /usr/src/gstreamer-pravega/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
+# Install Cargo Chef build tool.
+FROM builder-base as chef-base
+ARG RUST_JOBS=1
+RUN cargo install cargo-chef --jobs ${RUST_JOBS}
 
-FROM builder-base as final
-## Build gst-plugin-pravega.
 
-# Copy over the cached dependencies
-COPY --from=cacher /usr/src/gstreamer-pravega/target target
-COPY --from=cacher /usr/local/cargo /usr/local/cargo
+# Create Cargo Chef recipe.
+FROM chef-base as planner
 COPY Cargo.toml .
 COPY Cargo.lock .
 COPY apps apps
+COPY deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
 COPY gst-plugin-pravega gst-plugin-pravega
 COPY integration-test integration-test
-COPY deepstream deepstream
+COPY pravega-video pravega-video
+COPY pravega-video-server pravega-video-server
+RUN cargo chef prepare --recipe-path recipe.json
+
+
+# Download and build Rust dependencies for gstreamer-pravega.
+FROM chef-base as cacher
+COPY --from=planner /usr/src/gstreamer-pravega/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json | cat -
+
+
+# Build GStreamer Pravega libraries and applications.
+FROM builder-base as final
+
+# Copy over the cached dependencies.
+COPY --from=cacher /usr/src/gstreamer-pravega/target target
+COPY --from=cacher /usr/local/cargo /usr/local/cargo
+
+COPY Cargo.toml .
+COPY Cargo.lock .
+COPY apps apps
+COPY deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
+COPY gst-plugin-pravega gst-plugin-pravega
+COPY integration-test integration-test
 COPY pravega-video pravega-video
 COPY pravega-video-server pravega-video-server
 
+# Build gst-plugin-pravega.
 RUN cargo build --package gst-plugin-pravega --release && \
     mv -v target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
-RUN cargo install --path pravega-video-server
-COPY deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
 
+# Build pravega_protocol_adapter.
 RUN cargo build --release --package pravega_protocol_adapter && \
     mv -v target/release/*.so /opt/nvidia/deepstream/deepstream/lib/
+
+# Install dependencies for applications.
+RUN pip3 install \
+        configargparse
+
+# Copy applications.
+COPY deepstream deepstream
