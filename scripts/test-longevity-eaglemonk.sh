@@ -14,9 +14,15 @@ set -ex
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
 LOG_FILE="/tmp/$(basename "${0}" .sh).log"
 
-PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-tcp://127.0.0.1:9090}
-PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
-PRAVEGA_STREAM=${PRAVEGA_STREAM:-camera-claudio-01}
+NAMESPACE=examples
+KEYCLOAK_SERVICE_ACCOUNT_FILE=${HOME}/keycloak-${NAMESPACE}.json
+kubectl get secret ${NAMESPACE}-pravega -n ${NAMESPACE} -o jsonpath="{.data.keycloak\.json}" | base64 -d > ${KEYCLOAK_SERVICE_ACCOUNT_FILE}
+
+ALLOW_CREATE_SCOPE=false
+export pravega_client_tls_cert_path=/etc/ssl/certs/DST_Root_CA_X3.pem
+PRAVEGA_CONTROLLER_URI=tls://pravega-controller.kubespray.nautilus-platform-dev.com:443
+PRAVEGA_SCOPE=examples
+PRAVEGA_STREAM=camera-claudio-01
 
 export RUST_BACKTRACE=1
 
@@ -25,4 +31,6 @@ pushd ${ROOT_DIR}/integration-test
 cargo run --bin longevity-test -- \
 --stream ${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
 --controller ${PRAVEGA_CONTROLLER_URI} \
+--keycloak-file "${KEYCLOAK_SERVICE_ACCOUNT_FILE}" \
+--start-utc 2021-05-22T05:33:21.986000Z \
 |& tee ${LOG_FILE}

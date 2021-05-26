@@ -16,7 +16,7 @@ LOG_FILE="/tmp/$(basename "${0}" .sh).log"
 
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-tcp://127.0.0.1:9090}
 PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
-PRAVEGA_STREAM=${PRAVEGA_STREAM:-camera-claudio-01}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-mpegts1}
 
 export RUST_BACKTRACE=1
 
@@ -25,4 +25,5 @@ pushd ${ROOT_DIR}/integration-test
 cargo run --bin longevity-test -- \
 --stream ${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
 --controller ${PRAVEGA_CONTROLLER_URI} \
+--container-format mpegts \
 |& tee ${LOG_FILE}
