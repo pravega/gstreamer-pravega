@@ -47,7 +47,7 @@ impl Write for SeekableByteWriter {
     }
 }
 
-impl Seek  for SeekableByteWriter {
+impl Seek for SeekableByteWriter {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         match pos {
             SeekFrom::Current(0) => Ok(self.inner.current_write_offset() as u64),

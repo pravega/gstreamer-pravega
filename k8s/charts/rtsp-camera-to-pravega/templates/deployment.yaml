@@ -1,0 +1,62 @@
+#
+# Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels: 
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        release: {{ .Release.Name }}
+    spec:
+      serviceAccount: {{ .Release.Namespace }}-pravega
+      containers:
+      - name: gstreamer
+        image: {{ .Values.image.repository | quote }}
+        imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
+        command: ["rtsp-camera-to-pravega-probe.py"]
+        env:
+        - name: ALLOW_CREATE_SCOPE
+          value: "false"
+        - name: CAMERA_ADDRESS
+          value: {{ .Values.camera.address | quote }}
+        - name: CAMERA_PATH
+          value: {{ .Values.camera.path | quote }}
+        - name: CAMERA_PORT
+          value: {{ .Values.camera.port | quote }}
+        - name: CAMERA_PROTOCOLS
+          value: "tcp"
+        - name: CAMERA_USER
+          value: {{ .Values.camera.user | quote }}
+        - name: CAMERA_PASSWORD
+          value: {{ .Values.camera.password | quote }}
+        - name: DEBUGSPY
+          value: "false"
+        - name: FAKESINK
+          value: "false"
+        - name: GST_DEBUG
+          value: "WARNING,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO,h264parse:WARN,pravegasink:DEBUG"
+        - name: pravega_client_tls_cert_path
+          value: "/etc/ssl/certs/ca-certificates.crt"
+        - name: PRAVEGA_STREAM
+          value: {{ .Values.pravega.stream | quote }}
+        livenessProbe:
+          httpGet:
+            path: /ishealthy
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 3
