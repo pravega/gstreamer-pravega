@@ -25,7 +25,7 @@ use tracing_subscriber::fmt::format::FmtSpan;
 pub const DEFAULT_GST_DEBUG: &str = "WARN,pravegasrc:INFO,qtdemux:ERROR";
 /// Default logging configuration for for Rust tracing.
 /// Valid levels are: error, warn, info, debug, trace
-pub const DEFAULT_RUST_LOG: &str = "longevity_test=debug,warn";
+pub const DEFAULT_RUST_LOG: &str = "longevity_test=info,warn";
 
 /// Pravega video player.
 #[derive(Clap)]
@@ -43,6 +43,9 @@ struct Opts {
     start_utc: Option<String>,
     #[clap(long)]
     end_utc: Option<String>,
+    /// Can be mp4 or mpegts
+    #[clap(long, default_value = "mp4")]
+    container_format: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Builder)]
@@ -89,7 +92,7 @@ impl StreamingBufferValidator {
         let flags = buffer.flags();
         let pts = clocktime_to_pravega(buffer.pts());
 
-        event!(Level::INFO, description = "buffer",
+        event!(Level::DEBUG, description = "buffer",
             pts = %pts, duration_ms = buffer.duration().mseconds().unwrap_or_default(),
             offset = buffer.offset(), size = buffer.size(), flags = ?flags,
             stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
@@ -197,26 +200,38 @@ fn main() -> Result<(), Error> {
     gstpravega::plugin_register_static().unwrap();
     let main_loop = glib::MainLoop::new(None, false);
 
+    let demux_pipeline = match opts.container_format.as_str() {
+        "mp4" => format!("qtdemux"),
+        "mpegts" => format!("tsdemux"),
+        _ => panic!("Unsupported container format"),
+    };
+
     let pipeline_description = format!(
         "pravegasrc name=pravegasrc \
-          start-mode=timestamp \
-          start-utc=2021-05-22T05:33:21.986000Z \
-          end-mode=timestamp \
-          end-utc=2021-05-22T05:34:21.986000Z \
-        ! qtdemux name=qtdemux \
+        ! {demux_pipeline} \
         ! h264parse name=h264parse \
         ! avdec_h264 name=avdec_h264 \
-        ! fakesink name=sink sync=false"
+        ! fakesink name=sink sync=false",
+        demux_pipeline = demux_pipeline,
     );
     info!("Launch Pipeline: {}", pipeline_description);
     let pipeline = gst::parse_launch(&pipeline_description.to_owned()).unwrap();
     let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
 
     let pravegasrc = pipeline.clone().dynamic_cast::<gst::Pipeline>().unwrap().by_name("pravegasrc").unwrap();
+    pravegasrc.set_property("buffer-size", 10*1024*1024 as u32).unwrap();
     pravegasrc.set_property("controller", &opts.controller).unwrap();
     pravegasrc.set_property("stream", &opts.stream).unwrap();
-    pravegasrc.set_property("keycloak-file", &opts.keycloak_file.unwrap()).unwrap();
+    pravegasrc.set_property("keycloak-file", &opts.keycloak_file.unwrap_or_default()).unwrap();
     pravegasrc.set_property("allow-create-scope", &false).unwrap();
+    if let Some(start_utc) = opts.start_utc {
+        pravegasrc.set_property_from_str("start-mode", "timestamp");
+        pravegasrc.set_property("start-utc", &start_utc).unwrap();
+    }
+    if let Some(end_utc) = opts.end_utc {
+        pravegasrc.set_property_from_str("start-mode", "timestamp");
+        pravegasrc.set_property("end-utc", &end_utc).unwrap();
+    }
 
     let max_gap = 100 * MSECOND;
 
