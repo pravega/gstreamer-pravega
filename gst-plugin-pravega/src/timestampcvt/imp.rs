@@ -94,16 +94,20 @@ impl TimestampCvt {
                 if state.prev_input_pts == input_pts {
                     // PTS has not changed.
                     state.prev_output_pts
-                } else if state.prev_input_pts < input_pts {
-                    // PTS has increased.
-                    PravegaTimestamp::from_ntp_nanoseconds(input_pts.nseconds())
                 } else {
-                    // PTS has decreased
-                    let time_delta = state.prev_input_pts - input_pts;
-                    let corrected_pts = state.prev_output_pts + pts_correction_delta;
-                    gst_warning!(CAT, obj: pad, "Input PTS decreased by {} from {} to {}. Correcting PTS to {}.",
-                        time_delta, state.prev_input_pts, input_pts, corrected_pts);
-                    corrected_pts
+                    // PTS has changed. Calculate new output PTS.
+                    let output_pts = PravegaTimestamp::from_ntp_nanoseconds(input_pts.nseconds());
+                    if state.prev_output_pts < output_pts {
+                        // PTS has increased normally.
+                        output_pts
+                    } else {
+                        // Output PTS has decreased.
+                        let time_delta = state.prev_output_pts - output_pts;
+                        let corrected_pts = state.prev_output_pts + pts_correction_delta;
+                        gst_warning!(CAT, obj: pad, "Output PTS would have decreased by {} from {} to {}. Correcting PTS to {}.",
+                            time_delta, state.prev_output_pts, output_pts, corrected_pts);
+                        corrected_pts
+                    }
                 }
             } else {
                 // This is our first buffer with a PTS.
