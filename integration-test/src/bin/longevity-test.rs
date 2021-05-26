@@ -31,14 +31,18 @@ pub const DEFAULT_RUST_LOG: &str = "longevity_test=debug,warn";
 #[derive(Clap)]
 struct Opts {
     /// Pravega controller in format "tcp://127.0.0.1:9090"
-    #[clap(short, long, default_value = "tcp://127.0.0.1:9090")]
+    #[clap(long, default_value = "tcp://127.0.0.1:9090")]
     controller: String,
     /// The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.
-    #[clap(short, long)]
+    #[clap(long)]
     keycloak_file: Option<String>,
     /// Pravega scope/stream
-    #[clap(short, long)]
+    #[clap(long)]
     stream: String,
+    #[clap(long)]
+    start_utc: Option<String>,
+    #[clap(long)]
+    end_utc: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Builder)]
@@ -84,13 +88,19 @@ impl StreamingBufferValidator {
     pub fn record_buffer(&mut self, buffer: &gst::BufferRef) {
         let flags = buffer.flags();
         let pts = clocktime_to_pravega(buffer.pts());
+
+        event!(Level::INFO, description = "buffer",
+            pts = %pts, duration_ms = buffer.duration().mseconds().unwrap_or_default(),
+            offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+            stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
+
         self.buffer_count += 1;
-        if pts.is_none() {
+        let log_pts = if pts.is_none() {
             event!(Level::WARN, description = "PTS is missing",
-                prev_pts = %self.prev_pts,
-                offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                pts = %self.prev_pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
                 stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
             self.pts_missing_count += 1;
+            self.prev_pts
         } else {
             if self.min_pts.is_none() || self.min_pts > pts {
                 self.min_pts = pts;
@@ -117,18 +127,20 @@ impl StreamingBufferValidator {
                         pts = %pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
                         stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
                     self.pts_decreasing_count += 1;
+                    self.prev_pts = pts;
                 }
             }
-        }
+            pts
+        };
         if flags.contains(gst::BufferFlags::DISCONT) {
             event!(Level::WARN, description = "discontinuity",
-                pts = %pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                pts = %log_pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
                 stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
             self.discontinuity_count += 1;
         }
         if flags.contains(gst::BufferFlags::CORRUPTED) {
             event!(Level::WARN, description = "corrupted",
-                pts = %pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                pts = %log_pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
                 stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
             self.corrupted_count += 1;
         }
@@ -173,6 +185,7 @@ fn main() -> Result<(), Error> {
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_span_events(FmtSpan::CLOSE)
+        .json()
         .init();
 
     match std::env::var("GST_DEBUG") {
@@ -186,7 +199,10 @@ fn main() -> Result<(), Error> {
 
     let pipeline_description = format!(
         "pravegasrc name=pravegasrc \
-          start-mode=earliest \
+          start-mode=timestamp \
+          start-utc=2021-05-22T05:33:21.986000Z \
+          end-mode=timestamp \
+          end-utc=2021-05-22T05:34:21.986000Z \
         ! qtdemux name=qtdemux \
         ! h264parse name=h264parse \
         ! avdec_h264 name=avdec_h264 \
