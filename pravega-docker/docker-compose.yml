@@ -36,6 +36,8 @@ services:
       bookiePort: 3181
       BK_minorCompactionInterval: 1800
       BK_majorCompactionInterval: 3600
+      BK_journalMaxSizeMB: 100
+      BK_journalMaxBackups: 1
     image: pravega/bookkeeper:0.9.0
     links:
       - zookeeper
