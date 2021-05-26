@@ -12,17 +12,24 @@
 
 set -ex
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
-LOG_FILE="/tmp/$(basename "${0}" .sh).log"
 
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-tcp://127.0.0.1:9090}
 PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
-PRAVEGA_STREAM=${PRAVEGA_STREAM:-camera-claudio-01}
+PRAVEGA_STREAM=${PRAVEGA_STREAM:-mp43}
+
+# TIME_FILTER="\
+# --start-utc 2021-05-26T17:07:08Z \
+# --end-utc   2021-05-26T17:07:13Z"
+# export RUST_LOG=longevity_test=debug,warn
 
 export RUST_BACKTRACE=1
+LOG_FILE="/tmp/$(basename "${0}" .sh)-${PRAVEGA_STREAM}.log"
 
 pushd ${ROOT_DIR}/integration-test
 
 cargo run --bin longevity-test -- \
 --stream ${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
 --controller ${PRAVEGA_CONTROLLER_URI} \
+${TIME_FILTER} \
+$* \
 |& tee ${LOG_FILE}

@@ -50,6 +50,7 @@ struct Opts {
 
 #[derive(Clone, Debug, PartialEq, Builder)]
 pub struct StreamingBufferValidatorConfig {
+    pub probe_name: String,
     pub stream: String,
     pub element: String,
     pub pad: String,
@@ -95,12 +96,14 @@ impl StreamingBufferValidator {
         event!(Level::DEBUG, description = "buffer",
             pts = %pts, duration_ms = buffer.duration().mseconds().unwrap_or_default(),
             offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+            probe_name = %self.config.probe_name,
             stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
 
         self.buffer_count += 1;
         let log_pts = if pts.is_none() {
             event!(Level::WARN, description = "PTS is missing",
                 pts = %self.prev_pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                probe_name = %self.config.probe_name,
                 stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
             self.pts_missing_count += 1;
             self.prev_pts
@@ -128,6 +131,7 @@ impl StreamingBufferValidator {
                     event!(Level::WARN, description = "PTS is decreasing",
                         time_delta = %time_delta, prev_pts = %self.prev_pts,
                         pts = %pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                        probe_name = %self.config.probe_name,
                         stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
                     self.pts_decreasing_count += 1;
                     self.prev_pts = pts;
@@ -138,12 +142,14 @@ impl StreamingBufferValidator {
         if flags.contains(gst::BufferFlags::DISCONT) {
             event!(Level::WARN, description = "discontinuity",
                 pts = %log_pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                probe_name = %self.config.probe_name,
                 stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
             self.discontinuity_count += 1;
         }
         if flags.contains(gst::BufferFlags::CORRUPTED) {
             event!(Level::WARN, description = "corrupted",
                 pts = %log_pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                probe_name = %self.config.probe_name,
                 stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
             self.corrupted_count += 1;
         }
@@ -160,6 +166,7 @@ impl StreamingBufferValidator {
             pts_decreasing_count = self.pts_decreasing_count,
             discontinuity_count = self.discontinuity_count,
             corrupted_count = self.corrupted_count,
+            probe_name = %self.config.probe_name,
             stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad,
         );
     }
@@ -229,7 +236,7 @@ fn main() -> Result<(), Error> {
         pravegasrc.set_property("start-utc", &start_utc).unwrap();
     }
     if let Some(end_utc) = opts.end_utc {
-        pravegasrc.set_property_from_str("start-mode", "timestamp");
+        pravegasrc.set_property_from_str("end-mode", "timestamp");
         pravegasrc.set_property("end-utc", &end_utc).unwrap();
     }
 
@@ -237,6 +244,7 @@ fn main() -> Result<(), Error> {
 
     let pravegasrc_validator = install_validator(&pipeline,
         StreamingBufferValidatorConfigBuilder::default()
+        .probe_name("1-pravegasrc".to_owned())
         .stream(opts.stream.clone())
         .element("pravegasrc".to_owned())
         .pad("src".to_owned())
@@ -245,6 +253,7 @@ fn main() -> Result<(), Error> {
 
     let demux_validator = install_validator(&pipeline,
         StreamingBufferValidatorConfigBuilder::default()
+        .probe_name("2-demux".to_owned())
         .stream(opts.stream.clone())
         .element("h264parse".to_owned())
         .pad("sink".to_owned())
@@ -253,6 +262,7 @@ fn main() -> Result<(), Error> {
 
     let parse_validator = install_validator(&pipeline,
         StreamingBufferValidatorConfigBuilder::default()
+        .probe_name("3-parse".to_owned())
         .stream(opts.stream.clone())
         .element("h264parse".to_owned())
         .pad("src".to_owned())
@@ -261,6 +271,7 @@ fn main() -> Result<(), Error> {
 
     let decoded_validator = install_validator(&pipeline,
         StreamingBufferValidatorConfigBuilder::default()
+        .probe_name("4-decode".to_owned())
         .stream(opts.stream.clone())
         .element("sink".to_owned())
         .pad("sink".to_owned())
