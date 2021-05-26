@@ -10,6 +10,10 @@ spec:
     port: {{ .Values.rtspPort }}
     targetPort: {{ .Values.rtspPort }}
     protocol: TCP
+  - name: rtsp554
+    port: 554
+    targetPort: 554
+    protocol: TCP
   selector:
     release: {{ $.Release.Name }}
   type: LoadBalancer
