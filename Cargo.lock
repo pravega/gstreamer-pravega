@@ -1979,6 +1979,7 @@ version = "0.7.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "clap 3.0.0-beta.2",
  "ctor",
  "derive-new",
  "derive_builder 0.10.2",
