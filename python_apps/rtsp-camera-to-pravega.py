@@ -23,11 +23,12 @@ import signal
 import sys
 import time
 import traceback
+from threading import Thread
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import GObject, Gst
-
 
 def bus_call(bus, message, loop):
     """Callback for GStreamer bus messages"""
@@ -50,14 +51,78 @@ def bus_call(bus, message, loop):
         logging.debug("%s: %s" % (message.src.name, str(details),))
     return True
 
-
 def on_queue_overrun(element):
     logging.warning("Queue has overflowed and data has been lost. Try increasing buffer-size-mb.")
-
 
 def str2bool(v):
     return bool(distutils.util.strtobool(v))
 
+def buffer_timestamp_probe(pad, info, data):
+    gst_buffer = info.get_buffer()
+    if gst_buffer:
+        data.update(gst_buffer.pts)
+        logging.info("buffer_timestamp_probe: %20s:%-8s: " % (
+            pad.get_parent_element().name,
+            pad.name) + data.to_string()
+        )
+        
+    else:
+        logging.info("buffer_timestamp_probe: %20s:%-8s: no buffer" % (
+            pad.get_parent_element().name,
+            pad.name))
+    return Gst.PadProbeReturn.OK
+
+def start_http_server(hostname='0.0.0.0', port=8080):
+    httpd = HTTPServer((hostname, port), ProbeHttpHandler)
+    def serve_forever(httpd):
+        with httpd:  # to make sure httpd.server_close is called
+            httpd.serve_forever()
+
+    thread = Thread(target=serve_forever, args=(httpd, ))
+    # flag the http server thread as daemon thread so that it can be abruptly stopped at shutdown
+    thread.setDaemon(True)
+    thread.start()
+    logging.info('Probe server is listening on %s:%d' % (hostname, port))
+    return httpd
+
+class TimestampSet():
+    def __init__(self, tolerance):
+        self.value = 0
+        self.update_at = 0
+        self.update_tolerance = tolerance
+
+    def update(self, value):
+        self.value = value
+        self.update_at = int(time.time())
+    
+    def to_string(self):
+        return "value: %u at %u seconds since epoch" % (self.value, self.update_at)
+    
+    def is_uptodate(self):
+        return int(time.time()) - self.update_at < self.update_tolerance
+
+class ProbeHttpHandler(BaseHTTPRequestHandler):
+    ts_set = None
+    def send_code_msg(self, code, msg): 
+        self.send_response(code)
+        self.send_header('Content-Type',
+                         'text/plain; charset=utf-8')
+        self.end_headers()
+        self.wfile.write(msg.encode('utf-8'))
+
+    # Any code greater than or equal to 200 and less than 400 indicates success. Any other code indicates failure
+    # https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+    def do_GET(self):
+        if self.path.lower() == "/ishealthy":
+            if ProbeHttpHandler.ts_set.is_uptodate():
+                self.send_code_msg(200, "OK")
+            else:
+                self.send_code_msg(500, "Internal Server Error")
+        else:
+            self.send_code_msg(404, "Not Found")
+
+    def do_POST(self):
+        self.send_code_msg(404, "Not Found")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -81,6 +146,8 @@ def main():
     parser.add_argument("--fakesink", type=str2bool, default=False)
     parser.add_argument("--fakesource", type=str2bool, default=False)
     parser.add_argument("--fragment-duration-ms", type=int, default=1)
+    parser.add_argument("--healthy-probe", type=str2bool, default=False)
+    parser.add_argument("--healthy-seconds", type=int, default=30)
     parser.add_argument("--keycloak-service-account-file")
     parser.add_argument("--log-level", type=int, default=logging.INFO, help="10=DEBUG,20=INFO")
     parser.add_argument("--pravega-controller-uri", default="tcp://127.0.0.1:9090")
@@ -91,6 +158,9 @@ def main():
 
     logging.basicConfig(level=args.log_level)
     logging.info("%s: BEGIN" % parser.prog)
+
+    if args.healthy_probe:
+        start_http_server()
 
     # Set default GStreamer logging.
     if not "GST_DEBUG" in os.environ:
@@ -228,6 +298,11 @@ def main():
         # Required to use NTP timestamps in PTS
         if not args.fakesource:
             pravegasink.set_property("timestamp-mode", "tai")
+        if args.healthy_probe:
+            ts_set = TimestampSet(args.healthy_seconds)
+            ProbeHttpHandler.ts_set = ts_set
+            pravegasinkpad = pravegasink.get_static_pad("sink")
+            pravegasinkpad.add_probe(Gst.PadProbeType.BUFFER, buffer_timestamp_probe, ts_set)
 
     # Create an event loop and feed GStreamer bus messages to it.
     loop = GObject.MainLoop()
@@ -256,7 +331,6 @@ def main():
     logging.info("Stopping pipeline")
     pipeline.set_state(Gst.State.NULL)
     logging.info("%s: END" % parser.prog)
-
 
 if __name__ == "__main__":
     main()

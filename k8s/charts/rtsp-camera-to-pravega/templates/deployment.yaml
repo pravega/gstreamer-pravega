@@ -28,7 +28,7 @@ spec:
       - name: gstreamer
         image: {{ .Values.image.repository | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
-        command: ["rtsp-camera-to-pravega-probe.py"]
+        command: ["rtsp-camera-to-pravega.py"]
         env:
         - name: ALLOW_CREATE_SCOPE
           value: "false"
@@ -56,6 +56,8 @@ spec:
           value: {{ .Values.pravega.stream | quote }}
         - name: HEALTHY_SECONDS
           value: "30"
+        - name: HEALTHY_PROBE
+          value: "true"
         livenessProbe:
           httpGet:
             path: /ishealthy
