@@ -34,7 +34,7 @@ crate-type = ["cdylib", "rlib"]
 path = "src/lib.rs"
 
 [dev-dependencies]
-gst-check = { package = "gstreamer-check", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs", features = ["v1_18"] }
+gst-check = { package = "gstreamer-check", git = "https://gitlab.freedesktop.org/gstreamer/gstreamer-rs" }
 
 [build-dependencies]
 gst-plugin-version-helper = { git = "https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs" }
