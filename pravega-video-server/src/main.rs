@@ -24,8 +24,8 @@ struct Opts {
     #[clap(short, long, default_value = "127.0.0.1:9090")]
     controller: String,
     /// The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.
-    #[clap(short, long)]
-    keycloak_file: Option<String>,
+    #[clap(short, long, default_value = "", setting(clap::ArgSettings::AllowEmptyValues))]
+    keycloak_file: String,
 }
 
 fn main() {
@@ -41,7 +41,7 @@ fn main() {
 
     // Let Pravega ClientFactory create the Tokio runtime. It will also be used by Warp.
 
-    let config = create_client_config(opts.controller, opts.keycloak_file).expect("creating config");
+    let config = create_client_config(opts.controller, Some(opts.keycloak_file)).expect("creating config");
     let client_factory = ClientFactory::new(config);
     let client_factory_db = client_factory.clone();
     let runtime = client_factory.runtime();

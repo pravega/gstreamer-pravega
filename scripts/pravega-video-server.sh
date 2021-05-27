@@ -17,14 +17,9 @@ export RUST_LOG=info
 export RUST_BACKTRACE=1
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
 pushd ${ROOT_DIR}/pravega-video-server
-if [[ ! -z "${KEYCLOAK_SERVICE_ACCOUNT_FILE}" ]]; then
-    AUTH_OPTS="--keycloak-file ${KEYCLOAK_SERVICE_ACCOUNT_FILE}"
-else
-    AUTH_OPTS=""
-fi
 cargo run -- \
 --controller ${PRAVEGA_CONTROLLER_URI} \
-${AUTH_OPTS} \
+--keycloak-file "${KEYCLOAK_SERVICE_ACCOUNT_FILE}" \
 $* \
 |& tee /tmp/pravega-video-server.log
 popd
