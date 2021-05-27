@@ -10,8 +10,7 @@
 
 use gst::ClockTime;
 use gstpravega::utils::pravega_to_clocktime;
-use pravega_video::timestamp::{PravegaTimestamp, MSECOND};
-use std::convert::TryFrom;
+use pravega_video::timestamp::PravegaTimestamp;
 
 fn init() {
     use std::sync::Once;
