@@ -22,20 +22,21 @@ use tracing_subscriber::fmt::format::FmtSpan;
 /// Default logging configuration for GStreamer and GStreamer plugins.
 /// Valid levels are: none, ERROR, WARNING, FIXME, INFO, DEBUG, LOG, TRACE, MEMDUMP
 /// See [https://gstreamer.freedesktop.org/documentation/tutorials/basic/debugging-tools.html?gi-language=c#the-debug-log].
-pub const DEFAULT_GST_DEBUG: &str = "WARN,pravegasrc:INFO,qtdemux:ERROR";
+pub const DEFAULT_GST_DEBUG: &str = "pravegasrc:FIXME,qtdemux:ERROR,WARN";
 /// Default logging configuration for for Rust tracing.
 /// Valid levels are: error, warn, info, debug, trace
 pub const DEFAULT_RUST_LOG: &str = "longevity_test=info,warn";
 
-/// Pravega video player.
-#[derive(Clap)]
+/// Continuously read a Pravega video stream, identify problems, and print statistics.
+/// This will log JSON to the console, which can be analyzed using jupyter/notebooks/longevity_test.ipynb.
+#[derive(Clap, Debug)]
 struct Opts {
     /// Pravega controller in format "tcp://127.0.0.1:9090"
     #[clap(long, default_value = "tcp://127.0.0.1:9090")]
     controller: String,
     /// The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.
-    #[clap(long)]
-    keycloak_file: Option<String>,
+    #[clap(long, default_value = "", setting(clap::ArgSettings::AllowEmptyValues))]
+    keycloak_file: String,
     /// Pravega scope/stream
     #[clap(long)]
     stream: String,
@@ -46,6 +47,9 @@ struct Opts {
     /// Can be mp4 or mpegts
     #[clap(long, default_value = "mp4")]
     container_format: String,
+    /// Gaps in PTS larger than this will produce a warning.
+    #[clap(long, default_value = "1000")]
+    max_gap_ms: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Builder)]
@@ -54,7 +58,10 @@ pub struct StreamingBufferValidatorConfig {
     pub stream: String,
     pub element: String,
     pub pad: String,
+    /// Gaps in PTS larger than this will produce a warning.
     pub max_gap: TimeDelta,
+    /// The number of discontinuities to allow without a warning.
+    pub max_discontinuities: u64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -64,6 +71,7 @@ pub struct StreamingBufferValidator {
     prev_pts_plus_duration: PravegaTimestamp,
     min_pts: PravegaTimestamp,
     max_pts: PravegaTimestamp,
+    byte_count: u64,
     buffer_count: u64,
     pts_missing_count: u64,
     pts_gap_too_large_count: u64,
@@ -75,11 +83,12 @@ pub struct StreamingBufferValidator {
 impl StreamingBufferValidator {
     pub fn new(config: StreamingBufferValidatorConfig) -> StreamingBufferValidator{
         StreamingBufferValidator {
-            config: config,
+            config,
             prev_pts: PravegaTimestamp::none(),
             prev_pts_plus_duration: PravegaTimestamp::none(),
             min_pts: PravegaTimestamp::none(),
             max_pts: PravegaTimestamp::none(),
+            byte_count: 0,
             buffer_count: 0,
             pts_missing_count: 0,
             pts_gap_too_large_count: 0,
@@ -93,18 +102,33 @@ impl StreamingBufferValidator {
         let flags = buffer.flags();
         let pts = clocktime_to_pravega(buffer.pts());
 
-        event!(Level::DEBUG, description = "buffer",
-            pts = %pts, duration_ms = buffer.duration().mseconds().unwrap_or_default(),
-            offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+        event!(Level::DEBUG,
+            description = "buffer",
+            pts = %pts,
+            duration_ms = buffer.duration().mseconds().unwrap_or_default(),
+            offset = buffer.offset(),
+            size = buffer.size(),
+            flags = ?flags,
             probe_name = %self.config.probe_name,
-            stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
+            stream = %self.config.stream,
+            element = %self.config.element,
+            pad = %self.config.pad,
+        );
 
+        self.byte_count += buffer.size() as u64;
         self.buffer_count += 1;
         let log_pts = if pts.is_none() {
-            event!(Level::WARN, description = "PTS is missing",
-                pts = %self.prev_pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+            event!(Level::WARN,
+                description = "PTS is missing",
+                pts = %self.prev_pts,
+                offset = buffer.offset(),
+                size = buffer.size(),
+                flags = ?flags,
                 probe_name = %self.config.probe_name,
-                stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
+                stream = %self.config.stream,
+                element = %self.config.element,
+                pad = %self.config.pad,
+            );
             self.pts_missing_count += 1;
             self.prev_pts
         } else {
@@ -120,19 +144,36 @@ impl StreamingBufferValidator {
                 let time_delta = pts - self.prev_pts;
                 if time_delta >= 0 * MSECOND {
                     if time_delta > self.config.max_gap {
-                        event!(Level::WARN, description = "Gap in PTS is too large",
-                            time_delta = %time_delta, prev_pts = %self.prev_pts,
-                            pts = %pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
-                            stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
+                        event!(Level::WARN,
+                            description = "Gap in PTS is too large",
+                            time_delta = %time_delta,
+                            prev_pts = %self.prev_pts,
+                            pts = %pts,
+                            offset = buffer.offset(),
+                            size = buffer.size(),
+                            flags = ?flags,
+                            probe_name = %self.config.probe_name,
+                            stream = %self.config.stream,
+                            element = %self.config.element,
+                            pad = %self.config.pad,
+                        );
                         self.pts_gap_too_large_count += 1;
                     }
                     self.prev_pts = pts;
                 } else {
-                    event!(Level::WARN, description = "PTS is decreasing",
-                        time_delta = %time_delta, prev_pts = %self.prev_pts,
-                        pts = %pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
+                    event!(Level::WARN,
+                        description = "PTS is decreasing",
+                        time_delta = %time_delta,
+                        prev_pts = %self.prev_pts,
+                        pts = %pts,
+                        offset = buffer.offset(),
+                        size = buffer.size(),
+                        flags = ?flags,
                         probe_name = %self.config.probe_name,
-                        stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
+                        stream = %self.config.stream,
+                        element = %self.config.element,
+                        pad = %self.config.pad,
+                    );
                     self.pts_decreasing_count += 1;
                     self.prev_pts = pts;
                 }
@@ -140,23 +181,41 @@ impl StreamingBufferValidator {
             pts
         };
         if flags.contains(gst::BufferFlags::DISCONT) {
-            event!(Level::WARN, description = "discontinuity",
-                pts = %log_pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
-                probe_name = %self.config.probe_name,
-                stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
             self.discontinuity_count += 1;
+            if self.discontinuity_count > self.config.max_discontinuities {
+                event!(Level::WARN,
+                    description = "discontinuity",
+                    pts = %log_pts,
+                    offset = buffer.offset(),
+                    size = buffer.size(),
+                    flags = ?flags,
+                    probe_name = %self.config.probe_name,
+                    stream = %self.config.stream,
+                    element = %self.config.element,
+                    pad = %self.config.pad,
+                );
+            }
         }
         if flags.contains(gst::BufferFlags::CORRUPTED) {
-            event!(Level::WARN, description = "corrupted",
-                pts = %log_pts, offset = buffer.offset(), size = buffer.size(), flags = ?flags,
-                probe_name = %self.config.probe_name,
-                stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad);
             self.corrupted_count += 1;
+            event!(Level::WARN,
+                description = "corrupted",
+                pts = %log_pts,
+                offset = buffer.offset(),
+                size = buffer.size(),
+                flags = ?flags,
+                probe_name = %self.config.probe_name,
+                stream = %self.config.stream,
+                element = %self.config.element,
+                pad = %self.config.pad,
+            );
         }
     }
 
     pub fn log_stats(&self) {
-        event!(Level::INFO, description = "statistics",
+        event!(Level::INFO,
+            description = "statistics",
+            byte_count = self.byte_count,
             buffer_count = self.buffer_count,
             min_pts = %self.min_pts,
             max_pts = %self.max_pts,
@@ -167,7 +226,9 @@ impl StreamingBufferValidator {
             discontinuity_count = self.discontinuity_count,
             corrupted_count = self.corrupted_count,
             probe_name = %self.config.probe_name,
-            stream = %self.config.stream, element = %self.config.element, pad = %self.config.pad,
+            stream = %self.config.stream,
+            element = %self.config.element,
+            pad = %self.config.pad,
         );
     }
 }
@@ -193,7 +254,7 @@ fn main() -> Result<(), Error> {
     let filter = std::env::var("RUST_LOG")
         .unwrap_or_else(|_| DEFAULT_RUST_LOG.to_owned());
     tracing_subscriber::fmt()
-        .with_env_filter(filter)
+        .with_env_filter(filter.clone())
         .with_span_events(FmtSpan::CLOSE)
         .json()
         .init();
@@ -203,6 +264,11 @@ fn main() -> Result<(), Error> {
         Err(_) => std::env::set_var("GST_DEBUG", DEFAULT_GST_DEBUG),
     };
 
+    info!("main: BEGIN");
+    info!("RUST_LOG={}", filter);
+    info!("GST_DEBUG={}", std::env::var("GST_DEBUG").unwrap_or_default());
+    info!("opts={:?}", opts);
+
     gst::init()?;
     gstpravega::plugin_register_static().unwrap();
     let main_loop = glib::MainLoop::new(None, false);
@@ -210,7 +276,7 @@ fn main() -> Result<(), Error> {
     let demux_pipeline = match opts.container_format.as_str() {
         "mp4" => format!("qtdemux"),
         "mpegts" => format!("tsdemux"),
-        _ => panic!("Unsupported container format"),
+        _ => anyhow::bail!("Unsupported container format"),
     };
 
     let pipeline_description = format!(
@@ -229,7 +295,7 @@ fn main() -> Result<(), Error> {
     pravegasrc.set_property("buffer-size", 10*1024*1024 as u32).unwrap();
     pravegasrc.set_property("controller", &opts.controller).unwrap();
     pravegasrc.set_property("stream", &opts.stream).unwrap();
-    pravegasrc.set_property("keycloak-file", &opts.keycloak_file.unwrap_or_default()).unwrap();
+    pravegasrc.set_property("keycloak-file", &opts.keycloak_file).unwrap();
     pravegasrc.set_property("allow-create-scope", &false).unwrap();
     if let Some(start_utc) = opts.start_utc {
         pravegasrc.set_property_from_str("start-mode", "timestamp");
@@ -240,7 +306,7 @@ fn main() -> Result<(), Error> {
         pravegasrc.set_property("end-utc", &end_utc).unwrap();
     }
 
-    let max_gap = 100 * MSECOND;
+    let max_gap = opts.max_gap_ms * MSECOND;
 
     let pravegasrc_validator = install_validator(&pipeline,
         StreamingBufferValidatorConfigBuilder::default()
@@ -249,6 +315,7 @@ fn main() -> Result<(), Error> {
         .element("pravegasrc".to_owned())
         .pad("src".to_owned())
         .max_gap(max_gap)
+        .max_discontinuities(1)
         .build().unwrap());
 
     let demux_validator = install_validator(&pipeline,
@@ -258,6 +325,7 @@ fn main() -> Result<(), Error> {
         .element("h264parse".to_owned())
         .pad("sink".to_owned())
         .max_gap(max_gap)
+        .max_discontinuities(u64::MAX)
         .build().unwrap());
 
     let parse_validator = install_validator(&pipeline,
@@ -267,6 +335,7 @@ fn main() -> Result<(), Error> {
         .element("h264parse".to_owned())
         .pad("src".to_owned())
         .max_gap(max_gap)
+        .max_discontinuities(u64::MAX)
         .build().unwrap());
 
     let decoded_validator = install_validator(&pipeline,
@@ -276,6 +345,7 @@ fn main() -> Result<(), Error> {
         .element("sink".to_owned())
         .pad("sink".to_owned())
         .max_gap(max_gap)
+        .max_discontinuities(1)
         .build().unwrap());
 
     let timeout_id = glib::timeout_add(std::time::Duration::from_secs(60), move || {
