@@ -1,0 +1,7 @@
+image:
+  repository: "devops-repo.isus.emc.com:8116/nautilus/gstreamer:pravega-dev"
+  pullPolicy: "Always"
+
+camera:
+  user: "admin"
+  password: "password"
