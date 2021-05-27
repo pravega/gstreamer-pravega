@@ -1362,6 +1362,7 @@ dependencies = [
  "gst-plugin-version-helper",
  "gstreamer",
  "gstreamer-base",
+ "gstreamer-check",
  "once_cell",
  "pravega-client",
  "pravega-client-config",
@@ -1471,6 +1472,29 @@ dependencies = [
 
 [[package]]
 name = "gstreamer-base-sys"
+version = "0.17.0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d30e626e7988b5ef7a760e0fef99c0e9998d41a9"
+dependencies = [
+ "glib-sys",
+ "gobject-sys",
+ "gstreamer-sys",
+ "libc",
+ "system-deps",
+]
+
+[[package]]
+name = "gstreamer-check"
+version = "0.17.0"
+source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d30e626e7988b5ef7a760e0fef99c0e9998d41a9"
+dependencies = [
+ "bitflags",
+ "glib",
+ "gstreamer",
+ "gstreamer-check-sys",
+]
+
+[[package]]
+name = "gstreamer-check-sys"
 version = "0.17.0"
 source = "git+https://gitlab.freedesktop.org/gstreamer/gstreamer-rs#d30e626e7988b5ef7a760e0fef99c0e9998d41a9"
 dependencies = [
