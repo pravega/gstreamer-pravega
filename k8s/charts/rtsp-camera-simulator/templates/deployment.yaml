@@ -11,17 +11,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: rtsp-camera-simulator
+  name: {{ $.Release.Name }}
   labels: 
-    release: rtsp-camera-simulator
+    release: {{ $.Release.Name }}
 spec:
   selector:
     matchLabels:
-      release: rtsp-camera-simulator
+      release: {{ $.Release.Name }}
   template:
     metadata:
       labels:
-        release: rtsp-camera-simulator
+        release: {{ $.Release.Name }}
     spec:
       containers:
       - name: rtsp-camera-simulator
@@ -30,12 +30,12 @@ spec:
         command: ["rtsp-camera-simulator"]
         ports:
         - name: rtsp
-          containerPort: 8554
+          containerPort: {{ .Values.rtspPort }}
           protocol: TCP
         env:
-        - name: CAMERA_PASSWORD
-          value: {{ .Values.camera.password | quote }}
         - name: CAMERA_PORT
-          value: "8554"
-        - name: CAMERA_USER
-          value: {{ .Values.camera.user | quote }}
+          value: {{ .Values.rtspPort | quote }}
+        {{- range $key, $value := .Values.appParameters }}
+        - name: {{ $key | quote }}
+          value: {{ $value | quote }}
+        {{- end }}
