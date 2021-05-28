@@ -101,7 +101,7 @@ class TimestampSet():
     
     def is_healthy(self):
         self.idle_time = int(time.monotonic()) - self.update_at
-        return self.idle_time - self.update_at < self.update_tolerance
+        return self.idle_time < self.update_tolerance
 
 
 class ProbeHttpHandler(BaseHTTPRequestHandler):
