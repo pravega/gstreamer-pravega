@@ -34,7 +34,7 @@ export JUNIT_OUTPUT=${JUNIT_OUTPUT:-0}
 cargo test --release --locked $* -- --skip ignore --list \
 |& tee /tmp/integration-test.log
 
-if [[ "${BUILD_PROD}" != "0" ]]; then
+if [[ "${JUNIT_OUTPUT}" != "0" ]]; then
     # Run tests.
     cargo test --release --locked $* -- --skip ignore --nocapture --test-threads=${TEST_THREADS} \
     -Z unstable-options --format json | cargo2junit | tee junit.xml
