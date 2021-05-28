@@ -18,7 +18,7 @@ PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
 PRAVEGA_STREAM=${PRAVEGA_STREAM:-mp43}
 
 # TIME_FILTER="\
-# --start-utc 2021-05-28T05:07:32.045000000Z \
+# --start-utc 2021-05-26T17:07:08Z \
 # --end-utc   2021-05-26T17:07:13Z"
 # export RUST_LOG=longevity_test=debug,warn
 
