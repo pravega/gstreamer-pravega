@@ -87,6 +87,8 @@ RUN cargo chef cook --release --recipe-path recipe.json | cat -
 # Build GStreamer Pravega libraries and applications.
 FROM builder-base as final
 
+ARG RUST_JOBS=1
+
 # Copy over the cached dependencies.
 COPY --from=cacher /usr/src/gstreamer-pravega/target target
 COPY --from=cacher /usr/local/cargo /usr/local/cargo
@@ -101,16 +103,16 @@ COPY pravega-video pravega-video
 COPY pravega-video-server pravega-video-server
 
 # Build gst-plugin-pravega.
-RUN cargo build --package gst-plugin-pravega --release && \
+RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS} && \
     mv -v target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 
 # Build pravega_protocol_adapter.
-RUN cargo build --release --package pravega_protocol_adapter && \
+RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS} && \
     mv -v target/release/*.so /opt/nvidia/deepstream/deepstream/lib/
 
 ## Build misc. Rust apps.
 RUN cargo install --locked --jobs ${RUST_JOBS} --path integration-test --bin \
-      longevity-test
+        longevity-test
 
 # Install dependencies for applications.
 RUN pip3 install \
