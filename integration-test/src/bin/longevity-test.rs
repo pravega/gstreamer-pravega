@@ -15,6 +15,7 @@ use gst::prelude::*;
 use gstpravega::utils::clocktime_to_pravega;
 use pravega_video::timestamp::{PravegaTimestamp, TimeDelta, MSECOND};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 #[allow(unused_imports)]
 use tracing::{error, warn, info, debug, trace, event, Level, span};
 use tracing_subscriber::fmt::format::FmtSpan;
@@ -50,6 +51,9 @@ struct Opts {
     /// Gaps in PTS larger than this will produce a warning.
     #[clap(long, default_value = "1000")]
     max_gap_ms: u64,
+    /// No buffers received in this many ms will produce a warning.
+    #[clap(long, default_value = "10000")]
+    max_idle_ms: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Builder)]
@@ -62,6 +66,8 @@ pub struct StreamingBufferValidatorConfig {
     pub max_gap: TimeDelta,
     /// The number of discontinuities to allow without a warning.
     pub max_discontinuities: u64,
+    /// No buffers received in this time will produce a warning.
+    pub max_idle_duration: Duration,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -78,6 +84,8 @@ pub struct StreamingBufferValidator {
     pts_decreasing_count: u64,
     discontinuity_count: u64,
     corrupted_count: u64,
+    idle_count: u64,
+    idle_start_time: Instant,
 }
 
 impl StreamingBufferValidator {
@@ -95,10 +103,14 @@ impl StreamingBufferValidator {
             pts_decreasing_count: 0,
             discontinuity_count: 0,
             corrupted_count: 0,
+            idle_count: 0,
+            idle_start_time: Instant::now() + Duration::from_secs(60),
         }
     }
 
     pub fn record_buffer(&mut self, buffer: &gst::BufferRef) {
+        self.idle_check();
+        self.idle_start_time = Instant::now();
         let flags = buffer.flags();
         let pts = clocktime_to_pravega(buffer.pts());
 
@@ -212,7 +224,26 @@ impl StreamingBufferValidator {
         }
     }
 
-    pub fn log_stats(&self) {
+    fn idle_check(&mut self) {
+        let now = Instant::now();
+        if self.idle_start_time + self.config.max_idle_duration < now {
+            let idle_duration = now - self.idle_start_time;
+            event!(Level::WARN,
+                description = "idle",
+                idle_duration_ms = %idle_duration.as_millis(),
+                pts = %self.prev_pts,
+                probe_name = %self.config.probe_name,
+                stream = %self.config.stream,
+                element = %self.config.element,
+                pad = %self.config.pad,
+            );
+            self.idle_count += 1;
+            self.idle_start_time = now;
+        }
+    }
+
+    pub fn on_timeout(&mut self) {
+        self.idle_check();
         event!(Level::INFO,
             description = "statistics",
             byte_count = self.byte_count,
@@ -225,6 +256,7 @@ impl StreamingBufferValidator {
             pts_decreasing_count = self.pts_decreasing_count,
             discontinuity_count = self.discontinuity_count,
             corrupted_count = self.corrupted_count,
+            idle_count = self.idle_count,
             probe_name = %self.config.probe_name,
             stream = %self.config.stream,
             element = %self.config.element,
@@ -307,6 +339,7 @@ fn main() -> Result<(), Error> {
     }
 
     let max_gap = opts.max_gap_ms * MSECOND;
+    let max_idle_duration = Duration::from_millis(opts.max_idle_ms);
 
     let pravegasrc_validator = install_validator(&pipeline,
         StreamingBufferValidatorConfigBuilder::default()
@@ -316,6 +349,7 @@ fn main() -> Result<(), Error> {
         .pad("src".to_owned())
         .max_gap(max_gap)
         .max_discontinuities(1)
+        .max_idle_duration(max_idle_duration)
         .build().unwrap());
 
     let demux_validator = install_validator(&pipeline,
@@ -326,6 +360,7 @@ fn main() -> Result<(), Error> {
         .pad("sink".to_owned())
         .max_gap(max_gap)
         .max_discontinuities(u64::MAX)
+        .max_idle_duration(max_idle_duration)
         .build().unwrap());
 
     let parse_validator = install_validator(&pipeline,
@@ -336,6 +371,7 @@ fn main() -> Result<(), Error> {
         .pad("src".to_owned())
         .max_gap(max_gap)
         .max_discontinuities(u64::MAX)
+        .max_idle_duration(max_idle_duration)
         .build().unwrap());
 
     let decoded_validator = install_validator(&pipeline,
@@ -346,23 +382,24 @@ fn main() -> Result<(), Error> {
         .pad("sink".to_owned())
         .max_gap(max_gap)
         .max_discontinuities(1)
+        .max_idle_duration(max_idle_duration)
         .build().unwrap());
 
     let timeout_id = glib::timeout_add(std::time::Duration::from_secs(60), move || {
-        let pravegasrc_validator = pravegasrc_validator.lock().unwrap();
-        pravegasrc_validator.log_stats();
+        let mut pravegasrc_validator = pravegasrc_validator.lock().unwrap();
+        pravegasrc_validator.on_timeout();
         drop(pravegasrc_validator);
 
-        let demux_validator = demux_validator.lock().unwrap();
-        demux_validator.log_stats();
+        let mut demux_validator = demux_validator.lock().unwrap();
+        demux_validator.on_timeout();
         drop(demux_validator);
 
-        let parse_validator = parse_validator.lock().unwrap();
-        parse_validator.log_stats();
+        let mut parse_validator = parse_validator.lock().unwrap();
+        parse_validator.on_timeout();
         drop(parse_validator);
 
-        let decoded_validator = decoded_validator.lock().unwrap();
-        decoded_validator.log_stats();
+        let mut decoded_validator = decoded_validator.lock().unwrap();
+        decoded_validator.on_timeout();
         drop(decoded_validator);
         glib::Continue(true)
     });

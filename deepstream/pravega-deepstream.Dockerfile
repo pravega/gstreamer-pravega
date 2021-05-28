@@ -108,6 +108,10 @@ RUN cargo build --package gst-plugin-pravega --release && \
 RUN cargo build --release --package pravega_protocol_adapter && \
     mv -v target/release/*.so /opt/nvidia/deepstream/deepstream/lib/
 
+## Build misc. Rust apps.
+RUN cargo install --locked --jobs ${RUST_JOBS} --path integration-test --bin \
+      longevity-test
+
 # Install dependencies for applications.
 RUN pip3 install \
         configargparse
