@@ -33,26 +33,34 @@ pub const DEFAULT_RUST_LOG: &str = "longevity_test=info,warn";
 #[derive(Clap, Debug)]
 struct Opts {
     /// Pravega controller in format "tcp://127.0.0.1:9090"
-    #[clap(long, default_value = "tcp://127.0.0.1:9090")]
-    controller: String,
+    #[clap(long, env = "PRAVEGA_CONTROLLER_URI", default_value = "tcp://127.0.0.1:9090")]
+    pravega_controller_uri: String,
     /// The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.
-    #[clap(long, default_value = "", setting(clap::ArgSettings::AllowEmptyValues))]
-    keycloak_file: String,
-    /// Pravega scope/stream
-    #[clap(long)]
-    stream: String,
-    #[clap(long)]
+    #[clap(long, env = "KEYCLOAK_SERVICE_ACCOUNT_FILE", default_value = "", setting(clap::ArgSettings::AllowEmptyValues))]
+    keycloak_service_account_file: String,
+    /// Pravega scope
+    #[clap(long, env = "PRAVEGA_SCOPE")]
+    pravega_scope: String,
+    /// Pravega stream
+    #[clap(long, env = "PRAVEGA_STREAM")]
+    pravega_stream: String,
+    /// Start reading from the specified PTS. Otherwise, start at the earliest available point.
+    #[clap(long, env = "START_UTC")]
     start_utc: Option<String>,
-    #[clap(long)]
+    /// Stop reading at the specified PTS. Otherwise, read until the stream is sealed.
+    #[clap(long, env = "END_UTC")]
     end_utc: Option<String>,
     /// Can be mp4 or mpegts
-    #[clap(long, default_value = "mp4")]
+    #[clap(long, env = "CONTAINER_FORMAT", default_value = "mp4")]
     container_format: String,
+    /// Can be avdec_h264 or nvv4l2decoder.
+    #[clap(long, env = "DECODER_PIPELINE", default_value = "avdec_h264")]
+    decoder_pipeline: String,
     /// Gaps in PTS larger than this will produce a warning.
-    #[clap(long, default_value = "1000")]
+    #[clap(long, env = "MAX_GAP_MS", default_value = "1000")]
     max_gap_ms: u64,
     /// No buffers received in this many ms will produce a warning.
-    #[clap(long, default_value = "10000")]
+    #[clap(long, env = "MAX_IDLE_MS", default_value = "10000")]
     max_idle_ms: u64,
 }
 
@@ -300,6 +308,7 @@ fn main() -> Result<(), Error> {
     info!("RUST_LOG={}", filter);
     info!("GST_DEBUG={}", std::env::var("GST_DEBUG").unwrap_or_default());
     info!("opts={:?}", opts);
+    let scoped_stream = format!("{}/{}", opts.pravega_scope, opts.pravega_stream);
 
     gst::init()?;
     gstpravega::plugin_register_static().unwrap();
@@ -315,9 +324,10 @@ fn main() -> Result<(), Error> {
         "pravegasrc name=pravegasrc \
         ! {demux_pipeline} \
         ! h264parse name=h264parse \
-        ! avdec_h264 name=avdec_h264 \
+        ! {decoder_pipeline} \
         ! fakesink name=sink sync=false",
         demux_pipeline = demux_pipeline,
+        decoder_pipeline = opts.decoder_pipeline,
     );
     info!("Launch Pipeline: {}", pipeline_description);
     let pipeline = gst::parse_launch(&pipeline_description.to_owned()).unwrap();
@@ -325,9 +335,9 @@ fn main() -> Result<(), Error> {
 
     let pravegasrc = pipeline.clone().dynamic_cast::<gst::Pipeline>().unwrap().by_name("pravegasrc").unwrap();
     pravegasrc.set_property("buffer-size", 10*1024*1024 as u32).unwrap();
-    pravegasrc.set_property("controller", &opts.controller).unwrap();
-    pravegasrc.set_property("stream", &opts.stream).unwrap();
-    pravegasrc.set_property("keycloak-file", &opts.keycloak_file).unwrap();
+    pravegasrc.set_property("controller", &opts.pravega_controller_uri).unwrap();
+    pravegasrc.set_property("stream", &scoped_stream).unwrap();
+    pravegasrc.set_property("keycloak-file", &opts.keycloak_service_account_file).unwrap();
     pravegasrc.set_property("allow-create-scope", &false).unwrap();
     if let Some(start_utc) = opts.start_utc {
         pravegasrc.set_property_from_str("start-mode", "timestamp");
@@ -344,7 +354,7 @@ fn main() -> Result<(), Error> {
     let pravegasrc_validator = install_validator(&pipeline,
         StreamingBufferValidatorConfigBuilder::default()
         .probe_name("1-pravegasrc".to_owned())
-        .stream(opts.stream.clone())
+        .stream(scoped_stream.clone())
         .element("pravegasrc".to_owned())
         .pad("src".to_owned())
         .max_gap(max_gap)
@@ -355,7 +365,7 @@ fn main() -> Result<(), Error> {
     let demux_validator = install_validator(&pipeline,
         StreamingBufferValidatorConfigBuilder::default()
         .probe_name("2-demux".to_owned())
-        .stream(opts.stream.clone())
+        .stream(scoped_stream.clone())
         .element("h264parse".to_owned())
         .pad("sink".to_owned())
         .max_gap(max_gap)
@@ -366,7 +376,7 @@ fn main() -> Result<(), Error> {
     let parse_validator = install_validator(&pipeline,
         StreamingBufferValidatorConfigBuilder::default()
         .probe_name("3-parse".to_owned())
-        .stream(opts.stream.clone())
+        .stream(scoped_stream.clone())
         .element("h264parse".to_owned())
         .pad("src".to_owned())
         .max_gap(max_gap)
@@ -377,7 +387,7 @@ fn main() -> Result<(), Error> {
     let decoded_validator = install_validator(&pipeline,
         StreamingBufferValidatorConfigBuilder::default()
         .probe_name("4-decode".to_owned())
-        .stream(opts.stream.clone())
+        .stream(scoped_stream.clone())
         .element("sink".to_owned())
         .pad("sink".to_owned())
         .max_gap(max_gap)
