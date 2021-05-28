@@ -53,6 +53,9 @@ struct Opts {
     /// Can be mp4 or mpegts
     #[clap(long, env = "CONTAINER_FORMAT", default_value = "mp4")]
     container_format: String,
+    /// Can be avdec_h264 or nvv4l2decoder.
+    #[clap(long, env = "DECODER_PIPELINE", default_value = "avdec_h264")]
+    decoder_pipeline: String,
     /// Gaps in PTS larger than this will produce a warning.
     #[clap(long, env = "MAX_GAP_MS", default_value = "1000")]
     max_gap_ms: u64,
@@ -321,9 +324,10 @@ fn main() -> Result<(), Error> {
         "pravegasrc name=pravegasrc \
         ! {demux_pipeline} \
         ! h264parse name=h264parse \
-        ! avdec_h264 name=avdec_h264 \
+        ! {decoder_pipeline} \
         ! fakesink name=sink sync=false",
         demux_pipeline = demux_pipeline,
+        decoder_pipeline = opts.decoder_pipeline,
     );
     info!("Launch Pipeline: {}", pipeline_description);
     let pipeline = gst::parse_launch(&pipeline_description.to_owned()).unwrap();
