@@ -141,6 +141,8 @@ RUN cargo install --locked --jobs ${RUST_JOBS} --path pravega-video-server
 ## Build misc. Rust apps.
 RUN cargo install --locked --jobs ${RUST_JOBS} --path apps --bin \
       rtsp-camera-simulator
+RUN cargo install --locked --jobs ${RUST_JOBS} --path integration-test --bin \
+      longevity-test
 
 ## Install Python apps.
 COPY python_apps python_apps
