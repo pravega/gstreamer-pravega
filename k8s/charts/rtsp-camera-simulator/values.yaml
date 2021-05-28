@@ -1,0 +1,16 @@
+image:
+  # Please change the value accordingly before deployment
+  repository: "gstreamer:pravega-dev"
+  pullPolicy: "Always"
+appParameters:
+  # See available application parameters in https://github.com/pravega/gstreamer-pravega/blob/master/apps/src/bin/rtsp-camera-simulator.rs
+  CAMERA_PASSWORD: "password"
+  CAMERA_USER: "admin"
+  CAMERA_HEIGHT: "640"
+  CAMERA_WIDTH: "480"
+  CAMERA_FPS: "30"
+  CAMERA_KEY_FRAME_INTERVAL_MAX: "30"
+  CAMERA_SHOW_CLOCK: "1"
+  CAMERA_TARGET_RATE_KILOBYTES_PER_SEC: "250.0"
+rtspPort: 8554
+externalDnsHostnameSuffix: ""

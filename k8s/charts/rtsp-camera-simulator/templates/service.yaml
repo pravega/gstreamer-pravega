@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $.Release.Name }}
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: {{ $.Release.Name }}.{{ $.Release.Namespace }}{{ $.Values.externalDnsHostnameSuffix }}
+spec:
+  ports:
+  - name: rtsp
+    port: {{ .Values.rtspPort }}
+    targetPort: {{ .Values.rtspPort }}
+    protocol: TCP
+  selector:
+    release: {{ $.Release.Name }}
+  type: LoadBalancer
