@@ -1,5 +1,6 @@
 image:
-  repository: "devops-repo.isus.emc.com:8116/nautilus/gstreamer:pravega-dev"
+  # Please change the value accordingly before deployment
+  repository: "gstreamer:pravega-dev"
   pullPolicy: "Always"
 
 camera:
