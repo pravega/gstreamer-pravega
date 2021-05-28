@@ -30,9 +30,6 @@ LOG_FILE="/tmp/$(basename "${0}" .sh)-${PRAVEGA_STREAM}.log"
 pushd ${ROOT_DIR}/integration-test
 
 cargo run --bin longevity-test -- \
---stream ${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
---controller ${PRAVEGA_CONTROLLER_URI} \
---keycloak-file "${KEYCLOAK_SERVICE_ACCOUNT_FILE}" \
 ${TIME_FILTER} \
 $* \
 |& tee ${LOG_FILE}
