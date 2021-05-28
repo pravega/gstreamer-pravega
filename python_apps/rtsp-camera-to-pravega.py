@@ -102,6 +102,9 @@ class TimestampSet():
     def is_healthy(self):
         return int(int(time.monotonic())) - self.update_at < self.update_tolerance
 
+    def idle_time(self):
+        return int(int(time.monotonic())) - self.update_at
+
 
 class ProbeHttpHandler(BaseHTTPRequestHandler):
     ts_set = None
@@ -119,7 +122,7 @@ class ProbeHttpHandler(BaseHTTPRequestHandler):
             if ProbeHttpHandler.ts_set.is_healthy():
                 self.send_code_msg(200, "OK")
             else:
-                self.send_code_msg(500, "Pipeline has been idle for %d seconds" % (ProbeHttpHandler.ts_set.update_tolerance))
+                self.send_code_msg(500, "Pipeline has been idle for %d seconds" % (ProbeHttpHandler.ts_set.idle_time()))
         else:
             self.send_code_msg(404, "Not Found")
 
