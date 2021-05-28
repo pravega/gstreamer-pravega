@@ -3,7 +3,7 @@ image:
   pullPolicy: "Always"
 
 camera:
-  address: "10.243.57.211"
+  address: "10.0.0.1"
   path: "/cam/realmonitor?width=1280&height=720&fps=30&key_frame_interval_max=30&show_clock=true&target_rate_kilobytes_per_sec=400"
   port: "8554"
   user: "admin"

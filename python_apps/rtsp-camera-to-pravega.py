@@ -30,6 +30,7 @@ import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import GObject, Gst
 
+
 def bus_call(bus, message, loop):
     """Callback for GStreamer bus messages"""
     t = message.type
@@ -51,26 +52,25 @@ def bus_call(bus, message, loop):
         logging.debug("%s: %s" % (message.src.name, str(details),))
     return True
 
+
 def on_queue_overrun(element):
     logging.warning("Queue has overflowed and data has been lost. Try increasing buffer-size-mb.")
 
+
 def str2bool(v):
     return bool(distutils.util.strtobool(v))
+
 
 def buffer_timestamp_probe(pad, info, data):
     gst_buffer = info.get_buffer()
     if gst_buffer:
         data.update(gst_buffer.pts)
-        logging.info("buffer_timestamp_probe: %20s:%-8s: " % (
+        logging.debug("buffer_timestamp_probe: %20s:%-8s: " % (
             pad.get_parent_element().name,
             pad.name) + data.to_string()
         )
-        
-    else:
-        logging.info("buffer_timestamp_probe: %20s:%-8s: no buffer" % (
-            pad.get_parent_element().name,
-            pad.name))
     return Gst.PadProbeReturn.OK
+
 
 def start_http_server(hostname='0.0.0.0', port=8080):
     httpd = HTTPServer((hostname, port), ProbeHttpHandler)
@@ -82,8 +82,9 @@ def start_http_server(hostname='0.0.0.0', port=8080):
     # flag the http server thread as daemon thread so that it can be abruptly stopped at shutdown
     thread.setDaemon(True)
     thread.start()
-    logging.info('Probe server is listening on %s:%d' % (hostname, port))
+    logging.info('Health check server is listening on %s:%d' % (hostname, port))
     return httpd
+
 
 class TimestampSet():
     def __init__(self, tolerance):
@@ -93,13 +94,14 @@ class TimestampSet():
 
     def update(self, value):
         self.value = value
-        self.update_at = int(time.time())
+        self.update_at = int(time.monotonic())
     
     def to_string(self):
-        return "value: %u at %u seconds since epoch" % (self.value, self.update_at)
+        return "value: %u in the monotonic clock of %u seconds" % (self.value, self.update_at)
     
-    def is_uptodate(self):
-        return int(time.time()) - self.update_at < self.update_tolerance
+    def is_healthy(self):
+        return int(int(time.monotonic())) - self.update_at < self.update_tolerance
+
 
 class ProbeHttpHandler(BaseHTTPRequestHandler):
     ts_set = None
@@ -114,15 +116,16 @@ class ProbeHttpHandler(BaseHTTPRequestHandler):
     # https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
     def do_GET(self):
         if self.path.lower() == "/ishealthy":
-            if ProbeHttpHandler.ts_set.is_uptodate():
+            if ProbeHttpHandler.ts_set.is_healthy():
                 self.send_code_msg(200, "OK")
             else:
-                self.send_code_msg(500, "Internal Server Error")
+                self.send_code_msg(500, "Pipeline has been idle for %d seconds" % (ProbeHttpHandler.ts_set.update_tolerance))
         else:
             self.send_code_msg(404, "Not Found")
 
     def do_POST(self):
         self.send_code_msg(404, "Not Found")
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -331,6 +334,7 @@ def main():
     logging.info("Stopping pipeline")
     pipeline.set_state(Gst.State.NULL)
     logging.info("%s: END" % parser.prog)
+
 
 if __name__ == "__main__":
     main()
