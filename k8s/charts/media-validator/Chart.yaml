@@ -9,8 +9,8 @@
 #
 
 apiVersion: v2
-name: rtsp-camera-to-pravega
-description: Record RTSP camera to Pravega
+name: media-validator
+description: Continuously read a Pravega video stream, identify problems, and print statistics
 type: application
 
 # This is the chart version. This version number should be incremented each time you make changes

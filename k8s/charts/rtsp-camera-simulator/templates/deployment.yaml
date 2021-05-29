@@ -8,21 +8,30 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
+{{- if $.Values.enabled }}
+
+{{- $alias := "" }}
+{{- if $.Values.alias }}
+  {{- $alias = print "-" $.Values.alias }}
+{{- end }}
+
+{{- $name := print $.Release.Name $alias }}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $.Release.Name }}
+  name: {{ $name }}
   labels: 
-    release: {{ $.Release.Name }}
+    release: {{ $name }}
 spec:
   replicas: {{ $.Values.replicas }}
   selector:
     matchLabels:
-      release: {{ $.Release.Name }}
+      release: {{ $name }}
   template:
     metadata:
       labels:
-        release: {{ $.Release.Name }}
+        release: {{ $name }}
     spec:
       containers:
       - name: rtsp-camera-simulator
@@ -31,12 +40,18 @@ spec:
         command: ["rtsp-camera-simulator"]
         ports:
         - name: rtsp
-          containerPort: {{ $.Values.rtspPort }}
+          containerPort: {{ $.Values.global.camera.rtspPort }}
           protocol: TCP
         env:
+        - name: CAMERA_USER
+          value: {{ $.Values.global.camera.user | quote }}
+        - name: CAMERA_PASSWORD
+          value: {{ $.Values.global.camera.password | quote }}
         - name: CAMERA_PORT
-          value: {{ $.Values.rtspPort | quote }}
+          value: {{ $.Values.global.camera.rtspPort | quote }}
         {{- range $key, $value := $.Values.appParameters }}
         - name: {{ $key | quote }}
           value: {{ $value | quote }}
         {{- end }}
+
+{{- end }}

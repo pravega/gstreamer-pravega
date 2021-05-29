@@ -8,29 +8,37 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
-{{- range $s := until (int $.Values.numStreams) }}
+{{- if $.Values.enabled }}
+{{- range $s := until (int $.Values.global.pravega.numStreams) }}
 {{- range $r := until (int $.Values.numReadersPerStream) }}
 
+{{- $alias := "" }}
+{{- if $.Values.alias }}
+  {{- $alias = print "-" $.Values.alias }}
+{{- end }}
+
 {{- $streamSuffix := "" }}
-{{- if (gt (int $.Values.numStreams) 1) }}
+{{- if (gt (int $.Values.global.pravega.numStreams) 1) }}
   {{- $streamSuffix = print "-" $s }}
 {{- end }}
 {{- $suffix := print $streamSuffix "-" $r }}
 
+{{- $name := print $.Release.Name $alias $suffix }}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $.Release.Name }}{{ $suffix }}
+  name: {{ $name }}
   labels: 
-    release: {{ $.Release.Name }}{{ $suffix }}
+    release: {{ $name }}
 spec:
   selector:
     matchLabels:
-      release: {{ $.Release.Name }}{{ $suffix }}
+      release: {{ $name }}
   template:
     metadata:
       labels:
-        release: {{ $.Release.Name }}{{ $suffix }}
+        release: {{ $name }}
     spec:
       serviceAccount: {{ $.Release.Namespace }}-pravega
       containers:
@@ -53,7 +61,7 @@ spec:
         - name: LOG_DIR
           value: "/mnt/logs/test-logs"
         - name: PRAVEGA_STREAM
-          value: "{{ $.Values.pravegaStream }}{{ $streamSuffix }}"
+          value: "{{ $.Values.global.pravega.stream }}{{ $streamSuffix }}"
         {{- range $key, $value := $.Values.appParameters }}
         - name: {{ $key | quote }}
           value: {{ $value | quote }}
@@ -67,5 +75,6 @@ spec:
           claimName: {{ $.Values.logPersistentVolumeClaimName }}
 ---
 
+{{- end }}
 {{- end }}
 {{- end }}
