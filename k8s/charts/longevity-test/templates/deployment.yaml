@@ -8,26 +8,35 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
+{{- range $s := until (int $.Values.numStreams) }}
+{{- range $r := until (int $.Values.numReadersPerStream) }}
+
+{{- $streamSuffix := "" }}
+{{- if (gt (int $.Values.numStreams) 1) }}
+  {{- $streamSuffix = print "-" $s }}
+{{- end }}
+{{- $suffix := print $streamSuffix "-" $r }}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}
+  name: {{ $.Release.Name }}{{ $suffix }}
   labels: 
-    release: {{ .Release.Name }}
+    release: {{ $.Release.Name }}{{ $suffix }}
 spec:
   selector:
     matchLabels:
-      release: {{ .Release.Name }}
+      release: {{ $.Release.Name }}{{ $suffix }}
   template:
     metadata:
       labels:
-        release: {{ .Release.Name }}
+        release: {{ $.Release.Name }}{{ $suffix }}
     spec:
-      serviceAccount: {{ .Release.Namespace }}-pravega
+      serviceAccount: {{ $.Release.Namespace }}-pravega
       containers:
       - name: gstreamer
-        image: {{ .Values.image.repository | quote }}
-        imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
+        image: {{ $.Values.image.repository | quote }}
+        imagePullPolicy: {{ $.Values.image.pullPolicy | quote }}
         resources:
           limits:
             cpu: "4"
@@ -38,18 +47,27 @@ spec:
         workingDir: /usr/src/gstreamer-pravega
         command: ["bash", "-c", "--"]
         args:
-          - LOG_DIR=/mnt/project-data/test-logs &&
-            mkdir -p ${LOG_DIR} &&
-            longevity-test |& tee ${LOG_DIR}/${PRAVEGA_STREAM}_${HOSTNAME}.log
+          - mkdir -p ${LOG_DIR} &&
+            longevity-test |& tee ${LOG_DIR}/${LOG_FILE}
         env:
-        {{- range $key, $value := .Values.appParameters }}
+        - name: LOG_DIR
+          value: "/mnt/logs/test-logs"
+        - name: LOG_FILE
+          value: "{{ $.Release.Name }}{{ $suffix }}.log"
+        - name: PRAVEGA_STREAM
+          value: "{{ $.Values.pravegaStream }}{{ $streamSuffix }}"
+        {{- range $key, $value := $.Values.appParameters }}
         - name: {{ $key | quote }}
           value: {{ $value | quote }}
         {{- end }}
         volumeMounts:
-        - mountPath: /mnt/project-data/
-          name: project-data
+        - mountPath: /mnt/logs/
+          name: logs
       volumes:
-      - name: project-data
+      - name: logs
         persistentVolumeClaim:
-          claimName: data-project
+          claimName: {{ $.Values.logPersistentVolumeClaimName }}
+---
+
+{{- end }}
+{{- end }}

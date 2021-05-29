@@ -7,3 +7,7 @@ appParameters:
   ALLOW_CREATE_SCOPE: "false"
   CONTAINER_FORMAT: "mp4"
   pravega_client_tls_cert_path: "/etc/ssl/certs/ca-certificates.crt"
+numReadersPerStream: 1
+numStreams: 1
+pravegaStream: "camera1"
+logPersistentVolumeClaimName: data-project

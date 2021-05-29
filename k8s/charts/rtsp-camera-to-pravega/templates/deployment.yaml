@@ -8,39 +8,48 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
+{{- range $i := until (int $.Values.numStreams) }}
+
+{{- $suffix := "" }}
+{{- if (gt (int $.Values.numStreams) 1) }}
+  {{- $suffix = print "-" $i }}
+{{- end }}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}
+  name: {{ $.Release.Name }}{{ $suffix }}
   labels: 
-    release: {{ .Release.Name }}
+    release: {{ $.Release.Name }}{{ $suffix }}
 spec:
   selector:
     matchLabels:
-      release: {{ .Release.Name }}
+      release: {{ $.Release.Name }}{{ $suffix }}
   template:
     metadata:
       labels:
-        release: {{ .Release.Name }}
+        release: {{ $.Release.Name }}{{ $suffix }}
     spec:
-      serviceAccount: {{ .Release.Namespace }}-pravega
+      serviceAccount: {{ $.Release.Namespace }}-pravega
       containers:
       - name: gstreamer
-        image: {{ .Values.image.repository | quote }}
-        imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
+        image: {{ $.Values.image.repository | quote }}
+        imagePullPolicy: {{ $.Values.image.pullPolicy | quote }}
         command: ["rtsp-camera-to-pravega.py"]
         env:
+        - name: PRAVEGA_STREAM
+          value: "{{ $.Values.pravegaStream }}{{ $suffix }}"
         {{- if .Values.healthCheck.enabled }}
         - name: HEALTH_CHECK_ENABLED
           value: "true"
         - name: HEALTH_CHECK_IDLE_SECONDS
           value: {{ .Values.healthCheck.idleSeconds | quote }}
         {{- end }}
-        {{- range $key, $value := .Values.appParameters }}
+        {{- range $key, $value := $.Values.appParameters }}
         - name: {{ $key | quote }}
           value: {{ $value | quote }}
         {{- end }}
-        {{- if .Values.healthCheck.enabled }}
+        {{- if $.Values.healthCheck.enabled }}
         livenessProbe:
           httpGet:
             path: /ishealthy
@@ -48,3 +57,6 @@ spec:
           initialDelaySeconds: 30
           periodSeconds: 3
         {{- end }}
+---
+
+{{- end }}
