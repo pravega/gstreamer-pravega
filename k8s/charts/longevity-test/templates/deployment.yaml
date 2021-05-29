@@ -1,0 +1,55 @@
+#
+# Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels: 
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        release: {{ .Release.Name }}
+    spec:
+      serviceAccount: {{ .Release.Namespace }}-pravega
+      containers:
+      - name: gstreamer
+        image: {{ .Values.image.repository | quote }}
+        imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
+        resources:
+          limits:
+            cpu: "4"
+            memory: "1Gi"
+          requests:
+            cpu: "4"
+            memory: "1Gi"
+        workingDir: /usr/src/gstreamer-pravega
+        command: ["bash", "-c", "--"]
+        args:
+          - LOG_DIR=/mnt/project-data/test-logs &&
+            mkdir -p ${LOG_DIR} &&
+            longevity-test |& tee ${LOG_DIR}/${PRAVEGA_STREAM}_${HOSTNAME}.log
+        env:
+        {{- range $key, $value := .Values.appParameters }}
+        - name: {{ $key | quote }}
+          value: {{ $value | quote }}
+        {{- end }}
+        volumeMounts:
+        - mountPath: /mnt/project-data/
+          name: project-data
+      volumes:
+      - name: project-data
+        persistentVolumeClaim:
+          claimName: data-project

@@ -1,0 +1,9 @@
+image:
+  # Please change the value accordingly before deployment
+  repository: "gstreamer:pravega-dev"
+  pullPolicy: "Always"
+appParameters:
+  # See available application parameters in https://github.com/pravega/gstreamer-pravega/blob/master/integration-test/src/bin/longevity-test.rs
+  ALLOW_CREATE_SCOPE: "false"
+  CONTAINER_FORMAT: "mp4"
+  pravega_client_tls_cert_path: "/etc/ssl/certs/ca-certificates.crt"
