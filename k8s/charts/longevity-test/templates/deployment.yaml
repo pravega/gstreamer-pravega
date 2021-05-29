@@ -48,12 +48,10 @@ spec:
         command: ["bash", "-c", "--"]
         args:
           - mkdir -p ${LOG_DIR} &&
-            longevity-test |& tee ${LOG_DIR}/${LOG_FILE}
+            longevity-test |& tee ${LOG_DIR}/${PRAVEGA_STREAM}_${HOSTNAME}.log
         env:
         - name: LOG_DIR
           value: "/mnt/logs/test-logs"
-        - name: LOG_FILE
-          value: "{{ $.Release.Name }}{{ $suffix }}.log"
         - name: PRAVEGA_STREAM
           value: "{{ $.Values.pravegaStream }}{{ $streamSuffix }}"
         {{- range $key, $value := $.Values.appParameters }}
