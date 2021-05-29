@@ -30,37 +30,21 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
         command: ["rtsp-camera-to-pravega.py"]
         env:
-        - name: ALLOW_CREATE_SCOPE
-          value: "false"
-        - name: CAMERA_ADDRESS
-          value: {{ .Values.camera.address | quote }}
-        - name: CAMERA_PATH
-          value: {{ .Values.camera.path | quote }}
-        - name: CAMERA_PORT
-          value: {{ .Values.camera.port | quote }}
-        - name: CAMERA_PROTOCOLS
-          value: "tcp"
-        - name: CAMERA_USER
-          value: {{ .Values.camera.user | quote }}
-        - name: CAMERA_PASSWORD
-          value: {{ .Values.camera.password | quote }}
-        - name: DEBUGSPY
-          value: "false"
-        - name: FAKESINK
-          value: "false"
-        - name: GST_DEBUG
-          value: "WARNING,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO,h264parse:WARN,pravegasink:DEBUG"
-        - name: pravega_client_tls_cert_path
-          value: "/etc/ssl/certs/ca-certificates.crt"
-        - name: PRAVEGA_STREAM
-          value: {{ .Values.pravega.stream | quote }}
-        - name: HEALTHY_SECONDS
-          value: "30"
+        {{- if .Values.healthCheck.enabled }}
         - name: HEALTHY_PROBE
           value: "true"
+        - name: HEALTHY_SECONDS
+          value: {{ .Values.healthCheck.idleSeconds | quote }}
+        {{- end }}
+        {{- range $key, $value := .Values.appParameters }}
+        - name: {{ $key | quote }}
+          value: {{ $value | quote }}
+        {{- end }}
+        {{- if .Values.healthCheck.enabled }}
         livenessProbe:
           httpGet:
             path: /ishealthy
             port: 8080
           initialDelaySeconds: 30
           periodSeconds: 3
+        {{- end }}
