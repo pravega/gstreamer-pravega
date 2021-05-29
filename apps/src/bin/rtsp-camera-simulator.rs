@@ -72,6 +72,12 @@ struct Opts {
     /// If 0, hides the clock by default
     #[clap(long, env = "CAMERA_SHOW_CLOCK", default_value = "1")]
     show_clock: u8,
+    /// If 1, the first connected client will start the pipeline and all subsequent clients using
+    /// the same URL will get the same stream.
+    /// This is useful for performance testing to reduce the CPU load.
+    /// This causes a 5 second interruption in the stream when new clients connect.
+    #[clap(long, env = "SHARE_PIPELINE", default_value = "1")]
+    share_pipeline: u8,
 }
 
 fn main() {
@@ -103,6 +109,10 @@ fn run() -> Result<(), Error>  {
     let mounts = server.mount_points().ok_or(NoMountPoints)?;
     let factory = media_factory::Factory::default();
     let factory: gst_rtsp_server::RTSPMediaFactory = factory.dynamic_cast::<gst_rtsp_server::RTSPMediaFactory>().unwrap();
+    
+    let share_pipeline = opts.share_pipeline != 0;
+    tracing::info!("share_pipeline={}", share_pipeline);
+    factory.set_shared(share_pipeline);
 
     if let Some(password) = opts.password {
         tracing::info!("Authentication enabled.");
@@ -184,9 +194,9 @@ mod media_factory {
                 // Parse the URL to get parameters used to build the pipeline.
                 let url = url.request_uri().unwrap().to_string();
                 let url = Url::parse(&url[..]).unwrap();
-                tracing::info!("url={:?}", url);
+                tracing::info!("create_element: Received request: url={:?}", url);
                 let query_map: HashMap<_, _> = url.query_pairs().into_owned().collect();
-                tracing::info!("query_map={:?}", query_map);
+                tracing::debug!("create_element: query_map={:?}", query_map);
                 let width = match query_map.get("width") {
                     Some(width) => width.clone().parse::<u32>().unwrap_or(opts.width),
                     None => opts.width,
@@ -232,7 +242,7 @@ mod media_factory {
                     target_rate_kbits_per_sec = target_rate_kilobits_per_sec,
                     silent = !show_clock,
                 );
-                tracing::info!("Launch Pipeline: {}", pipeline_description);
+                tracing::info!("create_element: Launch Pipeline: {}", pipeline_description);
                 let bin = gst::parse_launch(&pipeline_description.to_owned()).unwrap();
                 Some(bin.upcast())
             }
