@@ -12,5 +12,6 @@ appParameters:
   CAMERA_KEY_FRAME_INTERVAL_MAX: "30"
   CAMERA_SHOW_CLOCK: "1"
   CAMERA_TARGET_RATE_KILOBYTES_PER_SEC: "250.0"
+replicas: 1
 rtspPort: 8554
 externalDnsHostnameSuffix: ""

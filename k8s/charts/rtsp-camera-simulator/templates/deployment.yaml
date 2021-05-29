@@ -15,6 +15,7 @@ metadata:
   labels: 
     release: {{ $.Release.Name }}
 spec:
+  replicas: {{ $.Values.replicas }}
   selector:
     matchLabels:
       release: {{ $.Release.Name }}
@@ -25,17 +26,17 @@ spec:
     spec:
       containers:
       - name: rtsp-camera-simulator
-        image: {{ .Values.image.repository | quote }}
-        imagePullPolicy: {{ .Values.image.pullPolicy | quote }}
+        image: {{ $.Values.image.repository | quote }}
+        imagePullPolicy: {{ $.Values.image.pullPolicy | quote }}
         command: ["rtsp-camera-simulator"]
         ports:
         - name: rtsp
-          containerPort: {{ .Values.rtspPort }}
+          containerPort: {{ $.Values.rtspPort }}
           protocol: TCP
         env:
         - name: CAMERA_PORT
-          value: {{ .Values.rtspPort | quote }}
-        {{- range $key, $value := .Values.appParameters }}
+          value: {{ $.Values.rtspPort | quote }}
+        {{- range $key, $value := $.Values.appParameters }}
         - name: {{ $key | quote }}
           value: {{ $value | quote }}
         {{- end }}
