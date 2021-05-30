@@ -110,7 +110,9 @@ RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JO
 RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS} && \
     mv -v target/release/*.so /opt/nvidia/deepstream/deepstream/lib/
 
-## Build misc. Rust apps.
+# ## Build misc. Rust apps.
+RUN cargo install --locked --jobs ${RUST_JOBS} --path apps --bin \
+        rtsp-camera-simulator
 RUN cargo install --locked --jobs ${RUST_JOBS} --path integration-test --bin \
         longevity-test
 
