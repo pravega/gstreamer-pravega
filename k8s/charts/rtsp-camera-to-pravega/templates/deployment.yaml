@@ -31,9 +31,9 @@ spec:
         command: ["rtsp-camera-to-pravega.py"]
         env:
         {{- if .Values.healthCheck.enabled }}
-        - name: HEALTHY_PROBE
+        - name: HEALTH_CHECK_ENABLED
           value: "true"
-        - name: HEALTHY_SECONDS
+        - name: HEALTH_CHECK_IDLE_SECONDS
           value: {{ .Values.healthCheck.idleSeconds | quote }}
         {{- end }}
         {{- range $key, $value := .Values.appParameters }}
