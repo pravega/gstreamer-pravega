@@ -1,0 +1,12 @@
+dependencies:
+- name: rtsp-camera-simulator
+  repository: file://../rtsp-camera-simulator
+  version: 0.1.0
+- name: rtsp-camera-to-pravega
+  repository: file://../rtsp-camera-to-pravega
+  version: 0.1.0
+- name: media-validator
+  repository: file://../media-validator
+  version: 0.1.0
+digest: sha256:de76d250463949d3beabab1dd33c0f89096966456a53fba03fed24d8edfa5e9a
+generated: "2021-05-29T16:15:42.74890824Z"

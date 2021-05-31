@@ -14,14 +14,13 @@ image:
   repository: "gstreamer:pravega-dev"
   pullPolicy: "Always"
 appParameters:
-  # See available application parameters in https://github.com/pravega/gstreamer-pravega/blob/master/apps/src/bin/rtsp-camera-simulator.rs
-  CAMERA_HEIGHT: "640"
-  CAMERA_WIDTH: "480"
-  CAMERA_FPS: "30"
-  CAMERA_KEY_FRAME_INTERVAL_MAX: "30"
-  CAMERA_SHOW_CLOCK: "1"
-  CAMERA_TARGET_RATE_KILOBYTES_PER_SEC: "250.0"
-replicas: 1
+  # See available application parameters in https://github.com/pravega/gstreamer-pravega/blob/master/integration-test/src/bin/longevity-test.rs
+  ALLOW_CREATE_SCOPE: "false"
+  CONTAINER_FORMAT: "mp4"
+  pravega_client_tls_cert_path: "/etc/ssl/certs/ca-certificates.crt"
+numReadersPerStream: 1
+logPersistentVolumeClaimName: data-project
 global:
-  camera:
-    rtspPort: 8554
+  pravega:
+    stream: "camera1"
+    numStreams: 1

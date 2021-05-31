@@ -15,6 +15,7 @@
 *.log
 *.mp4
 *.nfs*
+*.tgz
 *.ts
 !/pravega-video-server/static/gap-*.ts
 !/pravega-video-server/static/gap-*.mp4

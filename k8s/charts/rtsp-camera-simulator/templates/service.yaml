@@ -1,15 +1,38 @@
+#
+# Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+
+{{- if $.Values.enabled }}
+
+{{- $alias := "" }}
+{{- if $.Values.alias }}
+  {{- $alias = print "-" $.Values.alias }}
+{{- end }}
+
+{{- $name := print $.Release.Name $alias }}
+
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ $.Release.Name }}
+  name: {{ $name }}
   annotations:
-    external-dns.alpha.kubernetes.io/hostname: {{ $.Release.Name }}.{{ $.Release.Namespace }}{{ $.Values.externalDnsHostnameSuffix }}
+    {{- if $.Values.externalDnsHostnameSuffix }}
+    external-dns.alpha.kubernetes.io/hostname: {{ $name }}.{{ $.Release.Namespace }}{{ $.Values.externalDnsHostnameSuffix }}
+    {{- end }}
 spec:
   ports:
   - name: rtsp
-    port: {{ .Values.rtspPort }}
-    targetPort: {{ .Values.rtspPort }}
+    port: {{ $.Values.global.camera.rtspPort }}
+    targetPort: {{ $.Values.global.camera.rtspPort }}
     protocol: TCP
   selector:
-    release: {{ $.Release.Name }}
+    release: {{ $name }}
   type: LoadBalancer
+
+{{- end }}

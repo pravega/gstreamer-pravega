@@ -9,8 +9,8 @@
 #
 
 apiVersion: v2
-name: rtsp-camera-to-pravega
-description: Record RTSP camera to Pravega
+name: longevity-test
+description: Longevity test
 type: application
 
 # This is the chart version. This version number should be incremented each time you make changes
@@ -22,3 +22,14 @@ version: 0.1.0
 # incremented each time you make changes to the application. Versions are not expected to
 # follow Semantic Versioning. They should reflect the version the application is using.
 appVersion: 0.7.0
+
+dependencies:
+- name: rtsp-camera-simulator
+  version: "*"
+  repository: "file://../rtsp-camera-simulator"
+- name: rtsp-camera-to-pravega
+  version: "*"
+  repository: "file://../rtsp-camera-to-pravega"
+- name: media-validator
+  version: "*"
+  repository: "file://../media-validator"
