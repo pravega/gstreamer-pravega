@@ -59,11 +59,11 @@ spec:
           value: {{ $.Values.global.camera.rtspPort | quote }}
         - name: PRAVEGA_STREAM
           value: "{{ $.Values.global.pravega.stream }}{{ $suffix }}"
-        {{- if .Values.healthCheck.enabled }}
+        {{- if $.Values.healthCheck.enabled }}
         - name: HEALTH_CHECK_ENABLED
           value: "true"
         - name: HEALTH_CHECK_IDLE_SECONDS
-          value: {{ .Values.healthCheck.idleSeconds | quote }}
+          value: {{ $.Values.healthCheck.idleSeconds | quote }}
         {{- end }}
         {{- range $key, $value := $.Values.appParameters }}
         - name: {{ $key | quote }}
