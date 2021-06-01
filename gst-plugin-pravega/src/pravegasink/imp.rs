@@ -46,6 +46,7 @@ const PROPERTY_NAME_INDEX_MIN_SEC: &str = "index-min-sec";
 const PROPERTY_NAME_INDEX_MAX_SEC: &str = "index-max-sec";
 const PROPERTY_NAME_ALLOW_CREATE_SCOPE: &str = "allow-create-scope";
 const PROPERTY_NAME_KEYCLOAK_FILE: &str = "keycloak-file";
+const PROPERTY_NAME_RETENTION_DAYS: &str = "retention-days";
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy, glib::GEnum)]
 #[repr(u32)]
@@ -78,6 +79,7 @@ const DEFAULT_BUFFER_SIZE: usize = 128*1024;
 const DEFAULT_TIMESTAMP_MODE: TimestampMode = TimestampMode::RealtimeClock;
 const DEFAULT_INDEX_MIN_SEC: f64 = 0.5;
 const DEFAULT_INDEX_MAX_SEC: f64 = 10.0;
+const DEFAULT_RETENTION_DAYS: f64 = -1.0;
 
 #[derive(Debug)]
 struct Settings {
@@ -91,6 +93,7 @@ struct Settings {
     index_max_nanos: u64,
     allow_create_scope: bool,
     keycloak_file: Option<String>,
+    retention_days: f64,
 }
 
 impl Default for Settings {
@@ -106,6 +109,7 @@ impl Default for Settings {
             index_max_nanos: (DEFAULT_INDEX_MAX_SEC * 1e9) as u64,
             allow_create_scope: true,
             keycloak_file: None,
+            retention_days: DEFAULT_RETENTION_DAYS,
         }
     }
 }
@@ -281,6 +285,15 @@ impl ObjectImpl for PravegaSink {
                 None,
                 glib::ParamFlags::WRITABLE,
             ),
+            glib::ParamSpec::new_double(
+                PROPERTY_NAME_RETENTION_DAYS,
+                "Retention days",
+                "The number of days that the video stream will be retained.",
+                std::f64::NEG_INFINITY,
+                std::f64::INFINITY,
+                DEFAULT_RETENTION_DAYS,
+                glib::ParamFlags::WRITABLE,
+            ),
         ]});
         PROPERTIES.as_ref()
     }
@@ -404,6 +417,19 @@ impl ObjectImpl for PravegaSink {
                 };
                 if let Err(err) = res {
                     gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_KEYCLOAK_FILE, err);
+                }
+            },
+            PROPERTY_NAME_RETENTION_DAYS => {
+                let res: Result<(), glib::Error> = match value.get::<f64>() {
+                    Ok(retention_days) => {
+                        let mut settings = self.settings.lock().unwrap();
+                        settings.retention_days = retention_days;
+                        Ok(())
+                    },
+                    Err(_) => unreachable!("type checked upstream"),
+                };
+                if let Err(err) = res {
+                    gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_RETENTION_DAYS, err);
                 }
             },
         _ => unimplemented!(),
