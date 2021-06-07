@@ -13,6 +13,28 @@
 set -ex
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
 
+commandExists() {
+    if ! command -v "$1" &> /dev/null
+    then
+        echo "$1 could not be found"
+        exit
+    fi
+}
+commandExists netstat
+commandExists ss
+commandExists grep
+commandExists java
+version=$(java --version 2>&1) #Some versions of java --version output to stderr
+
+case "$version" in
+    *"openjdk 11"*)
+        ;;
+    *"java 11"*)
+        ;;
+    *)
+       >&2 echo "Need Java JDK 11"
+esac
+
 # If PRAVEGA_CONTROLLER_URI is not set, then Pravega standalone will be started and stopped by the integration test.
 # For example: export PRAVEGA_CONTROLLER_URI=127.0.0.1:9090
 
