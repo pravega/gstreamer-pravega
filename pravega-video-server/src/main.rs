@@ -20,12 +20,12 @@ use warp::Filter;
 /// Point your browser to: http://localhost:3030/player?scope=examples&stream=hlsav4
 #[derive(Clap)]
 struct Opts {
-    /// Pravega controller in format "127.0.0.1:9090"
-    #[clap(short, long, default_value = "127.0.0.1:9090")]
-    controller: String,
+    /// Pravega controller in format "tcp://127.0.0.1:9090"
+    #[clap(long, env = "PRAVEGA_CONTROLLER_URI", default_value = "tcp://127.0.0.1:9090")]
+    pravega_controller_uri: String,
     /// The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.
-    #[clap(short, long, default_value = "", setting(clap::ArgSettings::AllowEmptyValues))]
-    keycloak_file: String,
+    #[clap(long, env = "KEYCLOAK_SERVICE_ACCOUNT_FILE", default_value = "", setting(clap::ArgSettings::AllowEmptyValues))]
+    keycloak_service_account_file: String,
 }
 
 fn main() {
@@ -41,7 +41,7 @@ fn main() {
 
     // Let Pravega ClientFactory create the Tokio runtime. It will also be used by Warp.
 
-    let config = create_client_config(opts.controller, Some(opts.keycloak_file)).expect("creating config");
+    let config = create_client_config(opts.pravega_controller_uri, Some(opts.keycloak_service_account_file)).expect("creating config");
     let client_factory = ClientFactory::new(config);
     let client_factory_db = client_factory.clone();
     let runtime = client_factory.runtime();
