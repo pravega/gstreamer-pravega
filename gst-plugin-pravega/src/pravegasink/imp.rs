@@ -31,7 +31,7 @@ use pravega_client::client_factory::ClientFactory;
 use pravega_client::byte::{ByteWriter, ByteReader};
 use pravega_client_shared::{Scope, Stream, Segment, ScopedSegment, StreamConfiguration, ScopedStream, Scaling, ScaleType};
 use pravega_video::event_serde::{EventWithHeader, EventWriter};
-use pravega_video::index::{IndexRecord, IndexRecordWriter, IndexSearcher, get_index_stream_name};
+use pravega_video::index::{IndexRecord, IndexRecordWriter, IndexSearcher, SearchMethod, get_index_stream_name};
 use pravega_video::timestamp::{PravegaTimestamp, SECOND};
 use pravega_video::utils;
 
@@ -103,42 +103,69 @@ impl Retention {
 }
 
 struct RetentionMaintainer {
-    index_searcher: IndexSearcher<ByteReader>,
     retention: Retention,
+    factory: ClientFactory,
+    index_searcher: IndexSearcher<ByteReader>,
+    index_writer: ByteWriter,
+    data_writer: ByteWriter,
 }
 
 impl RetentionMaintainer {
-    fn new(index_reader: ByteReader, retention: Retention) -> Self {
+    fn new(retention: Retention, factory: ClientFactory, index_scoped_segment: ScopedSegment, data_scoped_segment: ScopedSegment) -> Self {
+        let index_reader = factory.create_byte_reader(index_scoped_segment.clone());
+        let index_writer = factory.create_byte_writer(index_scoped_segment);
+        let data_writer = factory.create_byte_writer(data_scoped_segment);
         let index_searcher = IndexSearcher::new(index_reader);
         Self {
+            retention,
+            factory,
             index_searcher, 
-            retention
+            index_writer,
+            data_writer,
         }
     }
 
     fn run(mut self) {
-        // // When ending at Latest, we will emit up through the very last byte currently in the data stream.
-        // index_reader.seek(SeekFrom::End(0)).unwrap();
-        // // Determine Pravega stream offset for this timestamp by searching the index.
-        // let index_record = index_searcher.get_last_record().unwrap();
-        // let end_timestamp = PravegaTimestamp::from_nanoseconds(Some(settings.end_timestamp));
-        // // Determine Pravega stream offset for this timestamp by searching the index.
-        let ts = if let Retention::Days(days) = self.retention {
-            days
-        } else {
-            0.0
+        let (days, bytes) = match self.retention {
+            Retention::Days(days) => (Some(days), None),
+            Retention::Bytes(bytes) => (None, Some(bytes)),
+            Retention::DaysAndBytes(days, bytes) => (Some(days), Some(bytes)),
+            _ => (None, None),
         };
-        println!("index_truncate_timestamp: {} days", ts);
+        let seconds = if let Some(value) = days {
+            let sec = value * 24.0 * 60.0 * 60.0;
+            let sec = sec.round() as i128;
+            Some(sec)
+        } else {
+            None
+        };
+        println!("Will truncate stream older then {} days", days.unwrap_or(-1.0));
+        println!("Will truncate stream lager then {} bytes", bytes.unwrap_or(u64::MAX));
+        
         thread::spawn(move || {
             loop {
-                let last5seconds = PravegaTimestamp::now() - 5 * SECOND;
-                let index_record = self.index_searcher.search_timestamp(last5seconds).unwrap();
-                println!("last_five_seconds is: {}", last5seconds);
-                println!("index_record_timestamp: {}", index_record.timestamp);
+                let first_record = self.index_searcher.get_first_record().unwrap();
+                println!("first_index_record_timestamp: {}", first_record.timestamp);
+
+                if let Some(sec) = seconds {
+                    println!("Keep stream for {} sec", sec);
+                    let truncate_at_timestamp = PravegaTimestamp::now() - sec * SECOND;
+                    println!("Truncating prior to {}", truncate_at_timestamp);
+
+                    let search_result = self.index_searcher.search_timestamp_and_return_index_offset(truncate_at_timestamp, SearchMethod::Before);
+                    if let Ok(result) = search_result {
+                        let runtime = self.factory.runtime();
+                        println!("index_record_timestamp: {}", result.0.timestamp);
+                        runtime.block_on(self.index_writer.truncate_data_before(result.1 as i64)).unwrap();
+                        println!("Index truncated at offset {}", result.1);
+                        runtime.block_on(self.data_writer.truncate_data_before(result.0.offset as i64)).unwrap();
+                        println!("Data truncated at offset {}", result.0.offset);
+                    }
+                }
+
                 thread::sleep(Duration::from_secs(5));
             }
         });
-        
     }
 }
 
@@ -147,7 +174,7 @@ const DEFAULT_BUFFER_SIZE: usize = 128*1024;
 const DEFAULT_TIMESTAMP_MODE: TimestampMode = TimestampMode::RealtimeClock;
 const DEFAULT_INDEX_MIN_SEC: f64 = 0.5;
 const DEFAULT_INDEX_MAX_SEC: f64 = 10.0;
-const DEFAULT_RETENTION_DAYS: f64 = -1.0;
+const DEFAULT_RETENTION_DAYS: f64 = 0.0;
 const DEFAULT_RETENTION_BYTES: u64 = 0;
 
 #[derive(Debug)]
@@ -367,7 +394,7 @@ impl ObjectImpl for PravegaSink {
             ),
             glib::ParamSpec::new_double(
                 PROPERTY_NAME_RETENTION_DAYS,
-                "Retention Days",
+                "Retention days",
                 "The number of days that the video stream will be retained.",
                 std::f64::NEG_INFINITY,
                 std::f64::INFINITY,
@@ -685,7 +712,7 @@ impl BaseSinkImpl for PravegaSink {
                 stream: stream.clone(),
                 segment: Segment::from(0),
             };
-            let mut writer = client_factory.create_byte_writer(scoped_segment);
+            let mut writer = client_factory.create_byte_writer(scoped_segment.clone());
             gst_info!(CAT, obj: element, "start: Opened Pravega writer for data");
             writer.seek_to_tail();
 
@@ -703,9 +730,10 @@ impl BaseSinkImpl for PravegaSink {
             let buf_writer = BufWriter::with_capacity(settings.buffer_size, seekable_writer);
             let counting_writer = CountingWriter::new(buf_writer).unwrap();
 
-            let index_reader = client_factory.create_byte_reader(index_scoped_segment);
             let retention = Retention::new(settings.retention_type.clone(), settings.retention_days, settings.retention_bytes);
-            let rentention_maintainer = RetentionMaintainer::new(index_reader, retention);
+            
+            let rentention_maintainer = RetentionMaintainer::new(retention, client_factory.clone(),
+                index_scoped_segment, scoped_segment);
             rentention_maintainer.run();
 
             *state = State::Started {

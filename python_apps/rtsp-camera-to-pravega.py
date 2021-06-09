@@ -154,6 +154,9 @@ def main():
     parser.add_argument("--pravega-scope", required=True)
     parser.add_argument("--pravega-stream", required=True)
     parser.add_argument("--pravega-buffer-size", type=int, default=1024, help='Pravega writer buffer size in bytes')
+    parser.add_argument("--retention-type", default="none")
+    parser.add_argument("--retention-days", type=float, default=0.0)
+    parser.add_argument("--retention-bytes", type=int, default=0)
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
@@ -295,6 +298,9 @@ def main():
         # Always write to Pravega immediately regardless of PTS
         pravegasink.set_property("sync", False)
         pravegasink.set_property("buffer-size", args.pravega_buffer_size)
+        pravegasink.set_property("retention-type", args.retention_type)
+        pravegasink.set_property("retention-days", args.retention_days)
+        pravegasink.set_property("retention-bytes", args.retention_bytes)
         # Required to use NTP timestamps in PTS
         if not args.fakesource:
             pravegasink.set_property("timestamp-mode", "tai")
