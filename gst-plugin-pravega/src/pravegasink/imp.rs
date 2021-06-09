@@ -139,31 +139,21 @@ impl RetentionMaintainer {
         } else {
             None
         };
-        println!("Will truncate stream older then {} days", days.unwrap_or(-1.0));
-        println!("Will truncate stream lager then {} bytes", bytes.unwrap_or(u64::MAX));
         
         thread::spawn(move || {
             loop {
-                let first_record = self.index_searcher.get_first_record().unwrap();
-                println!("first_index_record_timestamp: {}", first_record.timestamp);
-
                 if let Some(sec) = seconds {
-                    println!("Keep stream for {} sec", sec);
                     let truncate_at_timestamp = PravegaTimestamp::now() - sec * SECOND;
-                    println!("Truncating prior to {}", truncate_at_timestamp);
 
                     let search_result = self.index_searcher.search_timestamp_and_return_index_offset(truncate_at_timestamp, SearchMethod::Before);
                     if let Ok(result) = search_result {
                         let runtime = self.factory.runtime();
-                        println!("index_record_timestamp: {}", result.0.timestamp);
                         runtime.block_on(self.index_writer.truncate_data_before(result.1 as i64)).unwrap();
-                        println!("Index truncated at offset {}", result.1);
                         runtime.block_on(self.data_writer.truncate_data_before(result.0.offset as i64)).unwrap();
-                        println!("Data truncated at offset {}", result.0.offset);
                     }
                 }
 
-                thread::sleep(Duration::from_secs(5));
+                thread::sleep(Duration::from_secs(15 * 60));
             }
         });
     }
@@ -939,7 +929,6 @@ impl BaseSinkImpl for PravegaSink {
                 })?;
                 gst_debug!(CAT, obj: element, "render: Wrote index record {:?}", index_record);
                 *last_index_time = timestamp;
-                println!("pravega_sink_timestamp: {}", timestamp);
             }
 
             // Write buffer to Pravega byte stream.
