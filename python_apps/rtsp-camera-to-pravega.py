@@ -157,6 +157,7 @@ def main():
     parser.add_argument("--retention-type", default="none")
     parser.add_argument("--retention-days", type=float, default=0.0)
     parser.add_argument("--retention-bytes", type=int, default=0)
+    parser.add_argument("--retention-maintenance-interval-seconds", type=int, default=0)
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
@@ -301,6 +302,8 @@ def main():
         pravegasink.set_property("retention-type", args.retention_type)
         pravegasink.set_property("retention-days", args.retention_days)
         pravegasink.set_property("retention-bytes", args.retention_bytes)
+        if args.retention_maintenance_interval_seconds > 0:
+            pravegasink.set_property("retention-maintenance-interval-seconds", args.retention_maintenance_interval_seconds)
         # Required to use NTP timestamps in PTS
         if not args.fakesource:
             pravegasink.set_property("timestamp-mode", "tai")

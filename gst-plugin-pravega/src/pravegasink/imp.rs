@@ -51,6 +51,7 @@ const PROPERTY_NAME_KEYCLOAK_FILE: &str = "keycloak-file";
 const PROPERTY_NAME_RETENTION_TYPE: &str = "retention-type";
 const PROPERTY_NAME_RETENTION_DAYS: &str = "retention-days";
 const PROPERTY_NAME_RETENTION_BYTES: &str = "retention-bytes";
+const PROPERTY_NAME_RETENTION_MAINTENANCE_INTERVAL_SECONDS: &str = "retention-maintenance-interval-seconds";
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy, glib::GEnum)]
 #[repr(u32)]
@@ -78,32 +79,55 @@ pub enum TimestampMode {
     Tai = 2,
 }
 
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy, glib::GEnum)]
+#[repr(u32)]
+#[genum(type_name = "GstRetentionType")]
+pub enum RetentionType {
+    #[genum(
+        name = "If 'none', no data will be deleted from the stream. ",
+        nick = "none"
+    )]
+    None = 0,
+    #[genum(
+        name = "If 'days', data older than 'retention-days' will be deleted from the stream.",
+        nick = "days"
+    )]
+    Days = 1,
+    #[genum(
+        name = "If 'bytes', the oldest data will be deleted so that the data size does not exceed 'retention-bytes'.",
+        nick = "bytes"
+    )]
+    Bytes = 2,
+    #[genum(
+        name = "If 'daysAndBytes', the oldest data will be deleted if it is older than 'retention-days' or the data size exceeds 'retention-bytes'.",
+        nick = "daysAndBytes"
+    )]
+    DaysAndBytes = 3,
+}
+
 #[derive(Debug)]
-enum Retention {
-    Days(f64),
-    Bytes(u64),
-    DaysAndBytes(f64, u64),
+enum RetentionPolicy {
+    Days(Option<f64>),
+    Bytes(Option<u64>),
+    DaysAndBytes(Option<f64>, Option<u64>),
     None,
 }
 
-impl Retention {
-    fn new(retention_type: Option<String>, days: f64, bytes: u64) -> Self {
+impl RetentionPolicy {
+    fn new(retention_type: RetentionType, days: Option<f64>, bytes: Option<u64>) -> Self {
         match retention_type {
-            Some(t) => {
-                match &t[..] {
-                    "days" => Self::Days(days),
-                    "bytes" => Self::Bytes(bytes),
-                    "daysAndBytes" => Self::DaysAndBytes(days, bytes),
-                    _ => Self::None,
-                }
-            }
-            _ => Self::None,
+            RetentionType::Days => Self::Days(days),
+            RetentionType::Bytes => Self::Bytes(bytes),
+            RetentionType::DaysAndBytes => Self::DaysAndBytes(days, bytes),
+            RetentionType::None => Self::None,
         }
     }
 }
 
 struct RetentionMaintainer {
-    retention: Retention,
+    element: super::PravegaSink,
+    interval_seconds: u64,
+    retention_policy: RetentionPolicy,
     factory: ClientFactory,
     index_searcher: IndexSearcher<ByteReader>,
     index_writer: ByteWriter,
@@ -111,13 +135,15 @@ struct RetentionMaintainer {
 }
 
 impl RetentionMaintainer {
-    fn new(retention: Retention, factory: ClientFactory, index_scoped_segment: ScopedSegment, data_scoped_segment: ScopedSegment) -> Self {
+    fn new(element: super::PravegaSink, interval_seconds: u64, retention_policy: RetentionPolicy, factory: ClientFactory, index_scoped_segment: ScopedSegment, data_scoped_segment: ScopedSegment) -> Self {
         let index_reader = factory.create_byte_reader(index_scoped_segment.clone());
         let index_writer = factory.create_byte_writer(index_scoped_segment);
         let data_writer = factory.create_byte_writer(data_scoped_segment);
         let index_searcher = IndexSearcher::new(index_reader);
         Self {
-            retention,
+            element,
+            interval_seconds,
+            retention_policy,
             factory,
             index_searcher, 
             index_writer,
@@ -126,10 +152,10 @@ impl RetentionMaintainer {
     }
 
     fn run(mut self) {
-        let (days, bytes) = match self.retention {
-            Retention::Days(days) => (Some(days), None),
-            Retention::Bytes(bytes) => (None, Some(bytes)),
-            Retention::DaysAndBytes(days, bytes) => (Some(days), Some(bytes)),
+        let (days, bytes) = match self.retention_policy {
+            RetentionPolicy::Days(days) => (days, None),
+            RetentionPolicy::Bytes(bytes) => (None, bytes),
+            RetentionPolicy::DaysAndBytes(days, bytes) => (days, bytes),
             _ => (None, None),
         };
         let seconds = if let Some(value) = days {
@@ -139,21 +165,34 @@ impl RetentionMaintainer {
         } else {
             None
         };
+
+        if seconds.is_none() && bytes.is_none() {
+            return;
+        }
         
+        gst_info!(CAT, obj: &self.element, "start: retention_maintainer_interval_seconds={}", self.interval_seconds);
         thread::spawn(move || {
             loop {
+                let first_record = self.index_searcher.get_first_record().unwrap();
+                gst_info!(CAT, obj: &self.element, "first_index_record_timestamp: {}", first_record.timestamp);
+
                 if let Some(sec) = seconds {
                     let truncate_at_timestamp = PravegaTimestamp::now() - sec * SECOND;
+                    gst_info!(CAT, obj: &self.element, "Keep stream for {} sec", sec);
+                    gst_info!(CAT, obj: &self.element, "Truncating prior to {}", truncate_at_timestamp);
 
                     let search_result = self.index_searcher.search_timestamp_and_return_index_offset(truncate_at_timestamp, SearchMethod::Before);
                     if let Ok(result) = search_result {
                         let runtime = self.factory.runtime();
                         runtime.block_on(self.index_writer.truncate_data_before(result.1 as i64)).unwrap();
                         runtime.block_on(self.data_writer.truncate_data_before(result.0.offset as i64)).unwrap();
+                        gst_info!(CAT, obj: &self.element, "index_record_timestamp: {}", result.0.timestamp);
+                        gst_debug!(CAT, obj: &self.element, "Index truncated at offset {}", result.1);
+                        gst_debug!(CAT, obj: &self.element, "Data truncated at offset {}", result.0.offset);
                     }
                 }
 
-                thread::sleep(Duration::from_secs(15 * 60));
+                thread::sleep(Duration::from_secs(self.interval_seconds));
             }
         });
     }
@@ -164,8 +203,8 @@ const DEFAULT_BUFFER_SIZE: usize = 128*1024;
 const DEFAULT_TIMESTAMP_MODE: TimestampMode = TimestampMode::RealtimeClock;
 const DEFAULT_INDEX_MIN_SEC: f64 = 0.5;
 const DEFAULT_INDEX_MAX_SEC: f64 = 10.0;
-const DEFAULT_RETENTION_DAYS: f64 = 0.0;
-const DEFAULT_RETENTION_BYTES: u64 = 0;
+const DEFAULT_RETENTION_TYPE: RetentionType = RetentionType::None;
+const DEFAULT_RETENTION_MAINTENANCE_INTERVAL_SECONDS: u64 = 15 * 60;
 
 #[derive(Debug)]
 struct Settings {
@@ -179,9 +218,10 @@ struct Settings {
     index_max_nanos: u64,
     allow_create_scope: bool,
     keycloak_file: Option<String>,
-    retention_type: Option<String>,
-    retention_days: f64,
-    retention_bytes: u64,
+    retention_type: RetentionType,
+    retention_days: Option<f64>,
+    retention_bytes: Option<u64>,
+    retention_maintenance_interval_seconds: u64,
 }
 
 impl Default for Settings {
@@ -197,9 +237,10 @@ impl Default for Settings {
             index_max_nanos: (DEFAULT_INDEX_MAX_SEC * 1e9) as u64,
             allow_create_scope: true,
             keycloak_file: None,
-            retention_type: None,
-            retention_days: DEFAULT_RETENTION_DAYS,
-            retention_bytes: DEFAULT_RETENTION_BYTES,
+            retention_type: DEFAULT_RETENTION_TYPE,
+            retention_days: None,
+            retention_bytes: None,
+            retention_maintenance_interval_seconds: DEFAULT_RETENTION_MAINTENANCE_INTERVAL_SECONDS,
         }
     }
 }
@@ -375,20 +416,21 @@ impl ObjectImpl for PravegaSink {
                 None,
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::new_string(
+            glib::ParamSpec::new_enum(
                 PROPERTY_NAME_RETENTION_TYPE,
                 "Retention type",
-                "The retention policy for video stream. Can be days, size, daysAndBytes or none.",
-                None,
+                "If 'days', data older than 'retention-days' will be deleted from the stream. If 'bytes', the oldest data will be deleted so that the data size does not exceed 'retention-bytes'. If daysAndBytes, the oldest data will be deleted if it is older than retention-days or the data size exceeds retention-bytes.",
+                RetentionType::static_type(),
+                DEFAULT_RETENTION_TYPE as i32,
                 glib::ParamFlags::WRITABLE,
             ),
             glib::ParamSpec::new_double(
                 PROPERTY_NAME_RETENTION_DAYS,
                 "Retention days",
                 "The number of days that the video stream will be retained.",
-                std::f64::NEG_INFINITY,
+                0.0,
                 std::f64::INFINITY,
-                DEFAULT_RETENTION_DAYS,
+                0.0,
                 glib::ParamFlags::WRITABLE,
             ),
             glib::ParamSpec::new_uint64(
@@ -397,7 +439,16 @@ impl ObjectImpl for PravegaSink {
                 "The number of bytes that the video stream will be retained.",
                 0,
                 std::u64::MAX,
-                DEFAULT_RETENTION_BYTES,
+                0,
+                glib::ParamFlags::WRITABLE,
+            ),
+            glib::ParamSpec::new_uint64(
+                PROPERTY_NAME_RETENTION_MAINTENANCE_INTERVAL_SECONDS,
+                "Retention maintenance interval seconds",
+                "The period of the retention maintenance job.",
+                0,
+                std::u64::MAX,
+                DEFAULT_RETENTION_MAINTENANCE_INTERVAL_SECONDS,
                 glib::ParamFlags::WRITABLE,
             ),
         ]});
@@ -526,10 +577,10 @@ impl ObjectImpl for PravegaSink {
                 }
             },
             PROPERTY_NAME_RETENTION_TYPE => {
-                let res: Result<(), glib::Error> = match value.get::<String>() {
+                let res: Result<(), glib::Error> = match value.get::<RetentionType>() {
                     Ok(retention_type) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.retention_type = Some(retention_type);
+                        settings.retention_type = retention_type;
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -542,7 +593,7 @@ impl ObjectImpl for PravegaSink {
                 let res: Result<(), glib::Error> = match value.get::<f64>() {
                     Ok(days) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.retention_days = days;
+                        settings.retention_days = Some(days);
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
@@ -555,13 +606,26 @@ impl ObjectImpl for PravegaSink {
                 let res: Result<(), glib::Error> = match value.get::<u64>() {
                     Ok(bytes) => {
                         let mut settings = self.settings.lock().unwrap();
-                        settings.retention_bytes = bytes;
+                        settings.retention_bytes = Some(bytes);
                         Ok(())
                     },
                     Err(_) => unreachable!("type checked upstream"),
                 };
                 if let Err(err) = res {
                     gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_RETENTION_BYTES, err);
+                }
+            },
+            PROPERTY_NAME_RETENTION_MAINTENANCE_INTERVAL_SECONDS => {
+                let res: Result<(), glib::Error> = match value.get::<u64>() {
+                    Ok(seconds) => {
+                        let mut settings = self.settings.lock().unwrap();
+                        settings.retention_maintenance_interval_seconds = seconds;
+                        Ok(())
+                    },
+                    Err(_) => unreachable!("type checked upstream"),
+                };
+                if let Err(err) = res {
+                    gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_RETENTION_MAINTENANCE_INTERVAL_SECONDS, err);
                 }
             },       
         _ => unimplemented!(),
@@ -720,11 +784,12 @@ impl BaseSinkImpl for PravegaSink {
             let buf_writer = BufWriter::with_capacity(settings.buffer_size, seekable_writer);
             let counting_writer = CountingWriter::new(buf_writer).unwrap();
 
-            let retention = Retention::new(settings.retention_type.clone(), settings.retention_days, settings.retention_bytes);
+            let retention_policy = RetentionPolicy::new(settings.retention_type, settings.retention_days, settings.retention_bytes);
+            gst_info!(CAT, obj: element, "start: retention_policy={:?}", retention_policy);
             
-            let rentention_maintainer = RetentionMaintainer::new(retention, client_factory.clone(),
+            let retention_maintainer = RetentionMaintainer::new(element.clone(), settings.retention_maintenance_interval_seconds, retention_policy, client_factory.clone(),
                 index_scoped_segment, scoped_segment);
-            rentention_maintainer.run();
+            retention_maintainer.run();
 
             *state = State::Started {
                 client_factory,
