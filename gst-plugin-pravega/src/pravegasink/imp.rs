@@ -22,8 +22,9 @@ use std::cmp;
 use std::convert::TryInto;
 use std::io::{BufWriter, Seek, SeekFrom, Write};
 use std::sync::Mutex;
-use std::thread;
+use std::thread::{self, JoinHandle};
 use std::time::Duration;
+use std::sync::mpsc::{self, Sender, Receiver, TryRecvError};
 
 use once_cell::sync::Lazy;
 
@@ -151,7 +152,7 @@ impl RetentionMaintainer {
         }
     }
 
-    fn run(mut self) {
+    fn run(mut self, rx: Receiver<()>) -> Option<JoinHandle<()>> {
         let (days, bytes) = match self.retention_policy {
             RetentionPolicy::Days(days) => (days, None),
             RetentionPolicy::Bytes(bytes) => (None, bytes),
@@ -167,11 +168,11 @@ impl RetentionMaintainer {
         };
 
         if seconds.is_none() && bytes.is_none() {
-            return;
+            return None;
         }
         
         gst_info!(CAT, obj: &self.element, "start: retention_maintainer_interval_seconds={}", self.interval_seconds);
-        thread::spawn(move || {
+        let handle = thread::spawn(move || {
             loop {
                 let first_record = self.index_searcher.get_first_record().unwrap();
                 gst_info!(CAT, obj: &self.element, "first_index_record_timestamp: {}", first_record.timestamp);
@@ -192,9 +193,19 @@ impl RetentionMaintainer {
                     }
                 }
 
+                // break the loop to stop the thread
+                match rx.try_recv() {
+                    Ok(_) | Err(TryRecvError::Disconnected) => {
+                        gst_info!(CAT, obj: &self.element, "Retention maintainer thread terminated");
+                        break;
+                    }
+                    Err(TryRecvError::Empty) => {}
+                }
+
                 thread::sleep(Duration::from_secs(self.interval_seconds));
             }
         });
+        Some(handle)
     }
 }
 
@@ -260,6 +271,8 @@ enum State {
         // The offset that will be written to the index upon end-of-stream.
         final_offset: Option<u64>,
         buffers_written: u64,
+        tx: Sender<()>,
+        handle: Option<JoinHandle<()>>,
     },
 }
 
@@ -789,7 +802,8 @@ impl BaseSinkImpl for PravegaSink {
             
             let retention_maintainer = RetentionMaintainer::new(element.clone(), settings.retention_maintenance_interval_seconds, retention_policy, client_factory.clone(),
                 index_scoped_segment, scoped_segment);
-            retention_maintainer.run();
+            let (tx, rx) = mpsc::channel();
+            let handle = retention_maintainer.run(rx);
 
             *state = State::Started {
                 client_factory,
@@ -800,6 +814,8 @@ impl BaseSinkImpl for PravegaSink {
                 final_timestamp: PravegaTimestamp::NONE,
                 final_offset: None,
                 buffers_written: 0,
+                tx,
+                handle,
             };
             gst_info!(CAT, obj: element, "start: Started");
             Ok(())
@@ -993,6 +1009,7 @@ impl BaseSinkImpl for PravegaSink {
                     gst::FlowError::Error
                 })?;
                 gst_debug!(CAT, obj: element, "render: Wrote index record {:?}", index_record);
+                println!("pravega_sink_timestamp: {}", timestamp);
                 *last_index_time = timestamp;
             }
 
@@ -1079,19 +1096,25 @@ impl BaseSinkImpl for PravegaSink {
                 index_writer,
                 client_factory,
                 final_timestamp,
-                final_offset) = match *state {
+                final_offset,
+                tx,
+                handle) = match *state {
                 State::Started {
                     ref mut writer,
                     ref mut index_writer,
                     ref mut client_factory,
                     ref mut final_timestamp,
                     ref mut final_offset,
+                    ref mut tx,
+                    ref mut handle,
                     ..
                 } => (writer,
                     index_writer,
                     client_factory,
                     final_timestamp,
-                    final_offset),
+                    final_offset,
+                    tx,
+                    handle),
                 State::Stopped => {
                     return Err(gst::error_msg!(
                         gst::ResourceError::Settings,
@@ -1133,6 +1156,12 @@ impl BaseSinkImpl for PravegaSink {
                     gst::error_msg!(gst::ResourceError::Write, ["Failed to seal Pravega index stream: {}", error])
                 })?;
                 gst_info!(CAT, obj: element, "stop: Streams sealed");
+            }
+
+            // notify to stop the retention maintainer thread
+            if let Some(_) = handle {
+                let _ = tx.send(());
+                handle.take().map(JoinHandle::join);
             }
 
             *state = State::Stopped;
