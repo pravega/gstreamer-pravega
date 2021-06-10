@@ -174,21 +174,16 @@ impl RetentionMaintainer {
         gst_info!(CAT, obj: &self.element, "start: retention_maintainer_interval_seconds={}", self.interval_seconds);
         let handle = thread::spawn(move || {
             loop {
-                let first_record = self.index_searcher.get_first_record().unwrap();
-                gst_info!(CAT, obj: &self.element, "first_index_record_timestamp: {}", first_record.timestamp);
-
                 if let Some(sec) = seconds {
                     let truncate_at_timestamp = PravegaTimestamp::now() - sec * SECOND;
-                    gst_info!(CAT, obj: &self.element, "Keep stream for {} sec", sec);
                     gst_info!(CAT, obj: &self.element, "Truncating prior to {}", truncate_at_timestamp);
 
                     let search_result = self.index_searcher.search_timestamp_and_return_index_offset(truncate_at_timestamp, SearchMethod::Before);
                     if let Ok(result) = search_result {
                         let runtime = self.factory.runtime();
                         runtime.block_on(self.index_writer.truncate_data_before(result.1 as i64)).unwrap();
-                        runtime.block_on(self.data_writer.truncate_data_before(result.0.offset as i64)).unwrap();
-                        gst_info!(CAT, obj: &self.element, "index_record_timestamp: {}", result.0.timestamp);
                         gst_debug!(CAT, obj: &self.element, "Index truncated at offset {}", result.1);
+                        runtime.block_on(self.data_writer.truncate_data_before(result.0.offset as i64)).unwrap();
                         gst_debug!(CAT, obj: &self.element, "Data truncated at offset {}", result.0.offset);
                     }
                 }
@@ -1009,7 +1004,6 @@ impl BaseSinkImpl for PravegaSink {
                     gst::FlowError::Error
                 })?;
                 gst_debug!(CAT, obj: element, "render: Wrote index record {:?}", index_record);
-                println!("pravega_sink_timestamp: {}", timestamp);
                 *last_index_time = timestamp;
             }
 
