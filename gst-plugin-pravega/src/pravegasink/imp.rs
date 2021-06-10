@@ -182,9 +182,9 @@ impl RetentionMaintainer {
                     if let Ok(result) = search_result {
                         let runtime = self.factory.runtime();
                         runtime.block_on(self.index_writer.truncate_data_before(result.1 as i64)).unwrap();
-                        gst_debug!(CAT, obj: &self.element, "Index truncated at offset {}", result.1);
+                        gst_info!(CAT, obj: &self.element, "Index truncated at offset {}", result.1);
                         runtime.block_on(self.data_writer.truncate_data_before(result.0.offset as i64)).unwrap();
-                        gst_debug!(CAT, obj: &self.element, "Data truncated at offset {}", result.0.offset);
+                        gst_info!(CAT, obj: &self.element, "Data truncated at offset {}", result.0.offset);
                     }
                 }
 
