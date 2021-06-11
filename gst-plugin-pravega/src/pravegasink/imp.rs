@@ -108,18 +108,18 @@ pub enum RetentionType {
 
 #[derive(Debug)]
 enum RetentionPolicy {
-    Days(Option<f64>),
-    Bytes(Option<u64>),
-    DaysAndBytes(Option<f64>, Option<u64>),
+    Days(f64),
+    Bytes(u64),
+    DaysAndBytes(f64, u64),
     None,
 }
 
 impl RetentionPolicy {
     fn new(retention_type: RetentionType, days: Option<f64>, bytes: Option<u64>) -> Self {
         match retention_type {
-            RetentionType::Days => Self::Days(days),
-            RetentionType::Bytes => Self::Bytes(bytes),
-            RetentionType::DaysAndBytes => Self::DaysAndBytes(days, bytes),
+            RetentionType::Days => Self::Days(days.expect("retention-days is not set")),
+            RetentionType::Bytes => Self::Bytes(bytes.expect("retention-bytes is not set")),
+            RetentionType::DaysAndBytes => Self::DaysAndBytes(days.expect("retention-days is not set"), bytes.expect("retention-bytes is not set")),
             RetentionType::None => Self::None,
         }
     }
@@ -152,19 +152,17 @@ impl RetentionMaintainer {
         }
     }
 
-    fn run(mut self, rx: Receiver<()>) -> Option<JoinHandle<()>> {
-        let (days, bytes) = match self.retention_policy {
-            RetentionPolicy::Days(days) => (days, None),
-            RetentionPolicy::Bytes(bytes) => (None, bytes),
-            RetentionPolicy::DaysAndBytes(days, bytes) => (days, bytes),
+    fn days_to_seconds(days: f64) -> i128 {
+        let seconds = days * 24.0 * 60.0 * 60.0;
+        seconds.round() as i128
+    }
+
+    fn run(mut self, thread_stop_rx: Receiver<()>) -> Option<JoinHandle<()>> {
+        let (seconds, bytes) = match self.retention_policy {
+            RetentionPolicy::Days(days) => (Some(RetentionMaintainer::days_to_seconds(days)), None),
+            RetentionPolicy::Bytes(bytes) => (None, Some(bytes)),
+            RetentionPolicy::DaysAndBytes(days, bytes) => (Some(RetentionMaintainer::days_to_seconds(days)), Some(bytes)),
             _ => (None, None),
-        };
-        let seconds = if let Some(value) = days {
-            let sec = value * 24.0 * 60.0 * 60.0;
-            let sec = sec.round() as i128;
-            Some(sec)
-        } else {
-            None
         };
 
         if seconds.is_none() && bytes.is_none() {
@@ -189,7 +187,7 @@ impl RetentionMaintainer {
                 }
 
                 // break the loop to stop the thread
-                match rx.try_recv() {
+                match thread_stop_rx.try_recv() {
                     Ok(_) | Err(TryRecvError::Disconnected) => {
                         gst_info!(CAT, obj: &self.element, "Retention maintainer thread terminated");
                         break;
@@ -266,8 +264,8 @@ enum State {
         // The offset that will be written to the index upon end-of-stream.
         final_offset: Option<u64>,
         buffers_written: u64,
-        tx: Sender<()>,
-        handle: Option<JoinHandle<()>>,
+        retention_thread_stop_tx: Sender<()>,
+        retention_thread_handle: Option<JoinHandle<()>>,
     },
 }
 
@@ -453,7 +451,7 @@ impl ObjectImpl for PravegaSink {
             glib::ParamSpec::new_uint64(
                 PROPERTY_NAME_RETENTION_MAINTENANCE_INTERVAL_SECONDS,
                 "Retention maintenance interval seconds",
-                "The period of the retention maintenance job.",
+                "The oldest data will be deleted from the stream with this interval, according to the retention policy.",
                 0,
                 std::u64::MAX,
                 DEFAULT_RETENTION_MAINTENANCE_INTERVAL_SECONDS,
@@ -791,14 +789,14 @@ impl BaseSinkImpl for PravegaSink {
             gst_info!(CAT, obj: element, "start: Buffer size is {}", settings.buffer_size);
             let buf_writer = BufWriter::with_capacity(settings.buffer_size, seekable_writer);
             let counting_writer = CountingWriter::new(buf_writer).unwrap();
-
+            
             let retention_policy = RetentionPolicy::new(settings.retention_type, settings.retention_days, settings.retention_bytes);
             gst_info!(CAT, obj: element, "start: retention_policy={:?}", retention_policy);
             
             let retention_maintainer = RetentionMaintainer::new(element.clone(), settings.retention_maintenance_interval_seconds, retention_policy, client_factory.clone(),
                 index_scoped_segment, scoped_segment);
-            let (tx, rx) = mpsc::channel();
-            let handle = retention_maintainer.run(rx);
+            let (retention_thread_stop_tx, retention_thread_stop_rx) = mpsc::channel();
+            let retention_thread_handle = retention_maintainer.run(retention_thread_stop_rx);
 
             *state = State::Started {
                 client_factory,
@@ -809,8 +807,8 @@ impl BaseSinkImpl for PravegaSink {
                 final_timestamp: PravegaTimestamp::NONE,
                 final_offset: None,
                 buffers_written: 0,
-                tx,
-                handle,
+                retention_thread_stop_tx,
+                retention_thread_handle,
             };
             gst_info!(CAT, obj: element, "start: Started");
             Ok(())
@@ -1091,24 +1089,24 @@ impl BaseSinkImpl for PravegaSink {
                 client_factory,
                 final_timestamp,
                 final_offset,
-                tx,
-                handle) = match *state {
+                retention_thread_stop_tx,
+                retention_thread_handle) = match *state {
                 State::Started {
                     ref mut writer,
                     ref mut index_writer,
                     ref mut client_factory,
                     ref mut final_timestamp,
                     ref mut final_offset,
-                    ref mut tx,
-                    ref mut handle,
+                    ref mut retention_thread_stop_tx,
+                    ref mut retention_thread_handle,
                     ..
                 } => (writer,
                     index_writer,
                     client_factory,
                     final_timestamp,
                     final_offset,
-                    tx,
-                    handle),
+                    retention_thread_stop_tx,
+                    retention_thread_handle),
                 State::Stopped => {
                     return Err(gst::error_msg!(
                         gst::ResourceError::Settings,
@@ -1153,9 +1151,9 @@ impl BaseSinkImpl for PravegaSink {
             }
 
             // notify to stop the retention maintainer thread
-            if let Some(_) = handle {
-                let _ = tx.send(());
-                handle.take().map(JoinHandle::join);
+            if let Some(_) = retention_thread_handle {
+                let _ = retention_thread_stop_tx.send(());
+                retention_thread_handle.take().map(JoinHandle::join);
             }
 
             *state = State::Stopped;
