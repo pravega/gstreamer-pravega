@@ -24,7 +24,7 @@ use std::io::{BufWriter, Seek, SeekFrom, Write};
 use std::sync::Mutex;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
-use std::sync::mpsc::{self, Sender, Receiver, TryRecvError};
+use std::sync::mpsc::{self, Sender, Receiver, RecvTimeoutError};
 
 use once_cell::sync::Lazy;
 
@@ -115,12 +115,16 @@ enum RetentionPolicy {
 }
 
 impl RetentionPolicy {
-    fn new(retention_type: RetentionType, days: Option<f64>, bytes: Option<u64>) -> Self {
+    fn new(retention_type: RetentionType, days: Option<f64>, bytes: Option<u64>) -> Result<Self, String> {
         match retention_type {
-            RetentionType::Days => Self::Days(days.expect("retention-days is not set")),
-            RetentionType::Bytes => Self::Bytes(bytes.expect("retention-bytes is not set")),
-            RetentionType::DaysAndBytes => Self::DaysAndBytes(days.expect("retention-days is not set"), bytes.expect("retention-bytes is not set")),
-            RetentionType::None => Self::None,
+            RetentionType::Days => days.ok_or(String::from("retention-days is not set")).map(|days| {Self::Days(days)}),
+            RetentionType::Bytes => bytes.ok_or(String::from("retention-bytess is not set")).map(|bytes| {Self::Bytes(bytes)}),
+            RetentionType::DaysAndBytes => {
+                let days= days.ok_or(String::from("retention-days is not set"))?;
+                let bytes = bytes.ok_or(String::from("retention-bytes is not set"))?;
+                Ok(Self::DaysAndBytes(days, bytes))
+            },
+            RetentionType::None => Ok(Self::None),
         }
     }
 }
@@ -187,15 +191,13 @@ impl RetentionMaintainer {
                 }
 
                 // break the loop to stop the thread
-                match thread_stop_rx.try_recv() {
-                    Ok(_) | Err(TryRecvError::Disconnected) => {
+                match thread_stop_rx.recv_timeout(Duration::from_secs(self.interval_seconds)) {
+                    Ok(_) | Err(RecvTimeoutError::Disconnected) => {
                         gst_info!(CAT, obj: &self.element, "Retention maintainer thread terminated");
                         break;
                     }
-                    Err(TryRecvError::Empty) => {}
+                    Err(RecvTimeoutError::Timeout) => {}
                 }
-
-                thread::sleep(Duration::from_secs(self.interval_seconds));
             }
         });
         Some(handle)
@@ -790,7 +792,9 @@ impl BaseSinkImpl for PravegaSink {
             let buf_writer = BufWriter::with_capacity(settings.buffer_size, seekable_writer);
             let counting_writer = CountingWriter::new(buf_writer).unwrap();
             
-            let retention_policy = RetentionPolicy::new(settings.retention_type, settings.retention_days, settings.retention_bytes);
+            let retention_policy = RetentionPolicy::new(settings.retention_type, settings.retention_days, settings.retention_bytes).map_err(|error| {
+                gst::error_msg!(gst::ResourceError::Settings, ["Failed to create retention policy: {}", error])
+            })?;
             gst_info!(CAT, obj: element, "start: retention_policy={:?}", retention_policy);
             
             let retention_maintainer = RetentionMaintainer::new(element.clone(), settings.retention_maintenance_interval_seconds, retention_policy, client_factory.clone(),
