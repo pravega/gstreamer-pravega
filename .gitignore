@@ -17,8 +17,8 @@
 *.nfs*
 *.tgz
 *.ts
-!/pravega-video-server/static/gap-*.ts
-!/pravega-video-server/static/gap-*.mp4
+!/pravega-video-server/resources/static/*.ts
+!/pravega-video-server/resources/static/*.mp4
 __pycache__/
 .ipynb_checkpoints
 pravega-video/Cargo.lock
