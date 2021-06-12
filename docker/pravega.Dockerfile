@@ -137,6 +137,8 @@ ENV GST_PLUGIN_PATH /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 
 ## Build pravega-video-server.
 RUN cargo install --locked --jobs ${RUST_JOBS} --path pravega-video-server
+COPY pravega-video-server/resources /opt/pravega-video-server/resources
+ENV PRAVEGA_VIDEO_SERVER_RESOURCE_DIR=/opt/pravega-video-server/resources
 
 ## Build misc. Rust apps.
 RUN cargo install --locked --jobs ${RUST_JOBS} --path apps --bin \
@@ -163,6 +165,8 @@ COPY --from=pravega-dev /usr/src/gstreamer-pravega/python_apps /usr/src/gstreame
 ENV PATH=/usr/src/gstreamer-pravega/python_apps:$PATH
 COPY --from=pravega-dev /usr/lib/x86_64-linux-gnu/gstreamer-1.0/ /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 COPY --from=pravega-dev /usr/src/gstreamer-pravega/target/release/pravega-video-server /usr/local/bin/
+COPY pravega-video-server/resources /opt/pravega-video-server/resources
+ENV PRAVEGA_VIDEO_SERVER_RESOURCE_DIR=/opt/pravega-video-server/resources
 
 
 # Build GStreamer without debug symbols.
@@ -179,3 +183,5 @@ COPY --from=pravega-dev /usr/src/gstreamer-pravega/python_apps /usr/src/gstreame
 ENV PATH=/usr/src/gstreamer-pravega/python_apps:$PATH
 COPY --from=pravega-dev /usr/lib/x86_64-linux-gnu/gstreamer-1.0/ /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 COPY --from=pravega-dev /usr/src/gstreamer-pravega/target/release/pravega-video-server /usr/local/bin/
+COPY pravega-video-server/resources /opt/pravega-video-server/resources
+ENV PRAVEGA_VIDEO_SERVER_RESOURCE_DIR=/opt/pravega-video-server/resources
