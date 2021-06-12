@@ -18,7 +18,7 @@ use warp::Filter;
 
 /// Serve HTTP Live Streaming (HLS) from a Pravega Video Stream.
 /// Point your browser to: http://localhost:3030/player?scope=examples&stream=hlsav4
-#[derive(Clap)]
+#[derive(Clap, Debug)]
 struct Opts {
     /// Pravega controller in format "tcp://127.0.0.1:9090"
     #[clap(long, env = "PRAVEGA_CONTROLLER_URI", default_value = "tcp://127.0.0.1:9090")]
@@ -26,6 +26,9 @@ struct Opts {
     /// The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.
     #[clap(long, env = "KEYCLOAK_SERVICE_ACCOUNT_FILE", default_value = "", setting(clap::ArgSettings::AllowEmptyValues))]
     keycloak_service_account_file: String,
+    /// Directory containing static files and templates.
+    #[clap(long, env = "PRAVEGA_VIDEO_SERVER_RESOURCE_DIR", default_value = "./resources")]
+    resource_dir: String,
 }
 
 fn main() {
@@ -38,6 +41,9 @@ fn main() {
         .with_span_events(FmtSpan::CLOSE)
         .init();
     info!("main: BEGIN");
+    info!("opts={:?}", opts);
+
+    let static_dir_name = format!("{}/static", opts.resource_dir);
 
     // Let Pravega ClientFactory create the Tokio runtime. It will also be used by Warp.
 
@@ -50,7 +56,7 @@ fn main() {
         let db = models::new(client_factory_db);
         let api = filters::get_all_filters(db);
         let ui = ui::get_all_filters();
-        let static_dir = warp::path("static").and(warp::fs::dir("./static"));
+        let static_dir = warp::path("static").and(warp::fs::dir(static_dir_name));
         // let redirect = warp::path::end().map(|| {
         //     warp::redirect::temporary(Uri::from_static("/static/hls-js.html"))
         // });
@@ -122,6 +128,7 @@ mod ui {
     use chrono::{DateTime, Utc};
     use handlebars::Handlebars;
     use serde_derive::{Deserialize, Serialize};
+    use super::*;
     use warp::Filter;
 
     #[derive(Debug, Deserialize, Serialize)]
@@ -145,9 +152,11 @@ mod ui {
             .and(warp::get())
             .and(warp::query::<GetPlayerHtmlOptions>())
             .map(|opts: GetPlayerHtmlOptions| {
+                let app_opts: Opts = Opts::parse();
+                let template_file_name = format!("{}/templates/player.html", app_opts.resource_dir);
                 let mut hb = Handlebars::new();
                 let template_name = "player.html";
-                hb.register_template_file(template_name, "templates/player.html").unwrap();
+                hb.register_template_file(template_name, template_file_name).unwrap();
                 let html = hb.render(template_name, &opts).unwrap();
                 Ok(warp::reply::html(html))
                 })
