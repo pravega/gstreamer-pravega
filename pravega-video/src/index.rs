@@ -193,7 +193,7 @@ impl<R: Read + Seek + CurrentHead> IndexSearcher<R> {
     /// index_offset is the byte offset of this index record in the index.
     /// It can be used to truncate the index prior to the located IndexRecord.
     /// If an exact match is found, returns that index record always.
-    /// If the desired size exceeds the first and last timestamp in the index, returns the first index record.
+    /// If the desired size exceeds offset difference between the first and last index record in the index, returns the first index record.
     /// If the index has no records, returns an UnexpectedEof error.
     /// Otherwise, it uses the specified SearchMethod.
     /// TODO: Add flag to not consider records with random_access=false.
