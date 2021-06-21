@@ -193,6 +193,64 @@ impl<R: Read + Seek + CurrentHead> IndexSearcher<R> {
     /// index_offset is the byte offset of this index record in the index.
     /// It can be used to truncate the index prior to the located IndexRecord.
     /// If an exact match is found, returns that index record always.
+    /// If the desired size exceeds offset difference between the first and last index record in the index, returns the first index record.
+    /// If the index has no records, returns an UnexpectedEof error.
+    /// Otherwise, it uses the specified SearchMethod.
+    /// TODO: Add flag to not consider records with random_access=false.
+    /// TODO: Make this method private.
+    pub fn search_size_and_return_index_offset(&mut self, size_bytes: u64, method: SearchMethod)
+            -> Result<(IndexRecord, u64), Error> {
+
+        let result = (|| {
+            let mut index_record_reader = IndexRecordReader::new();
+
+            let first_index_offset = self.reader.get_ref().current_head()?;
+            let tail_offset = self.reader.seek(SeekFrom::End(0))?;
+            if tail_offset < first_index_offset + IndexRecord::RECORD_SIZE as u64 {
+                return Err(Error::new(ErrorKind::UnexpectedEof, "Index has no records"));
+            }
+
+            self.reader.seek(SeekFrom::Start(tail_offset - IndexRecord::RECORD_SIZE as u64))?;
+            // TODO: Below may fail due to https://github.com/pravega/pravega-client-rust/issues/163.
+            let last_index_record = index_record_reader.read(&mut self.reader)?;
+
+            // Read first record.
+            let mut prev_index_offset = self.reader.seek(SeekFrom::Start(first_index_offset))?;
+            let mut prev_index_record = index_record_reader.read(&mut self.reader)?;
+
+            // Return first record if desired size is larger or equal to it.
+            if last_index_record.offset - prev_index_record.offset <= size_bytes {
+                return Ok((prev_index_record, prev_index_offset));
+            }
+
+            // Read index from the beginning until we find a size greater or equal to the desired size.
+            // TODO: Use binary search or Newton's method.
+            loop {
+                let index_record = index_record_reader.read(&mut self.reader)?;
+                let index_offset = prev_index_offset + IndexRecord::RECORD_SIZE as u64;
+                trace!("IndexSearcher::search_size_and_return_index_offset: index_record={:?}", index_record);
+                if last_index_record.offset - index_record.offset < size_bytes {
+                    // Approximate match returns index record before or after desired size, depending on method.
+                    return match method {
+                        SearchMethod::Before => Ok((prev_index_record, prev_index_offset)),
+                        SearchMethod::After => Ok((index_record, index_offset)),
+                    }
+                } else if last_index_record.offset - index_record.offset == size_bytes {
+                    // Exact match
+                    return Ok((index_record, index_offset));
+                }
+                prev_index_offset = index_offset;
+                prev_index_record = index_record;
+            }
+        })();
+        debug!("IndexSearcher::search_size_and_return_index_offset({}, {:?}) = {:?}", size_bytes, method, result);
+        result
+    }
+
+    /// Returns a tuple containing an IndexRecord and index_offset.
+    /// index_offset is the byte offset of this index record in the index.
+    /// It can be used to truncate the index prior to the located IndexRecord.
+    /// If an exact match is found, returns that index record always.
     /// If the desired timestamp exceeds the first and last timestamp in the index, returns the nearest index record.
     /// If the index has no records, returns an UnexpectedEof error.
     /// Otherwise, it uses the specified SearchMethod.

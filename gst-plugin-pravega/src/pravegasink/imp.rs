@@ -118,7 +118,7 @@ impl RetentionPolicy {
     fn new(retention_type: RetentionType, days: Option<f64>, bytes: Option<u64>) -> Result<Self, String> {
         match retention_type {
             RetentionType::Days => days.ok_or(String::from("retention-days is not set")).map(|days| {Self::Days(days)}),
-            RetentionType::Bytes => bytes.ok_or(String::from("retention-bytess is not set")).map(|bytes| {Self::Bytes(bytes)}),
+            RetentionType::Bytes => bytes.ok_or(String::from("retention-bytes is not set")).map(|bytes| {Self::Bytes(bytes)}),
             RetentionType::DaysAndBytes => {
                 let days= days.ok_or(String::from("retention-days is not set"))?;
                 let bytes = bytes.ok_or(String::from("retention-bytes is not set"))?;
@@ -181,6 +181,19 @@ impl RetentionMaintainer {
                     gst_info!(CAT, obj: &self.element, "Truncating prior to {}", truncate_at_timestamp);
 
                     let search_result = self.index_searcher.search_timestamp_and_return_index_offset(truncate_at_timestamp, SearchMethod::Before);
+                    if let Ok(result) = search_result {
+                        let runtime = self.factory.runtime();
+                        runtime.block_on(self.index_writer.truncate_data_before(result.1 as i64)).unwrap();
+                        gst_info!(CAT, obj: &self.element, "Index truncated at offset {}", result.1);
+                        runtime.block_on(self.data_writer.truncate_data_before(result.0.offset as i64)).unwrap();
+                        gst_info!(CAT, obj: &self.element, "Data truncated at offset {}", result.0.offset);
+                    }
+                }
+
+                if let Some(bytes) = bytes {
+                    gst_info!(CAT, obj: &self.element, "Truncating larger than {} bytes", bytes);
+
+                    let search_result = self.index_searcher.search_size_and_return_index_offset(bytes, SearchMethod::Before);
                     if let Ok(result) = search_result {
                         let runtime = self.factory.runtime();
                         runtime.block_on(self.index_writer.truncate_data_before(result.1 as i64)).unwrap();
