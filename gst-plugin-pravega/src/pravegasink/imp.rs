@@ -118,7 +118,7 @@ impl RetentionPolicy {
     fn new(retention_type: RetentionType, days: Option<f64>, bytes: Option<u64>) -> Result<Self, String> {
         match retention_type {
             RetentionType::Days => days.ok_or(String::from("retention-days is not set")).map(|days| {Self::Days(days)}),
-            RetentionType::Bytes => bytes.ok_or(String::from("retention-bytess is not set")).map(|bytes| {Self::Bytes(bytes)}),
+            RetentionType::Bytes => bytes.ok_or(String::from("retention-bytes is not set")).map(|bytes| {Self::Bytes(bytes)}),
             RetentionType::DaysAndBytes => {
                 let days= days.ok_or(String::from("retention-days is not set"))?;
                 let bytes = bytes.ok_or(String::from("retention-bytes is not set"))?;
@@ -189,6 +189,25 @@ impl RetentionMaintainer {
                         gst_info!(CAT, obj: &self.element, "Data truncated at offset {}", result.0.offset);
                     }
                 }
+
+                if let Some(bytes) = bytes {
+                    gst_info!(CAT, obj: &self.element, "Truncating larger than {} bytes", bytes);
+
+                    let search_result = self.index_searcher.search_size_and_return_index_offset(bytes, SearchMethod::After);
+                    if let Ok(result) = search_result {
+                        let runtime = self.factory.runtime();
+                        runtime.block_on(self.index_writer.truncate_data_before(result.1 as i64)).unwrap();
+                        gst_info!(CAT, obj: &self.element, "Index truncated at offset {}", result.1);
+                        runtime.block_on(self.data_writer.truncate_data_before(result.0.offset as i64)).unwrap();
+                        gst_info!(CAT, obj: &self.element, "Data truncated at offset {}", result.0.offset);
+                        println!("!!!!!truncate index before timestamp: {}", result.0.timestamp);
+                    }
+                }
+
+                let head = self.index_searcher.get_first_record().unwrap();
+                let tail = self.index_searcher.get_last_record().unwrap();
+                println!("!!!!!last timestamp is: {}", tail.timestamp);
+                println!("!!!!!data size is: {}", tail.offset - head.offset);
 
                 // break the loop to stop the thread
                 match thread_stop_rx.recv_timeout(Duration::from_secs(self.interval_seconds)) {
@@ -1007,6 +1026,7 @@ impl BaseSinkImpl for PravegaSink {
                 })?;
                 gst_debug!(CAT, obj: element, "render: Wrote index record {:?}", index_record);
                 *last_index_time = timestamp;
+                println!("render: Wrote index record timestamp: {}", index_record.timestamp);
             }
 
             // Write buffer to Pravega byte stream.
