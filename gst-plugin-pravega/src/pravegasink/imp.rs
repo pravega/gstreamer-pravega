@@ -193,7 +193,7 @@ impl RetentionMaintainer {
                 if let Some(bytes) = bytes {
                     gst_info!(CAT, obj: &self.element, "Truncating larger than {} bytes", bytes);
 
-                    let search_result = self.index_searcher.search_size_and_return_index_offset(bytes, SearchMethod::After);
+                    let search_result = self.index_searcher.search_size_and_return_index_offset(bytes, SearchMethod::Before);
                     if let Ok(result) = search_result {
                         let runtime = self.factory.runtime();
                         runtime.block_on(self.index_writer.truncate_data_before(result.1 as i64)).unwrap();
