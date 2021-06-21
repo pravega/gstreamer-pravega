@@ -200,14 +200,8 @@ impl RetentionMaintainer {
                         gst_info!(CAT, obj: &self.element, "Index truncated at offset {}", result.1);
                         runtime.block_on(self.data_writer.truncate_data_before(result.0.offset as i64)).unwrap();
                         gst_info!(CAT, obj: &self.element, "Data truncated at offset {}", result.0.offset);
-                        println!("!!!!!truncate index before timestamp: {}", result.0.timestamp);
                     }
                 }
-
-                let head = self.index_searcher.get_first_record().unwrap();
-                let tail = self.index_searcher.get_last_record().unwrap();
-                println!("!!!!!last timestamp is: {}", tail.timestamp);
-                println!("!!!!!data size is: {}", tail.offset - head.offset);
 
                 // break the loop to stop the thread
                 match thread_stop_rx.recv_timeout(Duration::from_secs(self.interval_seconds)) {
@@ -1026,7 +1020,6 @@ impl BaseSinkImpl for PravegaSink {
                 })?;
                 gst_debug!(CAT, obj: element, "render: Wrote index record {:?}", index_record);
                 *last_index_time = timestamp;
-                println!("render: Wrote index record timestamp: {}", index_record.timestamp);
             }
 
             // Write buffer to Pravega byte stream.
