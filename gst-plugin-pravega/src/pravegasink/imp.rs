@@ -486,7 +486,13 @@ impl ObjectImpl for PravegaSink {
         match pspec.name() {
             PROPERTY_NAME_STREAM => {
                 let res = match value.get::<String>() {
-                    Ok(stream) => self.set_stream(&obj, Some(stream)),
+                    Ok(stream) => {
+                        if stream.is_empty() { 
+                            unreachable!("stream is empty")
+                        } else {
+                            self.set_stream(&obj, Some(stream))
+                        }
+                    },
                     Err(_) => unreachable!("type checked upstream"),
                 };
                 if let Err(err) = res {
@@ -495,7 +501,13 @@ impl ObjectImpl for PravegaSink {
             },
             PROPERTY_NAME_CONTROLLER => {
                 let res = match value.get::<String>() {
-                    Ok(controller) => self.set_controller(&obj, Some(controller)),
+                    Ok(controller) => {
+                        if controller.is_empty() { 
+                            unreachable!("controller is empty")
+                        } else {
+                            self.set_controller(&obj, Some(controller))
+                        }
+                    },
                     Err(_) => unreachable!("type checked upstream"),
                 };
                 if let Err(err) = res {
