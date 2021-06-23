@@ -747,21 +747,24 @@ impl BaseSrcImpl for PravegaSrc {
                 } else {
                     clocktime_to_pravega(segment.time())
                 };
-                let search_offset = if requested_seek_timestamp == PravegaTimestamp::MIN { 0 * SECOND } else { -5 * SECOND };
-                gst_info!(CAT, obj: src, "do_seek: search_offset={:?}", search_offset);
-                let search_timestamp = requested_seek_timestamp + search_offset;
-                gst_info!(CAT, obj: src, "do_seek: seeking to timestamp={:?}", search_timestamp);
+                gst_info!(CAT, obj: src, "do_seek: seeking to timestamp {:?}", requested_seek_timestamp);
                 // Determine the stream offset for this timestamp by searching the index.
-                let index_record = index_searcher.search_timestamp(search_timestamp);
+                let index_record = index_searcher.search_timestamp(requested_seek_timestamp);
                 gst_info!(CAT, obj: src, "do_seek: index_record={:?}", index_record);
                 match index_record {
                     Ok(index_record) => {
-                        let t = if requested_seek_timestamp < index_record.timestamp { index_record.timestamp } else { requested_seek_timestamp };
-                        // gst_info!(CAT, obj: src, "do_seek: {:?}", t);
-                        // segment.set_start(ClockTime(index_record.timestamp.nanoseconds()));
-                        segment.set_start(ClockTime(t.nanoseconds()));
-                        // segment.set_time(ClockTime(index_record.timestamp.nanoseconds()));
-                        segment.set_time(ClockTime(t.nanoseconds()));
+                        let segment_start_timestamp = if requested_seek_timestamp < index_record.timestamp {
+                            // First indexed record is after requested timestamp.
+                            // The segment will start at the indexed time.
+                            index_record.timestamp
+                        } else {
+                            // First indexed record is on or before the requested timestamp.
+                            // The segment will start at the requested timestamp.
+                            requested_seek_timestamp
+                        };
+                        gst_info!(CAT, obj: src, "do_seek: segment will start at {:?}", segment_start_timestamp);
+                        segment.set_start(ClockTime(segment_start_timestamp.nanoseconds()));
+                        segment.set_time(ClockTime(segment_start_timestamp.nanoseconds()));
                         segment.set_position(0);
                         reader.seek(SeekFrom::Start(index_record.offset)).unwrap();
                         gst_info!(CAT, obj: src, "do_seek: seeked to indexed position; segment={:?}", segment);
