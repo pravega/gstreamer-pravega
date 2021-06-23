@@ -353,7 +353,14 @@ impl ObjectImpl for PravegaSrc {
             },
             PROPERTY_NAME_CONTROLLER => {
                 let res = match value.get::<String>() {
-                    Ok(controller) => self.set_controller(&obj, Some(controller)),
+                    Ok(controller) => {
+                        let controller = if controller.is_empty() {
+                            None
+                        } else {
+                            Some(controller)
+                        };
+                        self.set_controller(&obj, controller)
+                    },
                     Err(_) => unreachable!("type checked upstream"),
                 };
                 if let Err(err) = res {
