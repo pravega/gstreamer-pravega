@@ -218,12 +218,32 @@ mod test {
         assert_eq!(summary.buffers_between(seek_at_pts + 10 * SECOND, seek_to_pts - 10 * SECOND).len(), 0);
     }
 
-    #[test]
-    fn test_pravegasrc_seek_2() {
+    #[rstest]
+    #[case(
+        VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(30).build().unwrap()),
+        ContainerFormat::Mp4(Mp4MuxConfigBuilder::default().fragment_duration(1 * MSECOND).build().unwrap()),
+    )]
+    // #[case(
+    //     VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(60).build().unwrap()),
+    //     ContainerFormat::Mp4(Mp4MuxConfigBuilder::default().fragment_duration(1 * MSECOND).build().unwrap()),
+    // )]
+    // #[case(
+    //     VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(60).tune("0".to_owned()).build().unwrap()),
+    //     ContainerFormat::Mp4(Mp4MuxConfigBuilder::default().fragment_duration(500 * MSECOND).build().unwrap()),
+    // )]
+    // #[case(
+    //     VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(30).tune("0".to_owned()).build().unwrap()),
+    //     ContainerFormat::Mp4(Mp4MuxConfigBuilder::default().fragment_duration(200 * MSECOND).build().unwrap()),
+    // )]
+    // #[case(
+    //     VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(30).build().unwrap()),
+    //     ContainerFormat::MpegTs,
+    // )]
+    fn test_pravegasrc_seek_2(#[case] video_encoder: VideoEncoder, #[case] container_format: ContainerFormat) {
         let test_config = &get_test_config();
         info!("test_config={:?}", test_config);
         let stream_name = &format!("test-pravegasrc-{}-{}", test_config.test_id, Uuid::new_v4())[..];
-        let summary_written = pravegasrc_seek_test_data_gen(test_config, stream_name).unwrap();
+        let summary_written = pravegasrc_seek_test_data_gen(test_config, stream_name, video_encoder, container_format).unwrap();
         debug!("summary_written={}", summary_written);
         let first_pts_written = summary_written.first_valid_pts();
         let last_pts_written = summary_written.last_valid_pts();
