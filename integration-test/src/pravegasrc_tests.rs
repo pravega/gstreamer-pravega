@@ -78,8 +78,8 @@ mod test {
         debug!("summary={}", summary);
         let wallclock_elapsed_time = (Instant::now() - t0).as_nanos() * NSECOND;
         debug!("wallclock_elapsed_time={}", wallclock_elapsed_time);
-        info!("Expected: summary={:?}", summary_written);
-        info!("Actual:   summary={:?}", summary);
+        info!("Expected: summary={}", summary_written);
+        info!("Actual:   summary={}", summary);
         assert_eq!(summary, summary_written);
         assert!(summary.buffer_summary_list.first().unwrap().flags.contains(gst::BufferFlags::DISCONT));
         if sync {
@@ -116,6 +116,7 @@ mod test {
         }
     }
 
+    /// See also test_pravegasrc_decode_from_timestamp().
     #[rstest]
     #[case(0, 0, false)]
     #[case(0, 0, true)]
@@ -150,11 +151,11 @@ mod test {
         let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         let wallclock_elapsed_time = (Instant::now() - t0).as_nanos() * NSECOND;
         debug!("wallclock_elapsed_time={}", wallclock_elapsed_time);
-        debug!("summary_written={:?}", summary_written);
-        debug!("summary=        {:?}", summary);
+        debug!("summary_written={}", summary_written);
+        debug!("summary=        {}", summary);
         assert_timestamp_eq("first_pts", summary.first_pts(), start_pts_expected);
         if sync {
-            assert!(wallclock_elapsed_time >= summary.pts_range());
+            assert!(wallclock_elapsed_time >= summary.pts_range() - start_offset_ms * MSECOND);
         }
     }
 
@@ -174,7 +175,7 @@ mod test {
             start_timestamp = PravegaTimestamp::MAX.nanoseconds().unwrap(),
         );
         let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
-        debug!("summary={:?}", summary);
+        debug!("summary={}", summary);
         assert_eq!(summary.num_buffers(), 0);
     }
 

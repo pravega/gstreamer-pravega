@@ -218,28 +218,28 @@ mod test {
         assert_eq!(summary.buffers_between(seek_at_pts + 10 * SECOND, seek_to_pts - 10 * SECOND).len(), 0);
     }
 
+    /// This will test starting a decode pipeline at a precise time.
+    /// The pipeline should start decoding at the random access point prior to the specified timestamp
+    /// but the decoder should not emit frames earlier than the specified timestamp.
+    /// See also test_pravegasrc_start_mode_timestamp().
     #[rstest]
     #[case(
         VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(30).build().unwrap()),
         ContainerFormat::Mp4(Mp4MuxConfigBuilder::default().fragment_duration(1 * MSECOND).build().unwrap()),
     )]
-    // #[case(
-    //     VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(60).build().unwrap()),
-    //     ContainerFormat::Mp4(Mp4MuxConfigBuilder::default().fragment_duration(1 * MSECOND).build().unwrap()),
-    // )]
-    // #[case(
-    //     VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(60).tune("0".to_owned()).build().unwrap()),
-    //     ContainerFormat::Mp4(Mp4MuxConfigBuilder::default().fragment_duration(500 * MSECOND).build().unwrap()),
-    // )]
-    // #[case(
-    //     VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(30).tune("0".to_owned()).build().unwrap()),
-    //     ContainerFormat::Mp4(Mp4MuxConfigBuilder::default().fragment_duration(200 * MSECOND).build().unwrap()),
-    // )]
-    // #[case(
-    //     VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(30).build().unwrap()),
-    //     ContainerFormat::MpegTs,
-    // )]
-    fn test_pravegasrc_seek_2(#[case] video_encoder: VideoEncoder, #[case] container_format: ContainerFormat) {
+    #[case(
+        VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(60).build().unwrap()),
+        ContainerFormat::Mp4(Mp4MuxConfigBuilder::default().fragment_duration(1 * MSECOND).build().unwrap()),
+    )]
+    #[case(
+        VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(60).tune("0".to_owned()).build().unwrap()),
+        ContainerFormat::Mp4(Mp4MuxConfigBuilder::default().fragment_duration(500 * MSECOND).build().unwrap()),
+    )]
+    #[case(
+        VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(30).tune("0".to_owned()).build().unwrap()),
+        ContainerFormat::Mp4(Mp4MuxConfigBuilder::default().fragment_duration(200 * MSECOND).build().unwrap()),
+    )]
+    fn test_pravegasrc_decode_from_timestamp(#[case] video_encoder: VideoEncoder, #[case] container_format: ContainerFormat) {
         let test_config = &get_test_config();
         info!("test_config={:?}", test_config);
         let stream_name = &format!("test-pravegasrc-{}-{}", test_config.test_id, Uuid::new_v4())[..];
@@ -264,7 +264,6 @@ mod test {
         debug!("summary_full=   {}", summary_full);
         let first_pts_full = summary_full.first_valid_pts();
         let last_pts_full = summary_full.last_valid_pts();
-        // thread::sleep(time::Duration::from_secs(3));
 
         info!("#### Decode video stream starting from exact PTS");
         let resume_from_pts: PravegaTimestamp = first_pts_full + 30510 * MSECOND;
@@ -280,74 +279,6 @@ mod test {
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
             resume_from_pts = resume_from_pts.nanoseconds().unwrap(),
         );
-        // info!("Launch Pipeline: {}", pipeline_description);
-        // let pipeline = gst::parse_launch(&pipeline_description).unwrap();
-        // let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
-        // // Subscribe to any property changes.
-        // // Identity elements with silent=false will produce bus messages and will be logged by monitor_pipeline_until_eos.
-        // let _ = pipeline.add_property_deep_notify_watch(None, true);
-        // let summary_list = Arc::new(Mutex::new(Vec::new()));
-        // let summary_list_clone = summary_list.clone();
-        // let sink = pipeline.get_by_name("sink");
-        // match sink {
-        //     Some(sink) => {
-        //         let sink = sink.downcast::<gst_app::AppSink>().unwrap();
-        //         sink.set_callbacks(
-        //             gst_app::AppSinkCallbacks::builder()
-        //                 .new_sample(move |sink| {
-        //                     let sample = sink.pull_sample().unwrap();
-        //                     debug!("sample={:?}", sample);
-        //                     let buffer = sample.get_buffer().unwrap();
-        //                     let pts = clocktime_to_pravega(buffer.get_pts());
-        //                     let summary = BufferSummary {
-        //                         pts,
-        //                         size: buffer.get_size() as u64,
-        //                         offset: buffer.get_offset(),
-        //                         offset_end: buffer.get_offset_end(),
-        //                         flags: buffer.get_flags(),
-        //                     };
-        //                     let mut summary_list = summary_list_clone.lock().unwrap();
-        //                     summary_list.push(summary);
-        //                     Ok(gst::FlowSuccess::Ok)
-        //                 })
-        //                 .build()
-        //         );
-        //     },
-        //     None => warn!("Element named 'sink' not found"),
-        // };
-
-        // info!("### Set state to Paused");
-        // pipeline.set_state(gst::State::Paused).unwrap();
-        // thread::sleep(time::Duration::from_secs(10));
-        // info!("current_state={:?}", pipeline.get_current_state());
-
-        // pravegasrc will start.
-        // Initial seek will occur.
-
-        // info!("### Performing seek");
-        // let seek_to_pts = first_pts_written + 30500 * MSECOND;
-        // debug!("first_pts_written={:?}", first_pts_written);
-        // debug!("seek_to_pts=      {:?}", seek_to_pts);
-        // pipeline.seek_simple(
-        //         gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT,
-        //         pravega_to_clocktime(seek_to_pts),
-        // ).unwrap();
-
-        // info!("### Set state to Playing");
-        // pipeline.set_state(gst::State::Playing).unwrap();
-        // info!("current_state={:?}", pipeline.get_current_state());
-
-        // monitor_pipeline_until_eos(&pipeline).unwrap();
-
-        // info!("### Stop pipeline");
-        // info!("current_state={:?}", pipeline.get_current_state());
-        // pipeline.set_state(gst::State::Null).unwrap();
-        // info!("current_state={:?}", pipeline.get_current_state());
-
-        // let summary_list = summary_list.lock().unwrap().clone();
-        // let summary = BufferListSummary {
-        //     buffer_summary_list: summary_list,
-        // };
 
         let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
         debug!("summary_written={}", summary_written);
@@ -363,9 +294,7 @@ mod test {
         debug!("last_pts_written= {:?}", last_pts_written);
         debug!("last_pts_full=    {:?}", last_pts_full);
         debug!("last_pts_read=    {:?}", last_pts_read);
-        // assert_between_timestamp("first_pts_read", first_pts_read, first_pts_written - 1 * SECOND, first_pts_written + 1 * SECOND);
-        // assert_between_timestamp("last_pts_read", last_pts_read, last_pts_written - 1 * SECOND, last_pts_written + 1 * SECOND);
-        // // Confirm there are no buffers that should have been skipped.
-        // assert_eq!(summary.buffers_between(seek_at_pts + 10 * SECOND, seek_to_pts - 10 * SECOND).len(), 0);
+        assert_timestamp_eq("first_pts_read", first_pts_read, resume_from_pts);
+        assert_timestamp_eq("last_pts_read", last_pts_read, last_pts_full);
     }
 }
