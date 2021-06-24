@@ -32,7 +32,7 @@ use pravega_client::byte::ByteReader;
 use pravega_client_shared::{Scope, Stream, StreamConfiguration, ScopedStream, Scaling, ScaleType};
 use pravega_video::event_serde::EventReader;
 use pravega_video::index::{IndexSearcher, get_index_stream_name};
-use pravega_video::timestamp::{PravegaTimestamp, SECOND};
+use pravega_video::timestamp::PravegaTimestamp;
 use pravega_video::utils;
 use crate::counting_reader::CountingReader;
 use crate::seekable_take::SeekableTake;
