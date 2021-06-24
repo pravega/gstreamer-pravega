@@ -544,7 +544,10 @@ impl BaseSrcImpl for PravegaSrc {
             let stream = Stream::from(stream_name);
             let index_stream = Stream::from(index_stream_name);
             gst_info!(CAT, obj: element, "start: scope={}, stream={}, index_stream={}", scope, stream, index_stream);
-            gst_info!(CAT, obj: element, "start: start_mode={:?}, end_mode={:?}", settings.start_mode, settings.end_mode);
+            gst_info!(CAT, obj: element, "start: start_mode={:?}, start_timestamp={:?}",
+                settings.start_mode, PravegaTimestamp::from_nanoseconds(Some(settings.start_timestamp)));
+            gst_info!(CAT, obj: element, "start: end_mode={:?}, end_timestamp={:?}",
+                settings.end_mode, PravegaTimestamp::from_nanoseconds(Some(settings.end_timestamp)));
 
             let controller = settings.controller.clone().ok_or_else(|| {
                 gst::error_msg!(gst::ResourceError::Settings, ["Controller is not defined"])
