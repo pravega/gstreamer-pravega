@@ -547,16 +547,16 @@ pravegasrc R -> .../
   - pts:
     - u64 which will equal the minimum PTS across inputs
   - active_transactions:
-    - list of active transactions
+    - (future) list of active transactions
   - ready_to_flush:
-    - ordered blocking queue of (`pts`, `transactions`)
+    - ordered blocking queue of (`pts`, (future) `transactions`)
     - Events written to the transactions will have a timestamp strictly less than `pts`.
 
 #### Chain function
 
 Below describes the chain function in the Transaction Coordinator (TC).
 
-- Buffers from inputs will be queued (or inputs blocked) as needed to ensure that all buffers are processed in PTS order.
+- (future) Buffers from inputs will be queued (or inputs blocked) as needed to ensure that all buffers are processed in PTS order.
 - Calculate `new_pts` = minimum PTS across all inputs.
 - If `new_pts` is greater than `pts`.
   - Set `pts_changed` = true.
@@ -565,9 +565,12 @@ Below describes the chain function in the Transaction Coordinator (TC).
   This should be at a frame boundary, or equivalently `pts_changed` is true.
   We can also require the PTS to change by a minimum amount.
 - If we should commit:
-  - Move transactions from `active_transactions` to `ready_to_flush`, along with `pts` (from the new buffer).
-  - Begin new transactions and populate `active_transactions`.
-  - Notify each output to flush any internal buffers and use the new transactions.
+  - Add record to `ready_to_flush`:
+    - `pts`: from new buffer
+    - (future) `transactions`: from `active_transactions`
+  - (future) Empty `active_transactions`.
+  - (future) Begin new transactions and populate `active_transactions`.
+  - (future) Notify each output to flush any internal buffers and use the new transactions.
     There is no need to flush the Pravega transactions at this point.
     - nvmsgbroker
       - Send custom event to use the new transaction.
@@ -579,7 +582,7 @@ Below describes the chain function in the Transaction Coordinator (TC).
 ### Commit thread
 
 - Persistent State:
-  - list of (`pts`, `transaction_ids`)
+  - list of (`pts`, (future) `transaction_ids`)
   - This record indicates that we can recover a failed pipeline by commiting `transaction_ids` and then seeking to `pts`.
     A video decoder will need to clip its output to ensure that the first buffer has a PTS equal or greater than `pts`.
 
@@ -589,15 +592,15 @@ This thread will run in the background.
   - Perform failure recovery if previous iteration did not succeed (but only seek the first time).
   - Read a record (`pts`, `transactions`) from the queue `ready_to_flush`.
   - Flush all transactions.
-  - Atomically update the persistent state by appending the record (`pts`, `transactions_ids`).
-  - Commit all transactions.
-  - Atomically update the persistent state by updating the record to have an empty list of `transaction_ids`.
+  - Atomically update the persistent state by appending the record (`pts`, (future) `transactions_ids`).
+  - (future) Commit all transactions.
+  - (future) Atomically update the persistent state by updating the record to have an empty list of `transaction_ids`.
     This avoids problems with committed transactions that expire before the pipeline runs again.
 
 ### Failure recovery
 
 - Determine last recorded persistent state.
-- For each record (`pts`, `transactions_ids`):
+- (future) For each record (`pts`, `transactions_ids`):
   - Commit all transactions.
 - Seek all inputs to `pts`.
   - pravegasrc will find the random access point at or immediately before `pts`.

@@ -11,6 +11,7 @@
 #![allow(dead_code)]
 
 mod extreme_tests;
+mod failure_recovery_tests;
 mod hls_tests;
 mod pravegasrc_seek_tests;
 mod pravegasrc_tests;
@@ -39,7 +40,7 @@ extern crate derive_new;
 /// Valid levels are: none, ERROR, WARNING, FIXME, INFO, DEBUG, LOG, TRACE, MEMDUMP
 /// See [https://gstreamer.freedesktop.org/documentation/tutorials/basic/debugging-tools.html?gi-language=c#the-debug-log].
 /// This is overridden by the environment variable GST_DEBUG.
-pub const DEFAULT_GST_DEBUG: &str = "pravegasrc:DEBUG,pravegasink:DEBUG,fragmp4pay:DEBUG,timestampcvt:LOG,\
+pub const DEFAULT_GST_DEBUG: &str = "pravegasrc:DEBUG,pravegasink:DEBUG,pravegatc:TRACE,fragmp4pay:DEBUG,timestampcvt:LOG,\
 rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:FIXME,rtph264depay:INFO,h264parse:INFO,qtmux:INFO,basesink:INFO,FIXME";
 /// Default logging configuration for for Rust tracing (includes this integration test and the Pravega client).
 /// Valid levels are: error, warn, info, debug, trace

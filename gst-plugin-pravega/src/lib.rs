@@ -14,6 +14,7 @@ mod numeric;
 mod fragmp4pay;
 mod pravegasink;
 mod pravegasrc;
+mod pravegatc;
 mod seekable_byte_stream_writer;
 mod seekable_take;
 mod timestampcvt;
@@ -23,6 +24,7 @@ fn plugin_init(plugin: &gst::Plugin) -> Result<(), glib::BoolError> {
     fragmp4pay::register(plugin)?;
     pravegasink::register(plugin)?;
     pravegasrc::register(plugin)?;
+    pravegatc::register(plugin)?;
     timestampcvt::register(plugin)?;
     Ok(())
 }
