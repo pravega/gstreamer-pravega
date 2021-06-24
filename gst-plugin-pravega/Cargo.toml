@@ -27,6 +27,8 @@ pravega-client = { git = "https://github.com/pravega/pravega-client-rust", rev =
 pravega-client-config = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-config", rev = "c42d55af935d8a7bf1c3460ba2a13fc280691613" }
 pravega-client-shared = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-shared", rev = "c42d55af935d8a7bf1c3460ba2a13fc280691613" }
 pravega-video = { path = "../pravega-video" }
+serde = "1"
+serde_json = "1"
 
 [lib]
 name = "gstpravega"

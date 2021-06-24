@@ -24,14 +24,14 @@ mod test {
     use crate::*;
     use crate::utils::*;
 
-    fn failure_recovery_test_data_gen(test_config: &TestConfig, stream_name: &str, video_encoder: VideoEncoder, container_format: ContainerFormat) -> Result<BufferListSummary, Error> {
+    fn failure_recovery_test_data_gen(test_config: &TestConfig, stream_name: &str, video_encoder: VideoEncoder,
+        container_format: ContainerFormat, length_sec: i32) -> Result<BufferListSummary, Error> {
         gst_init();
         // first_timestamp: 2001-02-03T04:00:00.000000000Z (981172837000000000 ns, 272548:00:37.000000000)
         let first_utc = "2001-02-03T04:00:00.000Z".to_owned();
         let first_timestamp = PravegaTimestamp::try_from(Some(first_utc)).unwrap();
         info!("first_timestamp={:?}", first_timestamp);
         let fps = 30;
-        let length_sec = 60;
         let num_buffers_written = length_sec * fps;
         let video_encoder_pipeline = video_encoder.pipeline();
         let container_pipeline = container_format.pipeline();
@@ -84,7 +84,7 @@ mod test {
         let test_config = &get_test_config();
         info!("test_config={:?}", test_config);
         let stream_name = &format!("test-pravegasrc-{}-{}", test_config.test_id, Uuid::new_v4())[..];
-        let summary_written = failure_recovery_test_data_gen(test_config, stream_name, video_encoder, container_format).unwrap();
+        let summary_written = failure_recovery_test_data_gen(test_config, stream_name, video_encoder, container_format, 60).unwrap();
         debug!("summary_written={}", summary_written);
         let first_pts_written = summary_written.first_valid_pts();
         let last_pts_written = summary_written.last_valid_pts();
@@ -148,7 +148,8 @@ mod test {
         let test_config = &get_test_config();
         info!("test_config={:?}", test_config);
         let stream_name = &format!("test-pravegatc-{}-{}", test_config.test_id, Uuid::new_v4())[..];
-        let summary_written = failure_recovery_test_data_gen(test_config, stream_name, video_encoder, container_format).unwrap();
+        let table_name = &format!("test-pravegatc-table-{}-{}", test_config.test_id, Uuid::new_v4())[..];
+        let summary_written = failure_recovery_test_data_gen(test_config, stream_name, video_encoder, container_format, 10).unwrap();
         debug!("summary_written={}", summary_written);
         // let first_pts_written = summary_written.first_valid_pts();
         // let last_pts_written = summary_written.last_valid_pts();
@@ -160,10 +161,13 @@ mod test {
             ! identity name=before_decode silent=false \
             ! decodebin \
             ! identity name=after_decode silent=false \
-            ! pravegatc name=pravegatc \
+            ! pravegatc name=pravegatc controller={controller_uri} table={scope}/{table_name} \
             ! appsink name=sink \
               sync=false",
             pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
+            controller_uri = test_config.client_config.clone().controller_uri.0,
+            scope = test_config.scope,
+            table_name = table_name,
         );
         // TODO: appsink should return an error in middle of test.
         let summary_full = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
