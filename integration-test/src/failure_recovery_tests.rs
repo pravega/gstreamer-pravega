@@ -13,10 +13,11 @@ mod test {
     use anyhow::Error;
     use gst::prelude::*;
     use gstpravega::utils::{clocktime_to_pravega, pravega_to_clocktime};
-    use pravega_video::timestamp::{PravegaTimestamp, MSECOND, SECOND};
+    use pravega_video::timestamp::{PravegaTimestamp, MSECOND, NSECOND, SECOND};
     use rstest::rstest;
     use std::convert::TryFrom;
     use std::sync::Arc;
+    use std::env;
     use std::time::Instant;
     #[allow(unused_imports)]
     use tracing::{error, info, debug, trace};
@@ -151,10 +152,26 @@ mod test {
         let table_name = &format!("test-pravegatc-table-{}-{}", test_config.test_id, Uuid::new_v4())[..];
         let summary_written = failure_recovery_test_data_gen(test_config, stream_name, video_encoder, container_format, 10).unwrap();
         debug!("summary_written={}", summary_written);
-        // let first_pts_written = summary_written.first_valid_pts();
-        // let last_pts_written = summary_written.last_valid_pts();
+        let first_pts_written = summary_written.first_valid_pts();
 
-        info!("#### Decode entire video stream");
+        info!("#### Decode entire video stream - without pravegatc");
+        let pipeline_description = format!("\
+            pravegasrc name=src {pravega_plugin_properties} \
+              start-mode=earliest \
+            ! identity name=before_decode silent=false \
+            ! decodebin \
+            ! identity name=after_decode silent=false \
+            ! appsink name=sink \
+              sync=false",
+            pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
+        );
+        let summary_without_pravegatc = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
+        let first_pts_without_pravegatc = summary_without_pravegatc.first_pts();
+        let last_pts_without_pravegatc = summary_without_pravegatc.last_pts();
+        debug!("summary_written=          {}", summary_written);
+        debug!("summary_without_pravegatc={}", summary_without_pravegatc);
+
+        info!("#### Decode entire video stream - run 1, with injected fault");
         let pipeline_description = format!("\
             pravegasrc name=src {pravega_plugin_properties} \
               start-mode=earliest \
@@ -169,43 +186,35 @@ mod test {
             scope = test_config.scope,
             table_name = table_name,
         );
-        // TODO: appsink should return an error in middle of test.
-        let summary_full = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
-        debug!("summary_written={}", summary_written);
-        debug!("summary_full=   {}", summary_full);
-        // let first_pts_full = summary_full.first_valid_pts();
-        // let last_pts_full = summary_full.last_valid_pts();
+        let fault_injection_pts: PravegaTimestamp = first_pts_written + 5510 * MSECOND;
+        env::set_var("FAULT_INJECTION_PTS_pravegatc", format!("{}", fault_injection_pts.nanoseconds().unwrap()));
+        let summary_run1 = launch_pipeline_and_get_summary(&pipeline_description);
+        let summary_run1 = match summary_run1 {
+            Ok(_) => panic!("Error expected"),
+            Err(LaunchPipelineError { error, buffer_list_summary}) => {
+                debug!("Expected error: {}", error);
+                buffer_list_summary
+            },
+        };
+        debug!("summary_written=          {}", summary_written);
+        debug!("summary_without_pravegatc={}", summary_without_pravegatc);
+        debug!("summary_run1=             {}", summary_run1);
+        debug!("fault_injection_pts={:?}", fault_injection_pts);
+        let first_pts_run1 = summary_run1.first_pts();
+        let last_pts_run1 = summary_run1.last_pts();
+        assert_timestamp_eq("first_pts_run1", first_pts_run1, first_pts_without_pravegatc);
+        assert_between_timestamp("last_pts_run1", last_pts_run1, fault_injection_pts - 34 * MSECOND, fault_injection_pts - 1 * NSECOND);
 
-        // info!("#### Restart pipeline from checkpoint");
-        // let resume_from_pts: PravegaTimestamp = first_pts_full + 30510 * MSECOND;
-        // let pipeline_description = format!("\
-        //     pravegasrc {pravega_plugin_properties} \
-        //       start-mode=timestamp \
-        //       start-timestamp={resume_from_pts} \
-        //     ! identity name=before_decode silent=false \
-        //     ! decodebin \
-        //     ! identity name=after_decode silent=false \
-        //     ! appsink name=sink \
-        //       sync=false",
-        //     pravega_plugin_properties = test_config.pravega_plugin_properties(stream_name),
-        //     resume_from_pts = resume_from_pts.nanoseconds().unwrap(),
-        // );
-
-        // let summary = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
-        // debug!("summary_written={}", summary_written);
-        // debug!("summary_full=   {}", summary_full);
-        // debug!("summary=        {}", summary);
-
-        // let first_pts_read = summary.first_valid_pts();
-        // let last_pts_read = summary.last_valid_pts();
-        // debug!("first_pts_written={:?}", first_pts_written);
-        // debug!("first_pts_full=   {:?}", first_pts_full);
-        // debug!("resume_from_pts=  {:?}", resume_from_pts);
-        // debug!("first_pts_read=   {:?}", first_pts_read);
-        // debug!("last_pts_written= {:?}", last_pts_written);
-        // debug!("last_pts_full=    {:?}", last_pts_full);
-        // debug!("last_pts_read=    {:?}", last_pts_read);
-        // assert_timestamp_eq("first_pts_read", first_pts_read, resume_from_pts);
-        // assert_timestamp_eq("last_pts_read", last_pts_read, last_pts_full);
+        info!("#### Decode entire video stream - run 2, resume from fault");
+        env::remove_var("FAULT_INJECTION_PTS_pravegatc");
+        let summary_run2 = launch_pipeline_and_get_summary(&pipeline_description).unwrap();
+        debug!("summary_written=          {}", summary_written);
+        debug!("summary_without_pravegatc={}", summary_without_pravegatc);
+        debug!("summary_run1=             {}", summary_run1);
+        debug!("summary_run2=             {}", summary_run2);
+        let first_pts_run2 = summary_run2.first_pts();
+        let last_pts_run2 = summary_run2.last_pts();
+        assert_between_timestamp("first_pts_run2", first_pts_run2, last_pts_run1 + 1 * NSECOND, last_pts_run1 + 34 * MSECOND);
+        assert_timestamp_eq("last_pts_run2", last_pts_run2, last_pts_without_pravegatc);
     }
 }

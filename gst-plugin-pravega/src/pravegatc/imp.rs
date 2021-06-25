@@ -9,7 +9,7 @@
 //
 
 use glib::subclass::prelude::*;
-// use gst::ClockTime;
+use gst::ClockTime;
 use gst::prelude::*;
 use gst::subclass::prelude::*;
 #[allow(unused_imports)]
@@ -18,10 +18,13 @@ use once_cell::sync::Lazy;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::sync::table::{Table, TableError, Version};
 use pravega_client_shared::Scope;
-use pravega_video::timestamp::PravegaTimestamp;
+use pravega_video::timestamp::{PravegaTimestamp, NSECOND};
 use pravega_video::utils;
+use crate::utils::clocktime_to_pravega;
 use serde::{Deserialize, Serialize};
-// use std::convert::TryInto;
+use std::cmp;
+use std::env;
+use std::fmt;
 use std::sync::{Arc, Mutex};
 
 pub const ELEMENT_NAME: &str = "pravegatc";
@@ -42,7 +45,7 @@ const PERSISTENT_STATE_TABLE_KEY: &str = "pravegatc.PersistentState";
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq)]
 struct PersistentState {
-    pts: u64,
+    resume_at_pts: u64,
 }
 
 #[derive(Debug)]
@@ -51,6 +54,7 @@ struct Settings {
     table: Option<String>,
     controller: Option<String>,
     keycloak_file: Option<String>,
+    fault_injection_pts: ClockTime,
 }
 
 impl Default for Settings {
@@ -60,13 +64,20 @@ impl Default for Settings {
             table: None,
             controller: Some(DEFAULT_CONTROLLER.to_owned()),
             keycloak_file: None,
+            fault_injection_pts: ClockTime::none(),
         }
     }
 }
 
-// #[derive(Debug)]
 struct StartedState {
+    client_factory: ClientFactory,
     table: Arc<Mutex<Table>>,
+}
+
+impl fmt::Debug for StartedState {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "StartedState")
+    }
 }
 
 enum State {
@@ -144,7 +155,14 @@ impl PravegaTC {
             if let State::Started { .. } = *state {
                 unreachable!("already started");
             }
-            let settings = self.settings.lock().unwrap();
+            let mut settings = self.settings.lock().unwrap();
+
+            // Set fault injection parameters.
+            if let Ok(fault_injection_pts) = str::parse::<u64>(env::var(format!("FAULT_INJECTION_PTS_{}", element.name())).unwrap_or_default().as_str()) {
+                settings.fault_injection_pts = fault_injection_pts * gst::NSECOND;
+                gst_warning!(CAT, obj: element, "start: fault_injection_pts={:?}", settings.fault_injection_pts);
+            }
+
             let scope_name: String = settings.scope.clone().ok_or_else(|| {
                 gst::error_msg!(gst::ResourceError::Settings, ["Scope is not defined"])
             })?;
@@ -173,37 +191,40 @@ impl PravegaTC {
             // Create Pravega table.
             let table = runtime.block_on(client_factory.create_table(scope, table_name));
 
-            let test_pts = 981172837000000000 * gst::NSECOND + 5 * gst::SECOND - 1 * gst::MSECOND;
-            let v = PersistentState {
-                pts: test_pts.nanoseconds().unwrap(),
-            };
-            runtime.block_on(table.insert(&PERSISTENT_STATE_TABLE_KEY.to_string(), &v, -1)).unwrap();
-
             // Get last checkpointed state (pts) from Pravega table.
             let persistent_state: Result<Option<(PersistentState, Version)>, TableError> = runtime.block_on(table.get(&PERSISTENT_STATE_TABLE_KEY.to_string()));
-            gst_info!(CAT, obj: element, "start: persistent_state={:?}", persistent_state);
+            gst_debug!(CAT, obj: element, "start: persistent_state={:?}", persistent_state);
             let persistent_state = persistent_state.unwrap();
             match persistent_state {
                 Some((persistent_state, _)) => {
-                    let timestamp = PravegaTimestamp::from_nanoseconds(Some(persistent_state.pts));
-                    gst_log!(CAT, obj: element, "start: persistent state timestamp={:?}", timestamp);
+                    let resume_at_pts = PravegaTimestamp::from_nanoseconds(Some(persistent_state.resume_at_pts));
+                    gst_info!(CAT, obj: element, "start: Resuming at PTS {:?}", resume_at_pts);
                     let pipeline = element.parent().unwrap().downcast::<gst::Pipeline>().unwrap();
-                    // gst_log!(CAT, obj: element, "start: parent={:?}", pipeline);
-                    // gst_log!(CAT, obj: element, "start: parent.name={:?}", pipeline.name());
-                    // let children = pipeline.children();
-                    // gst_log!(CAT, obj: element, "start: children={:?}", children);
-                    // TODO: Find all pravegasrc elements and set start-timestamp property.
-                    let src = pipeline.child_by_name("src").unwrap();
-                    gst_log!(CAT, obj: element, "start: src={:?}", src);
-                    src.set_property_from_str("start-mode", "timestamp");
-                    src.set_property("start-timestamp", &timestamp.nanoseconds().unwrap()).unwrap();
+                    let children = pipeline.children();
+                    // Find all pravegasrc elements and set start-timestamp property.
+                    let mut elements_found = false;
+                    for child in children {
+                        gst_debug!(CAT, obj: element, "start: child={:?}", child);
+                        let child_type_name = child.type_().name();
+                        if child_type_name == "PravegaSrc" {
+                            gst_debug!(CAT, obj: element, "start: Setting start-timestamp of element {:?}", child.name());
+                            child.set_property_from_str("start-mode", "timestamp");
+                            child.set_property("start-timestamp", &resume_at_pts.nanoseconds().unwrap()).unwrap();
+                            elements_found = true;
+                        }
+                    }
+                    if !elements_found {
+                        return Err(gst::error_msg!(gst::ResourceError::Settings, ["PravegaSrc element not found in pipeline"]));
+                    }
                 },
                 None => {
+                    gst_info!(CAT, obj: element, "start: No persistent state found.");
                 },
             }
 
             *state = State::Started {
                 state: StartedState {
+                    client_factory,
                     table: Arc::new(Mutex::new(table)),
                 },
             };
@@ -222,6 +243,11 @@ impl PravegaTC {
     ) -> Result<gst::FlowSuccess, gst::FlowError> {
         gst_log!(CAT, obj: pad, "sink_chain: Handling buffer {:?}", buffer);
 
+        let fault_injection_pts = {
+            let settings = self.settings.lock().unwrap();
+            settings.fault_injection_pts
+        };
+
         let mut state = self.state.lock().unwrap();
 
         let state = match *state {
@@ -232,11 +258,30 @@ impl PravegaTC {
             State::Stopped => {
                 panic!("Not started yet");
             }
-    };
+        };
 
-        self.srcpad.push(buffer)
-        // gst_trace!(CAT, obj: element, "sink_chain: END: state={:?}", state);
-        // Ok(gst::FlowSuccess::Ok)
+        // If duration of the buffer is reported as 0, we handle it as a 1 nanosecond duration.
+        let duration = cmp::max(1, buffer.duration().nanoseconds().unwrap_or_default());
+        let resume_at_pts = clocktime_to_pravega(buffer.pts()) + duration * NSECOND;
+        gst_trace!(CAT, obj: element, "sink_chain: resume_at_pts={:?}", resume_at_pts);
+
+        if buffer.pts() >= fault_injection_pts {
+            gst_error!(CAT, obj: pad, "Injecting fault");
+            return Err(gst::FlowError::Error)
+        }
+
+        self.srcpad.push(buffer)?;
+
+        let runtime = state.client_factory.runtime();
+        let table = state.table.lock().unwrap();
+        let persistent_state = PersistentState {
+            resume_at_pts: resume_at_pts.nanoseconds().unwrap(),
+        };
+        gst_trace!(CAT, obj: element, "sink_chain: writing persistent_state={:?}", persistent_state);
+        runtime.block_on(table.insert(&PERSISTENT_STATE_TABLE_KEY.to_string(), &persistent_state, -1)).unwrap();
+
+        gst_trace!(CAT, obj: element, "sink_chain: END: state={:?}", state);
+        Ok(gst::FlowSuccess::Ok)
     }
 
     fn sink_event(&self, _pad: &gst::Pad, _element: &super::PravegaTC, event: gst::Event) -> bool {
