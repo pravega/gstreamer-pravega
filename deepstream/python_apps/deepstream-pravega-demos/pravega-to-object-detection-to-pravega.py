@@ -164,6 +164,7 @@ def show_metadata_probe(pad, info, user_data):
 
 
 def add_probe(pipeline, element_name, callback, pad_name="sink", probe_type=Gst.PadProbeType.BUFFER):
+    logging.info("add_probe: Adding probe to %s pad of %s" % (pad_name, element_name))
     element = pipeline.get_by_name(element_name)
     if not element:
         raise Exception("Unable to get element %s" % element_name)
@@ -456,16 +457,19 @@ def main():
     parser.add_argument("-p", "--proto-lib", dest="proto_lib",
         help="Absolute path of adaptor library", metavar="PATH",
         default="/opt/nvidia/deepstream/deepstream/lib/libnvds_pravega_proto.so")
+    parser.add_argument("--recovery-table", required=True, metavar="SCOPE/TABLE")
     parser.add_argument("-s", "--schema-type", dest="schema_type", type=int, default=0,
         help="Type of message schema (0=Full, 1=minimal), default=0", metavar="<0|1>")
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
     logging.info("args=%s" % str(args))
+    logging.debug("Debug logging enabled.")
 
     args.input_stream = resolve_pravega_stream(args.input_stream, args.pravega_scope)
     args.output_video_stream = resolve_pravega_stream(args.output_video_stream, args.pravega_scope)
     args.output_metadata_stream = resolve_pravega_stream(args.output_metadata_stream, args.pravega_scope)
+    args.recovery_table = resolve_pravega_stream(args.recovery_table, args.pravega_scope)
 
     # Print configuration parameters.
     for arg in vars(args):
@@ -496,6 +500,7 @@ def main():
 
     inference_pipeline_desc = (
         "pravegasrc name=pravegasrc\n" +
+        "   ! identity name=from_pravegasrc silent=false\n" +
         "   ! " + container_pipeline + "\n" +
         "   ! h264parse name=h264parse\n" +
         "   ! video/x-h264,alignment=au\n" +
@@ -515,6 +520,7 @@ def main():
         inference_pipeline_desc +
         "   ! identity name=before_msgconv silent=false\n" +
         "   ! nvmsgconv name=msgconv\n" +
+        "   ! pravegatc name=pravegatc\n" +
         "   ! identity name=before_msgbroker silent=false\n" +
         "   ! nvmsgbroker name=msgbroker\n" +
         "")
@@ -559,8 +565,13 @@ def main():
         pravegasrc.set_property("stream", args.input_stream)
         pravegasrc.set_property("allow-create-scope", args.allow_create_scope)
         pravegasrc.set_property("keycloak-file", args.keycloak_service_account_file)
-        pravegasrc.set_property("start-mode", "latest")
+        pravegasrc.set_property("start-mode", "earliest")
         # pravegasrc.set_property("end-mode", "latest")
+        pravegatc = pipeline.get_by_name("pravegatc")
+        if pravegatc:
+            pravegatc.set_property("controller", args.pravega_controller_uri)
+            pravegatc.set_property("table", args.recovery_table)
+            pravegatc.set_property("keycloak-file", args.keycloak_service_account_file)
         streammux = pipeline.get_by_name("streammux")
         if streammux:
             streammux.set_property("width", 640)
