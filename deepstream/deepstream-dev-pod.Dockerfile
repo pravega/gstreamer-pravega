@@ -51,12 +51,6 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     PATH=/usr/local/cargo/bin:$PATH \
     RUST_VERSION=1.51.0
 
-RUN echo "\n\
-export RUSTUP_HOME=/usr/local/rustup\n\
-export CARGO_HOME=/usr/local/cargo\n\
-export PATH=/usr/local/cargo/bin:\${PATH}\n\
-" >> /home/ubuntu/.profile
-
 RUN set -eux; \
     rustArch="x86_64-unknown-linux-gnu"; \
     url="https://static.rust-lang.org/rustup/archive/1.23.1/${rustArch}/rustup-init"; \
@@ -68,3 +62,7 @@ RUN set -eux; \
     rustup --version; \
     cargo --version; \
     rustc --version;
+
+# Default user will be ubuntu.
+USER ubuntu
+WORKDIR /home/ubuntu
