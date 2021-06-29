@@ -305,8 +305,11 @@ pub extern "C" fn nvds_msgapi_send_async(
     debug!("nvds_msgapi_send_async: h_ptr={:?}, client_handle={:?}, topic={:?}, payload={:?}, nbuf={}, cb={:?}, user_ptr={:?}",
         h_ptr, client_handle, topic, payload, nbuf, cb, user_ptr);
     let payload = unsafe {std::slice::from_raw_parts(payload, nbuf)};
+    // Log the payload. This assumes it is a UTF-8 string.
     let payload_string = String::from_utf8_lossy(payload);
     trace!("nvds_msgapi_send_async: payload_string={}", payload_string);
+    // Convert unsafe payload to a vector. This also copies the payload which is critical to avoid memory corruption.
+    let event = payload.to_vec();
     let scoped_stream = client_handle.resolve_topic(topic).unwrap();
     let runtime = client_handle.client_factory.runtime();
     let routing_key_method = client_handle.routing_key_method.clone();
@@ -320,8 +323,7 @@ pub extern "C" fn nvds_msgapi_send_async(
         // Get a reference to the writer for this topic from the writer pool.
         let writer = client_handle.writer_pool.get_or_create(scoped_stream).await;
         // Get the mutex for this writer so we can use it.
-        let mut writer = writer.lock().await;
-        let event = payload.to_vec();
+        let mut writer = writer.lock().await;        
         debug!("nvds_msgapi_send_async: Calling write_event_by_routing_key");
         let future = writer.write_event_by_routing_key(routing_key, event);
         let receiver = future.await;
