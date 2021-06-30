@@ -339,7 +339,7 @@ def generate_event_msg_meta(data, class_id, pravega_timestamp):
 
 def set_event_message_meta_probe(pad, info, u_data):
     logging.info("set_event_message_meta_probe: BEGIN")
-    add_message_when_no_objects_found = True
+    add_message_when_no_objects_found = False
     gst_buffer = info.get_buffer()
     if gst_buffer:
         batch_meta = pyds.gst_buffer_get_nvds_batch_meta(hash(gst_buffer))
