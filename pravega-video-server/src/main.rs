@@ -60,13 +60,10 @@ fn main() {
         // let redirect = warp::path::end().map(|| {
         //     warp::redirect::temporary(Uri::from_static("/static/hls-js.html"))
         // });
-        // TODO: For testing, configure CORS to allow access from any origin. This needs to be removed or limited for production.
-        let cors = warp::cors().allow_any_origin();
+
         let routes = api
             .or(ui)
             .or(static_dir)
-            // .or(redirect)
-            .with(cors)
             .with(warp::trace::request());
         warp::serve(routes).run(([0, 0, 0, 0], 3030)).await;
     })
