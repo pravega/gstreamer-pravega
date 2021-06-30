@@ -24,10 +24,10 @@ echo "keycloak-file = ${KEYCLOAK_SERVICE_ACCOUNT_FILE}" >> /tmp/msgapi-config.tx
 
 export ALLOW_CREATE_SCOPE=false
 export GST_DEBUG=INFO,pravegasrc:LOG,pravegasink:LOG,pravegatc:TRACE,fragmp4pay:LOG,qtdemux:LOG,h264parse:LOG,v4l2:LOG
-export INPUT_STREAM=camera-claudio-04
+export INPUT_STREAM=camera-claudio-05
 export LOG_LEVEL=10
 export MSGAPI_CONFIG_FILE=/tmp/msgapi-config.txt
-export OUTPUT_METADATA_STREAM=metadata-claudio-04
+export OUTPUT_METADATA_STREAM=metadata-claudio-08
 export RECOVERY_TABLE=recovery-table-1
 export RUST_LOG=nvds_pravega_proto=trace,info
 
@@ -37,5 +37,4 @@ export RUST_LOG=nvds_pravega_proto=trace,info
 # ! qtdemux ! \
 # h264parse ! video/x-h264,alignment=au ! nvv4l2decoder ! identity silent=false ! fakesink
 
-deepstream/python_apps/deepstream-pravega-demos/pravega-to-object-detection-to-pravega.py \
-|& tee /tmp/app.log
+deepstream/python_apps/deepstream-pravega-demos/pravega-to-object-detection-to-pravega.py >& /tmp/app.log
