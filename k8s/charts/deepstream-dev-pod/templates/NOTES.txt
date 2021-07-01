@@ -1,0 +1,8 @@
+
+DeepStream Development Pod has been deployed.
+
+Your release is named "{{ .Release.Name }}" and installed into the namespace "{{ .Release.Namespace }}".
+
+You may connect to the pod with:
+
+  ssh ubuntu@{{ $.Release.Name }}.{{ $.Release.Namespace }}{{ $.Values.externalDnsHostnameSuffix }}

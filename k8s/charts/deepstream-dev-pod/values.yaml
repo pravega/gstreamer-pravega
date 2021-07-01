@@ -8,11 +8,15 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
-enabled: true
 image:
   # Please change the value accordingly before deployment
-  #repository: "gstreamer:pravega-dev"
-  repository: devops-repo.isus.emc.com:8116/nautilus/deepstream-dev-pod:faheyc
+  repository: "gstreamer:pravega-dev"
   pullPolicy: "Always"
 ssh:
+  # authorized_keys should contain one or more lines from ~/.ssh/id_rsa.pub.
+  # If you do not have a file ~/.ssh/id_rsa.pub, create one with: ssh-keygen -t rsa -b 4096
+  # Use the syntax like:
+  #  authorized_keys: |
+  #    ssh-rsa AAAABC...JmQfr
+  #    ssh-rsa AAAABD...uwxyz
   authorized_keys: ""

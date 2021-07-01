@@ -26,7 +26,6 @@ spec:
       - name: gstreamer
         image: {{ $.Values.image.repository | quote }}
         imagePullPolicy: {{ $.Values.image.pullPolicy | quote }}
-        # image: devops-repo.isus.emc.com:8116/nautilus/deepstream-dev-pod:faheyc
         command: ["bash", "-c", "--"]
         args:
         - set -x &&

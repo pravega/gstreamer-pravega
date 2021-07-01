@@ -9,8 +9,9 @@
 #
 
 # This Docker container can be used for interactive development environments including Visual Studio Code.
+# See associated Helm chart in ../k8s/charts/deepstream-dev-pod.
 
-ARG FROM_IMAGE
+ARG FROM_IMAGE=nvcr.io/nvidia/deepstream:5.1-21.02-devel
 
 FROM ${FROM_IMAGE}
 
