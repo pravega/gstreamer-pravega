@@ -1,0 +1,55 @@
+#
+# Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ $.Release.Name }}"
+spec:
+  selector:
+    matchLabels:
+      app: "{{ $.Release.Name }}"
+  template:
+    metadata:
+      labels:
+        app: "{{ $.Release.Name }}"
+    spec:
+      serviceAccount: {{ $.Release.Namespace }}-pravega
+      containers:
+      - name: gstreamer
+        image: {{ $.Values.image.repository | quote }}
+        imagePullPolicy: {{ $.Values.image.pullPolicy | quote }}
+        # image: devops-repo.isus.emc.com:8116/nautilus/deepstream-dev-pod:faheyc
+        command: ["bash", "-c", "--"]
+        args:
+        - set -x &&
+          export >> ${HOME}/.profile &&
+          mkdir -p ${HOME}/.ssh &&
+          cp /tmp/ssh-configmap/* ${HOME}/.ssh/ &&
+          chown -R $(whoami) ${HOME} &&
+          chmod 700 ${HOME}/.ssh &&
+          chmod 600 ${HOME}/.ssh/* &&
+          sudo /usr/sbin/sshd -D
+        env:
+        - name: pravega_client_tls_cert_path
+          value: "/etc/ssl/certs/DST_Root_CA_X3.pem"
+        volumeMounts:
+        - name: ssh
+          mountPath: /tmp/ssh-configmap
+          readOnly: true
+        - name: data-project
+          mountPath: /home/ubuntu/data-project
+      volumes:
+      - name: ssh
+        configMap:
+          name: "{{ $.Release.Name }}-ssh"
+      - name: data-project
+        persistentVolumeClaim:
+          claimName: data-project
