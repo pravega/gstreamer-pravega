@@ -26,7 +26,7 @@ rtspsrc \
   latency=2000 \
   ntp-sync=true \
   ntp-time-source=running-time \
-  identity name=identity-from-rtspsrc silent=false \
+! identity name=identity-from-rtspsrc silent=false \
 ! rtph264depay \
 ! h264parse \
 ! "video/x-h264,alignment=au" \
