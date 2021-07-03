@@ -15,7 +15,7 @@ use gst::subclass::prelude::*;
 #[allow(unused_imports)]
 use gst::{gst_debug, gst_error, gst_warning, gst_info, gst_log, gst_trace};
 use once_cell::sync::Lazy;
-use pravega_video::timestamp::{PravegaTimestamp, TimeDelta, MSECOND};
+use pravega_video::timestamp::{PravegaTimestamp, MSECOND};
 use std::sync::Mutex;
 use crate::utils::{pravega_to_clocktime, now_ntp_clocktime};
 
@@ -39,7 +39,7 @@ const DEBUG_CATEGORY: &str = ELEMENT_NAME;
 struct StartedState {
     prev_input_pts: ClockTime,
     prev_output_pts: PravegaTimestamp,
-    pts_offset: TimeDelta,
+    pts_offset_nanos: i128,
 }
 
 enum State {
@@ -54,7 +54,7 @@ impl Default for State {
             state: StartedState {
                 prev_input_pts: ClockTime::none(),
                 prev_output_pts: PravegaTimestamp::none(),
-                pts_offset: TimeDelta::zero(),
+                pts_offset_nanos: 0,
             }
         }
     }
@@ -92,21 +92,14 @@ impl TimestampCvt {
 
         let input_pts = buffer.pts();
         if input_pts.is_some() {
+            let input_nanos = input_pts.nanoseconds().unwrap();
+            let corrected_input_pts = ClockTime::from_nseconds((input_nanos as i128 + state.pts_offset_nanos) as u64);
             let output_pts = if state.prev_input_pts.is_some() {
-                if state.prev_input_pts == input_pts {
+                if state.prev_input_pts == corrected_input_pts {
                     // PTS has not changed.
                     state.prev_output_pts
                 } else {
                     // PTS has changed. Calculate new output PTS.
-                    let corrected_input_pts = input_pts + state.pts_offset;
-                    // If input_pts is too far from current time after X seconds, then set pts_offset.
-                    let now_ntp = now_ntp_clocktime();
-                    if corrected_input_pts + 5 * 60 * gst::SECOND < now_ntp || input_pts > now_pts + 5 * 60 * gst::SECOND {
-                        state.pts_offset = now_ntp - input_pts;
-                        gst_warning!(CAT, obj: pad, "Output PTS would have decreased by {} from {} to {}. Correcting PTS to {}.",
-                            time_delta, state.prev_output_pts, output_pts, corrected_pts);
-                    }
-                    let corrected_input_pts = input_pts + state.pts_offset;
                     let output_pts = PravegaTimestamp::from_ntp_nanoseconds(corrected_input_pts.nseconds());
                     if state.prev_output_pts < output_pts {
                         // PTS has increased normally.
@@ -122,7 +115,7 @@ impl TimestampCvt {
                 }
             } else {
                 // This is our first buffer with a PTS.
-                PravegaTimestamp::from_ntp_nanoseconds(input_pts.nseconds())
+                PravegaTimestamp::from_ntp_nanoseconds(corrected_input_pts.nseconds())
             };
             let success = if output_pts.is_some() {
                 if state.prev_output_pts.is_some() && output_pts < state.prev_output_pts {
@@ -130,7 +123,7 @@ impl TimestampCvt {
                         state.prev_output_pts, output_pts);
                     Err(gst::FlowError::Error)
                 } else {
-                    state.prev_input_pts = input_pts;
+                    state.prev_input_pts = corrected_input_pts;
                     state.prev_output_pts = output_pts;
                     let output_pts_clocktime = pravega_to_clocktime(output_pts);
                     let buffer_ref = buffer.make_mut();
@@ -141,6 +134,18 @@ impl TimestampCvt {
             } else {
                 gst_warning!(CAT, obj: pad, "Dropping buffer because input PTS {} cannot be converted to the range {:?} to {:?}",
                     input_pts, PravegaTimestamp::MIN, PravegaTimestamp::MAX);
+                // If PTS is between 15 seconds and 1970-01-01, then we will calculate the PTS offset so that
+                // the current buffer gets timestamped with the current system time.
+                // This offset will be used for the next and all subsequent buffers.
+                // This is needed for RTSP cameras that do not send RTCP Sender Reports.
+                if input_pts > 15 * gst::SECOND {
+                    let now_ntp = now_ntp_clocktime();
+                    let input_nanos = input_pts.nanoseconds().unwrap();
+                    state.pts_offset_nanos = now_ntp.nanoseconds().unwrap() as i128 - input_nanos as i128;
+                    gst_warning!(CAT, obj: pad,
+                        "Input buffers do not have valid PTS timestamps. All future PTS timestamps will be adjusted by {} nanoseconds to reach the current system time.",
+                        state.pts_offset_nanos);
+                }
                 Ok(gst::FlowSuccess::Ok)
             };
             success

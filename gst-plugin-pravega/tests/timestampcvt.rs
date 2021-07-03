@@ -9,7 +9,7 @@
 //
 
 use gst::ClockTime;
-use gstpravega::utils::pravega_to_clocktime;
+use gstpravega::utils::{pravega_to_clocktime, now_ntp_clocktime};
 use pravega_video::timestamp::PravegaTimestamp;
 
 fn init() {
@@ -32,8 +32,7 @@ fn test_timestampcvt() {
     h.set_sink_caps_str("data");
     h.play();
 
-    // Input PTS 1051896:00:00.000000000, Output PTS 2020-01-01T00:00:00.000000000Z (1577836837000000000 ns, 438288:00:37.000000000)
-    let first_input_pts = (120 * 365 + 29) * 24 * 60 * 60 * gst::SECOND;
+    let first_input_pts = now_ntp_clocktime();
     println!("first_input_pts={}", first_input_pts);
     let first_expected_pts = pravega_to_clocktime(PravegaTimestamp::from_ntp_nanoseconds(first_input_pts.nseconds()));
     println!("first_expected_pts={}", first_expected_pts);
@@ -71,6 +70,31 @@ fn test_timestampcvt() {
     println!("test_timestampcvt: END");
 }
 
+#[test]
+fn test_timestampcvt_start_at_zero() {
+    println!("test_timestampcvt_start_at_zero: BEGIN");
+    init();
+    let filter = gst::ElementFactory::make("timestampcvt", None).unwrap();
+    let mut h = gst_check::Harness::with_element(&filter, Some("sink"), Some("src"));
+    h.set_src_caps_str("data");
+    h.set_sink_caps_str("data");
+    h.play();
+
+    println!("Simulate start of rtspsrc with PTS starting at 0.");
+    push_and_validate(&mut h, 0 * gst::MSECOND, None);
+    push_and_validate(&mut h, 1000 * gst::MSECOND, None);
+    push_and_validate(&mut h, 29000 * gst::MSECOND, None);
+    println!("Expect PTS correction to current system time.");
+    let expected_t0 = pravega_to_clocktime(PravegaTimestamp::now());
+    let t0 = push_and_get_pts(&mut h, 30000 * gst::MSECOND);
+    assert!(t0 > expected_t0 - 60 * gst::SECOND);
+    assert!(t0 < expected_t0 + 60 * gst::SECOND);
+    push_and_validate(&mut h, 31000 * gst::MSECOND, Some(t0 + 1000 * gst::MSECOND));
+    push_and_validate(&mut h, 32000 * gst::MSECOND, Some(t0 + 2000 * gst::MSECOND));
+
+    println!("test_timestampcvt_start_at_zero: END");
+}
+
 fn push_and_validate(harness: &mut gst_check::Harness, input_pts: ClockTime, expected_output_pts: Option<ClockTime>) {
     let buffer = {
         let mut buffer = gst::Buffer::with_size(64).unwrap();
@@ -90,4 +114,18 @@ fn push_and_validate(harness: &mut gst_check::Harness, input_pts: ClockTime, exp
             harness.push(buffer).unwrap();
         }
     }
+}
+
+fn push_and_get_pts(harness: &mut gst_check::Harness, input_pts: ClockTime) -> ClockTime {
+    let buffer = {
+        let mut buffer = gst::Buffer::with_size(64).unwrap();
+        {
+            let buffer_mut = buffer.get_mut().unwrap();
+            buffer_mut.set_pts(input_pts);
+        }
+        buffer
+    };
+    let result = harness.push_and_pull(buffer).unwrap();
+    println!("push_and_get_pts: input_pts={:?}, output={:?}", input_pts, result);
+    result.pts()
 }

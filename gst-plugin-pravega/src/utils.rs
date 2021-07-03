@@ -9,7 +9,7 @@
 //
 
 use gst::ClockTime;
-use pravega_video::timestamp::{PravegaTimestamp, UNIX_TO_NTP_SECONDS};
+use pravega_video::timestamp::{PravegaTimestamp};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn clocktime_to_pravega(t: ClockTime) -> PravegaTimestamp {
@@ -22,5 +22,5 @@ pub fn pravega_to_clocktime(t: PravegaTimestamp) -> ClockTime {
 
 /// Returns the current time as the number of nanoseconds since the NTP epoch, not including leap seconds.
 pub fn now_ntp_clocktime() -> ClockTime {
-    ClockTime(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() + UNIX_TO_NTP_SECONDS * 1_000_000_000)    
+    ClockTime::from_nseconds(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() as u64 + PravegaTimestamp::UNIX_TO_NTP_SECONDS * 1_000_000_000)
 }

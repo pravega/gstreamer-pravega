@@ -22,7 +22,7 @@ for comp in apps gst-plugin-pravega pravega-video pravega-video-server; do
     if [ -x "$path_to_cargo2junit" ] ; then
         cargo test --locked --release $* -- -Z unstable-options --format json | cargo2junit | tee junit.xml
     else
-        cargo test --locked --release
+        cargo test --locked --release $*
     fi
 
     popd
