@@ -15,9 +15,9 @@ use gst::subclass::prelude::*;
 #[allow(unused_imports)]
 use gst::{gst_debug, gst_error, gst_warning, gst_info, gst_log, gst_trace};
 use once_cell::sync::Lazy;
-use pravega_video::timestamp::{PravegaTimestamp, MSECOND};
+use pravega_video::timestamp::{PravegaTimestamp, TimeDelta, MSECOND};
 use std::sync::Mutex;
-use crate::utils::pravega_to_clocktime;
+use crate::utils::{pravega_to_clocktime, now_ntp_clocktime};
 
 pub const ELEMENT_NAME: &str = "timestampcvt";
 const ELEMENT_CLASS_NAME: &str = "TimestampCvt";
@@ -39,6 +39,7 @@ const DEBUG_CATEGORY: &str = ELEMENT_NAME;
 struct StartedState {
     prev_input_pts: ClockTime,
     prev_output_pts: PravegaTimestamp,
+    pts_offset: TimeDelta,
 }
 
 enum State {
@@ -53,6 +54,7 @@ impl Default for State {
             state: StartedState {
                 prev_input_pts: ClockTime::none(),
                 prev_output_pts: PravegaTimestamp::none(),
+                pts_offset: TimeDelta::zero(),
             }
         }
     }
@@ -96,7 +98,16 @@ impl TimestampCvt {
                     state.prev_output_pts
                 } else {
                     // PTS has changed. Calculate new output PTS.
-                    let output_pts = PravegaTimestamp::from_ntp_nanoseconds(input_pts.nseconds());
+                    let corrected_input_pts = input_pts + state.pts_offset;
+                    // If input_pts is too far from current time after X seconds, then set pts_offset.
+                    let now_ntp = now_ntp_clocktime();
+                    if corrected_input_pts + 5 * 60 * gst::SECOND < now_ntp || input_pts > now_pts + 5 * 60 * gst::SECOND {
+                        state.pts_offset = now_ntp - input_pts;
+                        gst_warning!(CAT, obj: pad, "Output PTS would have decreased by {} from {} to {}. Correcting PTS to {}.",
+                            time_delta, state.prev_output_pts, output_pts, corrected_pts);
+                    }
+                    let corrected_input_pts = input_pts + state.pts_offset;
+                    let output_pts = PravegaTimestamp::from_ntp_nanoseconds(corrected_input_pts.nseconds());
                     if state.prev_output_pts < output_pts {
                         // PTS has increased normally.
                         output_pts

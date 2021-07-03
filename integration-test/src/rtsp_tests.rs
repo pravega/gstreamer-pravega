@@ -90,7 +90,7 @@ mod test {
     //     20,
     //     true
     // )]
-    // TODO: Below disabled because MPEG TS fails imperfect_timestamp_count test..
+    // TODO: Below disabled because MPEG TS fails imperfect_timestamp_count test.
     // #[case(
     //     RTSPCameraSimulatorConfigBuilder::default().fps(20).build().unwrap(),
     //     ContainerFormat::MpegTs,

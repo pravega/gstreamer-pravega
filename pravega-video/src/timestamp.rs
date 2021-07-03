@@ -26,7 +26,7 @@ impl PravegaTimestamp {
     // Difference between NTP and Unix epochs.
     // Equals 70 years plus 17 leap days.
     // See [https://stackoverflow.com/a/29138806/5890553].
-    const UNIX_TO_NTP_SECONDS: u64 = (70 * 365 + 17) * 24 * 60 * 60;
+    pub const UNIX_TO_NTP_SECONDS: u64 = (70 * 365 + 17) * 24 * 60 * 60;
 
     // UTC to TAI offset.
     // Below is valid for dates between 2017-01-01 and the next leap second.
