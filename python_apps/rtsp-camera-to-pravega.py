@@ -105,7 +105,7 @@ class IdleDetector():
 
 class HealthCheckHttpHandler(BaseHTTPRequestHandler):
     idle_detector = None
-    def send_code_msg(self, code, msg): 
+    def send_code_msg(self, code, msg):
         self.send_response(code)
         self.send_header('Content-Type',
                          'text/plain; charset=utf-8')
@@ -158,6 +158,11 @@ def main():
     parser.add_argument("--pravega-retention-days", type=float, default=-1.0)
     parser.add_argument("--pravega-retention-bytes", type=int, default=-1)
     parser.add_argument("--pravega-retention-maintenance-interval-seconds", type=int, default=0)
+    parser.add_argument("--timestamp-source", choices=["rtcp-sender-report", "local-clock"], default="rtcp-sender-report",
+        help="A value of rtcp-sender-report is the most accurate since the camera effectively timestamps each frame. " +
+             "However for cameras that are unable to send RTSP Sender Reports or have unreliable clocks, " +
+             "local-clock can be used to used, in which the time offset is calculated when the first frame is received. " +
+             "This will result in timestamps being incorrect by up to a few seconds.")
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
@@ -169,7 +174,7 @@ def main():
     # Set default GStreamer logging.
     if not "GST_DEBUG" in os.environ:
         os.environ["GST_DEBUG"] = ("WARNING,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO," +
-            "h264parse:WARN,qtmux:FIXME,fragmp4pay:INFO,pravegasink:DEBUG")
+            "h264parse:WARN,qtmux:FIXME,fragmp4pay:INFO,timestampcvt:DEBUG,pravegasink:DEBUG")
 
     # Set default logging for pravega-video, which sets a Rust tracing subscriber used by the Pravega Rust Client.
     if not "PRAVEGA_VIDEO_LOG" in os.environ:
@@ -235,7 +240,7 @@ def main():
         "   ! h264parse\n" +
         "   ! video/x-h264,alignment=au\n" +
         # Convert time from NTP to TAI
-        "   ! timestampcvt\n" +
+        "   ! timestampcvt name=timestampcvt\n" +
         "   ! " + container_pipeline + "\n"
         # Use a large queue to avoid blocking due to temporary network or system failures
         "   ! queue name=queue_sink\n" +
@@ -253,19 +258,20 @@ def main():
             source.set_property("user-id", args.camera_user)
         if args.camera_password:
             source.set_property("user-pw", args.camera_password)
-        # Outgoing timestamps are calculated directly from the RTP timestamps. This mode is good for recording.
-        # This will provide the RTP timestamps as PTS (and the arrival timestamps as DTS).
-        # See https://gitlab.freedesktop.org/gstreamer/gst-plugins-base/issues/255
-        source.set_property("buffer-mode", "none")
+        if args.timestamp_source == "rtcp-sender-report":
+            # Outgoing timestamps are calculated directly from the RTP timestamps. This mode is good for recording.
+            # This will provide the RTP timestamps as PTS (and the arrival timestamps as DTS).
+            # See https://gitlab.freedesktop.org/gstreamer/gst-plugins-base/issues/255
+            source.set_property("buffer-mode", "none")
+            # Required to get NTP timestamps as PTS.
+            source.set_property("ntp-sync", True)
+            # Required to get NTP timestamps as PTS.
+            source.set_property("ntp-time-source", "running-time")
         # Drop oldest buffers when the queue is completely filled
         source.set_property("drop-on-latency", True)
         # Set the maximum latency of the jitterbuffer (milliseconds).
         # Packets will be kept in the buffer for at most this time.
         source.set_property("latency", 2000)
-        # Required to get NTP timestamps as PTS
-        source.set_property("ntp-sync", True)
-        # Required to get NTP timestamps as PTS
-        source.set_property("ntp-time-source", "running-time")
         if args.camera_protocols:
             source.set_property("protocols", args.camera_protocols)
     clockoverlay = pipeline.get_by_name("clockoverlay0")
@@ -289,6 +295,12 @@ def main():
         queue_sink.set_property("max-size-time", 0)
         queue_sink.set_property("silent", False)
         queue_sink.connect("overrun", on_queue_overrun)
+    timestampcvt = pipeline.get_by_name("timestampcvt")
+    if timestampcvt:
+        if args.timestamp_source == "rtcp-sender-report":
+            timestampcvt.set_property("input-timestamp-mode", "ntp")
+        else:
+            timestampcvt.set_property("input-timestamp-mode", "relative")
     pravegasink = pipeline.get_by_name("pravegasink")
     if pravegasink:
         pravegasink.set_property("allow-create-scope", args.allow_create_scope)
@@ -299,6 +311,7 @@ def main():
         # Always write to Pravega immediately regardless of PTS
         pravegasink.set_property("sync", False)
         pravegasink.set_property("buffer-size", args.pravega_buffer_size)
+<<<<<<< HEAD
         pravegasink.set_property("retention-type", args.pravega_retention_policy_type)
         if args.pravega_retention_days > 0.0:
             pravegasink.set_property("retention-days", args.pravega_retention_days)
@@ -307,6 +320,15 @@ def main():
         if args.pravega_retention_maintenance_interval_seconds > 0:
             pravegasink.set_property("retention-maintenance-interval-seconds", args.pravega_retention_maintenance_interval_seconds)
         # Required to use NTP timestamps in PTS
+=======
+        pravegasink.set_property("retention-type", args.retention_type)
+        if args.retention_days > 0.0:
+            pravegasink.set_property("retention-days", args.retention_days)
+        if args.retention_bytes > 0:
+            pravegasink.set_property("retention-bytes", args.retention_bytes)
+        if args.retention_maintenance_interval_seconds > 0:
+            pravegasink.set_property("retention-maintenance-interval-seconds", args.retention_maintenance_interval_seconds)
+>>>>>>> 943f93d... rtsp-camera-to-pravega: Add timestamp-source argument
         if not args.fakesource:
             pravegasink.set_property("timestamp-mode", "tai")
         if args.health_check_enabled:
