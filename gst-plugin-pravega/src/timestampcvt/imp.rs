@@ -24,22 +24,55 @@ const ELEMENT_CLASS_NAME: &str = "TimestampCvt";
 const ELEMENT_LONG_NAME: &str = "Convert timestamps";
 const ELEMENT_DESCRIPTION: &str = "\
 This element converts PTS timestamps for buffers.\
-Input buffer timestamps are assumed to be nanoseconds \
-since the NTP epoch 1900-01-01 00:00:00 UTC, not including leap seconds. \
-Use this for buffers from rtspsrc (ntp-sync=true ntp-time-source=running-time).
-Output buffer timestamps are nanoseconds \
-since 1970-01-01 00:00:00 TAI International Atomic Time, including leap seconds. \
 Use this for pipelines that will eventually write to pravegasink (timestamp-mode=tai). \
 This element drops any buffers without PTS. \
 Additionally, any PTS values that decrease will have their PTS corrected.";
 const ELEMENT_AUTHOR: &str = "Claudio Fahey <claudio.fahey@dell.com>";
 const DEBUG_CATEGORY: &str = ELEMENT_NAME;
 
+const PROPERTY_NAME_INPUT_TIMESTAMP_MODE: &str = "input-timestamp-mode";
+
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy, glib::GEnum)]
+#[repr(u32)]
+#[genum(type_name = "GstInputTimestampMode")]
+pub enum InputTimestampMode {
+    #[genum(
+        name = "Input buffer timestamps are nanoseconds \
+                since the NTP epoch 1900-01-01 00:00:00 UTC, not including leap seconds. \
+                Use this for buffers from rtspsrc (ntp-sync=true ntp-time-source=running-time) \
+                with an RTSP camera that sends RTCP Sender Reports.",
+        nick = "ntp"
+    )]
+    Ntp = 0,
+    #[genum(
+        name = "Input buffer timestamps do not have a known epoch but relative times are accurate. \
+                The offset to TAI time will be calculated as the difference between the system clock and the PTS of the first buffer.
+                This element will apply this offset to produce the PTS for each output buffer.",
+        nick = "relative"
+    )]
+    Relative = 1,
+}
+
+const DEFAULT_INPUT_TIMESTAMP_MODE: InputTimestampMode = InputTimestampMode::Ntp;
+
+#[derive(Debug)]
+struct Settings {
+    input_timestamp_mode: InputTimestampMode,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Settings {
+            input_timestamp_mode: DEFAULT_INPUT_TIMESTAMP_MODE,
+        }
+    }
+}
+
 #[derive(Debug)]
 struct StartedState {
     prev_input_pts: ClockTime,
     prev_output_pts: PravegaTimestamp,
-    pts_offset_nanos: i128,
+    pts_offset_nanos: Option<i128>,
 }
 
 enum State {
@@ -54,13 +87,14 @@ impl Default for State {
             state: StartedState {
                 prev_input_pts: ClockTime::none(),
                 prev_output_pts: PravegaTimestamp::none(),
-                pts_offset_nanos: 0,
+                pts_offset_nanos: None,
             }
         }
     }
 }
 
 pub struct TimestampCvt {
+    settings: Mutex<Settings>,
     state: Mutex<State>,
     srcpad: gst::Pad,
     sinkpad: gst::Pad,
@@ -82,18 +116,35 @@ impl TimestampCvt {
         mut buffer: gst::Buffer,
     ) -> Result<gst::FlowSuccess, gst::FlowError> {
 
+        let input_timestamp_mode = {
+            let settings = self.settings.lock().unwrap();
+            settings.input_timestamp_mode
+        };
+
         let mut state = self.state.lock().unwrap();
         let state = match *state {
             State::Started { ref mut state } => state,
         };
 
-        // If PTS is corrected, it will be set to the previous PTS plus this amount.
+        // If input PTS decreases, the output PTS will be set to the previous PTS plus this amount.
         let pts_correction_delta = 1 * MSECOND;
 
         let input_pts = buffer.pts();
         if input_pts.is_some() {
             let input_nanos = input_pts.nanoseconds().unwrap();
-            let corrected_input_pts = ClockTime::from_nseconds((input_nanos as i128 + state.pts_offset_nanos) as u64);
+            let corrected_input_pts = match input_timestamp_mode {
+                InputTimestampMode::Relative => {
+                    if state.pts_offset_nanos.is_none() {
+                        let now_ntp = now_ntp_clocktime();
+                        state.pts_offset_nanos = Some(now_ntp.nanoseconds().unwrap() as i128 - input_nanos as i128);
+                        gst_info!(CAT, obj: pad,
+                            "Input buffer PTS timestamps will be adjusted by {} nanoseconds to synchronize with the current system time.",
+                            state.pts_offset_nanos.unwrap());
+                        }
+                    ClockTime::from_nseconds((input_nanos as i128 + state.pts_offset_nanos.unwrap()) as u64)
+                },
+                _ => input_pts
+            };
             let output_pts = if state.prev_input_pts.is_some() {
                 if state.prev_input_pts == corrected_input_pts {
                     // PTS has not changed.
@@ -132,20 +183,8 @@ impl TimestampCvt {
                     self.srcpad.push(buffer)
                 }
             } else {
-                gst_warning!(CAT, obj: pad, "Dropping buffer because input PTS {} cannot be converted to the range {:?} to {:?}",
+                gst_warning!(CAT, obj: pad, "Dropping buffer because input PTS {} cannot be converted to the range {:?} to {:?}.",
                     input_pts, PravegaTimestamp::MIN, PravegaTimestamp::MAX);
-                // If PTS is between 15 seconds and 1970-01-01, then we will calculate the PTS offset so that
-                // the current buffer gets timestamped with the current system time.
-                // This offset will be used for the next and all subsequent buffers.
-                // This is needed for RTSP cameras that do not send RTCP Sender Reports.
-                if input_pts > 15 * gst::SECOND {
-                    let now_ntp = now_ntp_clocktime();
-                    let input_nanos = input_pts.nanoseconds().unwrap();
-                    state.pts_offset_nanos = now_ntp.nanoseconds().unwrap() as i128 - input_nanos as i128;
-                    gst_warning!(CAT, obj: pad,
-                        "Input buffers do not have valid PTS timestamps. All future PTS timestamps will be adjusted by {} nanoseconds to reach the current system time.",
-                        state.pts_offset_nanos);
-                }
                 Ok(gst::FlowSuccess::Ok)
             };
             success
@@ -223,6 +262,7 @@ impl ObjectSubclass for TimestampCvt {
         .build();
 
         Self {
+            settings: Mutex::new(Default::default()),
             state: Mutex::new(Default::default()),
             srcpad,
             sinkpad,
@@ -235,6 +275,45 @@ impl ObjectImpl for TimestampCvt {
         self.parent_constructed(obj);
         obj.add_pad(&self.sinkpad).unwrap();
         obj.add_pad(&self.srcpad).unwrap();
+    }
+
+    fn properties() -> &'static [glib::ParamSpec] {
+        static PROPERTIES: Lazy<Vec<glib::ParamSpec>> = Lazy::new(|| { vec![
+            glib::ParamSpec::new_enum(
+                PROPERTY_NAME_INPUT_TIMESTAMP_MODE,
+                "Input timestamp mode",
+                "Timestamp mode used by the input",
+                InputTimestampMode::static_type(),
+                DEFAULT_INPUT_TIMESTAMP_MODE as i32,
+                glib::ParamFlags::WRITABLE,
+            ),
+        ]});
+        PROPERTIES.as_ref()
+    }
+
+    fn set_property(
+        &self,
+        obj: &Self::Type,
+        _id: usize,
+        value: &glib::Value,
+        pspec: &glib::ParamSpec,
+    ) {
+        match pspec.name() {
+            PROPERTY_NAME_INPUT_TIMESTAMP_MODE => {
+                let res: Result<(), glib::Error> = match value.get::<InputTimestampMode>() {
+                    Ok(timestamp_mode) => {
+                        let mut settings = self.settings.lock().unwrap();
+                        settings.input_timestamp_mode = timestamp_mode;
+                        Ok(())
+                    },
+                    Err(_) => unreachable!("type checked upstream"),
+                };
+                if let Err(err) = res {
+                    gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_INPUT_TIMESTAMP_MODE, err);
+                }
+            },
+        _ => unimplemented!(),
+        };
     }
 }
 
