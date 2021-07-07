@@ -311,7 +311,6 @@ def main():
         # Always write to Pravega immediately regardless of PTS
         pravegasink.set_property("sync", False)
         pravegasink.set_property("buffer-size", args.pravega_buffer_size)
-<<<<<<< HEAD
         pravegasink.set_property("retention-type", args.pravega_retention_policy_type)
         if args.pravega_retention_days > 0.0:
             pravegasink.set_property("retention-days", args.pravega_retention_days)
@@ -320,15 +319,6 @@ def main():
         if args.pravega_retention_maintenance_interval_seconds > 0:
             pravegasink.set_property("retention-maintenance-interval-seconds", args.pravega_retention_maintenance_interval_seconds)
         # Required to use NTP timestamps in PTS
-=======
-        pravegasink.set_property("retention-type", args.retention_type)
-        if args.retention_days > 0.0:
-            pravegasink.set_property("retention-days", args.retention_days)
-        if args.retention_bytes > 0:
-            pravegasink.set_property("retention-bytes", args.retention_bytes)
-        if args.retention_maintenance_interval_seconds > 0:
-            pravegasink.set_property("retention-maintenance-interval-seconds", args.retention_maintenance_interval_seconds)
->>>>>>> 943f93d... rtsp-camera-to-pravega: Add timestamp-source argument
         if not args.fakesource:
             pravegasink.set_property("timestamp-mode", "tai")
         if args.health_check_enabled:
