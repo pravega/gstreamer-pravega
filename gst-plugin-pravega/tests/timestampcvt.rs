@@ -9,6 +9,7 @@
 //
 
 use gst::ClockTime;
+use gst::prelude::*;
 use gstpravega::utils::{pravega_to_clocktime, now_ntp_clocktime};
 use pravega_video::timestamp::PravegaTimestamp;
 
@@ -75,22 +76,19 @@ fn test_timestampcvt_start_at_zero() {
     println!("test_timestampcvt_start_at_zero: BEGIN");
     init();
     let filter = gst::ElementFactory::make("timestampcvt", None).unwrap();
+    filter.set_property_from_str("input-timestamp-mode", "relative");
     let mut h = gst_check::Harness::with_element(&filter, Some("sink"), Some("src"));
     h.set_src_caps_str("data");
     h.set_sink_caps_str("data");
     h.play();
 
     println!("Simulate start of rtspsrc with PTS starting at 0.");
-    push_and_validate(&mut h, 0 * gst::MSECOND, None);
-    push_and_validate(&mut h, 1000 * gst::MSECOND, None);
-    push_and_validate(&mut h, 29000 * gst::MSECOND, None);
-    println!("Expect PTS correction to current system time.");
     let expected_t0 = pravega_to_clocktime(PravegaTimestamp::now());
-    let t0 = push_and_get_pts(&mut h, 30000 * gst::MSECOND);
+    let t0 = push_and_get_pts(&mut h, 0 * gst::MSECOND);
     assert!(t0 > expected_t0 - 60 * gst::SECOND);
     assert!(t0 < expected_t0 + 60 * gst::SECOND);
-    push_and_validate(&mut h, 31000 * gst::MSECOND, Some(t0 + 1000 * gst::MSECOND));
-    push_and_validate(&mut h, 32000 * gst::MSECOND, Some(t0 + 2000 * gst::MSECOND));
+    push_and_validate(&mut h, 1000 * gst::MSECOND, Some(t0 + 1000 * gst::MSECOND));
+    push_and_validate(&mut h, 2000 * gst::MSECOND, Some(t0 + 2000 * gst::MSECOND));
 
     println!("test_timestampcvt_start_at_zero: END");
 }
