@@ -114,7 +114,7 @@ mod test {
         let (rtsp_url, _rtsp_server) = start_or_get_rtsp_test_source(rtsp_server_config);
         // The identity element will stop the pipeline after this many video frames.
         let num_frames_to_record = num_sec_to_record * fps;
-        let num_sec_expected_min = num_sec_to_record - 90;
+        let num_sec_expected_min = num_sec_to_record - 50;
         let num_frames_expected_min = num_sec_expected_min * fps;
         let num_frames_expected_max = num_frames_to_record;
         // We expect the RTSP camera's clock to be within 24 hours of this computer's clock.
