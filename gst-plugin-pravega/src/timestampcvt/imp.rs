@@ -183,6 +183,11 @@ impl TimestampCvt {
                     self.srcpad.push(buffer)
                 }
             } else {
+                // For some RTSP sources, buffers during the first 5 seconds will have PTS near 0.
+                // This will be logged as a warning.
+                // If this persists for more than 15 seconds, the pipeline will stop with an error.
+                gst_warning!(CAT, obj: pad, "Dropping buffer because input PTS {} cannot be converted to the range {:?} to {:?}.",
+                    input_pts, PravegaTimestamp::MIN, PravegaTimestamp::MAX);
                 if input_pts > 15 * gst::SECOND {
                     gst_error!(CAT, obj: pad,
                         "Input buffers do not have valid PTS timestamps. \
@@ -194,8 +199,6 @@ impl TimestampCvt {
                     Err(gst::FlowError::Error)
                     }
                 else {
-                    gst_warning!(CAT, obj: pad, "Dropping buffer because input PTS {} cannot be converted to the range {:?} to {:?}.",
-                        input_pts, PravegaTimestamp::MIN, PravegaTimestamp::MAX);
                     Ok(gst::FlowSuccess::Ok)
                 }
             };
