@@ -183,9 +183,21 @@ impl TimestampCvt {
                     self.srcpad.push(buffer)
                 }
             } else {
-                gst_warning!(CAT, obj: pad, "Dropping buffer because input PTS {} cannot be converted to the range {:?} to {:?}.",
-                    input_pts, PravegaTimestamp::MIN, PravegaTimestamp::MAX);
-                Ok(gst::FlowSuccess::Ok)
+                if input_pts > 15 * gst::SECOND {
+                    gst_error!(CAT, obj: pad,
+                        "Input buffers do not have valid PTS timestamps. \
+                        If you are using an RTSP source, this may occur if the RTSP source is not sending RTCP Sender Reports.
+                        This can be worked around by setting the property {}={}. \
+                        If launched with rtsp-camera-to-pravega.py, then set the environment variable TIMESTAMP_SOURCE=local-clock. \
+                        Beware that this will reduce timestamp accuracy.",
+                        PROPERTY_NAME_INPUT_TIMESTAMP_MODE, "relative");
+                    Err(gst::FlowError::Error)
+                    }
+                else {
+                    gst_warning!(CAT, obj: pad, "Dropping buffer because input PTS {} cannot be converted to the range {:?} to {:?}.",
+                        input_pts, PravegaTimestamp::MIN, PravegaTimestamp::MAX);
+                    Ok(gst::FlowSuccess::Ok)
+                }
             };
             success
         } else {
