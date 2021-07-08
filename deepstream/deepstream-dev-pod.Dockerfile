@@ -24,7 +24,11 @@ RUN apt-get update && \
         nano \
         openssh-server \
         sudo \
-        wget
+        wget \
+        netcat \
+        curl \
+        iputils-ping \
+        dnsutils
 
 RUN mkdir /var/run/sshd
 RUN useradd -rm -d /home/ubuntu -s /bin/bash -g root -G sudo -u 1001 ubuntu
@@ -36,7 +40,12 @@ RUN apt-get install -y --no-install-recommends \
         python3-dev \
         python3-gi \
         python3-gst-1.0 \
-        python3-pip
+        python3-pip \
+        python3-opencv \
+        python3-numpy \
+        libgstrtspserver-1.0-0 gstreamer1.0-rtsp \
+        libgirepository1.0-dev \
+        gobject-introspection gir1.2-gst-rtsp-server-1.0
 RUN cd /opt/nvidia/deepstream/deepstream/lib && \
     python3 setup.py install && \
     cd /opt/nvidia/deepstream/deepstream/sources && \
