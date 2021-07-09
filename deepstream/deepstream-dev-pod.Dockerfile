@@ -20,8 +20,12 @@ RUN update-ca-certificates
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+        curl \
+        dnsutils \
+        iputils-ping \
         less \
         nano \
+        netcat \
         openssh-server \
         sudo \
         wget
@@ -32,11 +36,19 @@ RUN echo "ubuntu ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 # Install Python Bindings for DeepStream.
 RUN apt-get install -y --no-install-recommends \
+        gir1.2-gst-rtsp-server-1.0 \
+        gobject-introspection \
+        gstreamer1.0-rtsp \
+        libgirepository1.0-dev \
+        libgstrtspserver-1.0-0 \
         python3-configargparse \
         python3-dev \
         python3-gi \
         python3-gst-1.0 \
+        python3-numpy \
+        python3-opencv \
         python3-pip
+        
 RUN cd /opt/nvidia/deepstream/deepstream/lib && \
     python3 setup.py install && \
     cd /opt/nvidia/deepstream/deepstream/sources && \
