@@ -103,8 +103,10 @@ services:
         ipv4_address: 172.28.1.41
     restart: always
     volumes:
-      - ${PRAVEGA_LTS_PATH:-/tmp/pravega-lts}:/pravega-lts
+      - ${PRAVEGA_LTS_PATH:-pravega-lts-volume}:/pravega-lts
 
+volumes:
+  pravega-lts-volume:
 networks:
   pravega_net:
     ipam:
