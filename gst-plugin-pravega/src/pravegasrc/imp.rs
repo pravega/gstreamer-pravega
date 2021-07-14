@@ -29,7 +29,7 @@ use once_cell::sync::Lazy;
 
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::byte::ByteReader;
-use pravega_client_shared::{Scope, Stream, Segment, ScopedSegment, StreamConfiguration, ScopedStream, Scaling, ScaleType};
+use pravega_client_shared::{Scope, Stream, StreamConfiguration, ScopedStream, Scaling, ScaleType};
 use pravega_video::event_serde::EventReader;
 use pravega_video::index::{IndexSearcher, get_index_stream_name};
 use pravega_video::timestamp::PravegaTimestamp;
@@ -608,20 +608,18 @@ impl BaseSrcImpl for PravegaSrc {
                 gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega index stream: {:?}", error])
             })?;
 
-            let scoped_segment = ScopedSegment {
+            let scoped_stream = ScopedStream {
                 scope: scope.clone(),
                 stream: stream.clone(),
-                segment: Segment::from(0),
             };
-            let mut reader = client_factory.create_byte_reader(scoped_segment);
+            let mut reader = client_factory.create_byte_reader(scoped_stream);
             gst_info!(CAT, obj: element, "start: Opened Pravega reader for data");
 
-            let index_scoped_segment = ScopedSegment {
+            let index_scoped_stream = ScopedStream {
                 scope: scope.clone(),
                 stream: index_stream.clone(),
-                segment: Segment::from(0),
             };
-            let index_reader = client_factory.create_byte_reader(index_scoped_segment);
+            let index_reader = client_factory.create_byte_reader(index_scoped_stream);
             gst_info!(CAT, obj: element, "start: Opened Pravega reader for index");
 
             let mut index_searcher = IndexSearcher::new(index_reader);

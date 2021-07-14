@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use pravega_client::client_factory::ClientFactory;
 use pravega_client_config::ClientConfigBuilder;
-use pravega_client_shared::{Scope, Stream, Segment, ScopedSegment, StreamConfiguration, ScopedStream, Scaling, ScaleType};
+use pravega_client_shared::{Scope, Stream, StreamConfiguration, ScopedStream, Scaling, ScaleType};
 
 #[derive(Clap)]
 struct Opts {
@@ -54,11 +54,6 @@ fn main() {
         let stream = Stream::from(stream_name);
         let controller_client = client_factory.controller_client();
 
-        let scoped_segment = ScopedSegment {
-            scope: scope.clone(),
-            stream: stream.clone(),
-            segment: Segment::from(0),
-        };
         let scoped_stream = ScopedStream {
             scope: scope.clone(),
             stream: stream.clone(),
@@ -84,7 +79,7 @@ fn main() {
         if opts.use_byte_stream_writer {
             let client_factory = client_factory.clone();
             runtime.spawn_blocking(move || {
-                let mut writer = client_factory.create_byte_writer(scoped_segment);
+                let mut writer = client_factory.create_byte_writer(scoped_stream);
                 for i in 0..num_events {
                     let payload = format!("event {}", i).into_bytes();
                     let payload_length = payload.len();

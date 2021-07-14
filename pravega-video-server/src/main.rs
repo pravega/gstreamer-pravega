@@ -200,7 +200,7 @@ mod models {
     use futures::{StreamExt, future};
     use hyper::body::{Body, Bytes};
     use pravega_client::client_factory::ClientFactory;
-    use pravega_client_shared::{Scope, ScopedSegment, Segment, Stream};
+    use pravega_client_shared::{Scope, ScopedStream, Stream};
     use pravega_controller_client::paginator::list_streams;
     use pravega_video::{event_serde::{EventReader}, index::IndexSearcher};
     use pravega_video::index::{IndexRecord, IndexRecordReader, SearchMethod, get_index_stream_name};
@@ -268,12 +268,11 @@ mod models {
                 span.in_scope(|| {
                     info!("BEGIN");
                     let client_factory = self.client_factory;
-                    let scoped_segment = ScopedSegment {
+                    let data_scoped_stream = ScopedStream {
                         scope: Scope::from(scope_name),
                         stream: Stream::from(stream_name),
-                        segment: Segment::from(0),
                     };
-                    let mut reader = client_factory.create_byte_reader(scoped_segment);
+                    let mut reader = client_factory.create_byte_reader(scoped_stream);
                     info!("Opened Pravega reader");
 
                     reader.seek(SeekFrom::Start(opts.begin)).unwrap();
@@ -347,12 +346,11 @@ mod models {
                 span.in_scope(|| {
                     info!("BEGIN");
                     let client_factory = self.client_factory;
-                    let scoped_segment = ScopedSegment {
+                    let scoped_stream = ScopedStream {
                         scope: Scope::from(scope_name),
                         stream: Stream::from(index_stream_name),
-                        segment: Segment::from(0),
                     };
-                    let index_reader = client_factory.create_byte_reader(scoped_segment);
+                    let index_reader = client_factory.create_byte_reader(scoped_stream);
                     info!("Opened Pravega reader");
 
                     let mut index_searcher = IndexSearcher::new(index_reader);
