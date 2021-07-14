@@ -66,6 +66,7 @@ fn main() {
                 ..Default::default()
             },
             retention: Default::default(),
+            tags: None,
         };
         controller_client.create_stream(&stream_config).await.unwrap();
 

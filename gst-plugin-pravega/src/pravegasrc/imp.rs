@@ -26,6 +26,7 @@ use std::sync::{Arc, Mutex};
 use std::u8;
 
 use once_cell::sync::Lazy;
+use futures::executor;
 
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::byte::ByteReader;
@@ -584,6 +585,7 @@ impl BaseSrcImpl for PravegaSrc {
                     ..Default::default()
                 },
                 retention: Default::default(),
+                tags: None,
             };
             runtime.block_on(controller_client.create_stream(&stream_config)).map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega data stream: {:?}", error])
@@ -601,6 +603,7 @@ impl BaseSrcImpl for PravegaSrc {
                     ..Default::default()
                 },
                 retention: Default::default(),
+                tags: None,
             };
             runtime.block_on(controller_client.create_stream(&index_stream_config)).map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega index stream: {:?}", error])
@@ -777,7 +780,7 @@ impl BaseSrcImpl for PravegaSrc {
                 segment.set_start(0);
                 segment.set_time(0);
                 segment.set_position(0);
-                let head_offset = reader.get_ref().get_ref().get_ref().current_head().unwrap();
+                let head_offset = executor::block_on(reader.get_ref().get_ref().get_ref().current_head()).unwrap();
                 reader.seek(SeekFrom::Start(head_offset)).unwrap();
                 gst_info!(CAT, obj: src, "do_seek: Starting at head of data stream because start-mode=no-seek; segment={:?}", segment);
                 true
