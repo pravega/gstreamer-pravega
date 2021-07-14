@@ -20,13 +20,13 @@ use pravega_client_config::credentials::Credentials;
 /// A trait that allows retrieval of the current head of a Pravega byte stream.
 /// The default implementation returns 0 to indicate that no data has been truncated.
 pub trait CurrentHead {
-    fn current_head(&mut self) -> std::io::Result<u64> {
+    fn current_head(&self) -> std::io::Result<u64> {
         Ok(0)
     }
 }
 
 impl CurrentHead for ByteReader {
-    fn current_head(&mut self) -> std::io::Result<u64> {
+    fn current_head(&self) -> std::io::Result<u64> {
         self.current_head()
     }
 }
