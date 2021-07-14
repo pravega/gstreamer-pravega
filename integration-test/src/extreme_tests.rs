@@ -37,7 +37,7 @@ mod test {
         "MP4 fragment greater than 8 MiB",
         VideoSource::VideoTestSrc(VideoTestSrcConfigBuilder::default()
             .width(7680).height(4320)   // 8K UHD, 33 megapixels
-            .duration(2 * SECOND)
+            .duration(100 * MSECOND)
             .build().unwrap()),
         VideoEncoder::H264(H264EncoderConfigBuilder::default()
             .bitrate_kilobytes_per_sec(2_048_000.0 / 8.0)   // 2 Gbps, which is the maximum rate allowed by x264enc
