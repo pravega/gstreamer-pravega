@@ -2773,7 +2773,7 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 [[package]]
 name = "pravega-client"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=8954c04f4c5530374128f905bf49dda5d7bcef0e#8954c04f4c5530374128f905bf49dda5d7bcef0e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "ahash 0.6.3",
  "async-stream 0.2.1",
@@ -2812,7 +2812,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-auth"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=8954c04f4c5530374128f905bf49dda5d7bcef0e#8954c04f4c5530374128f905bf49dda5d7bcef0e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "async-trait",
  "base64 0.12.3",
@@ -2827,7 +2827,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-channel"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=8954c04f4c5530374128f905bf49dda5d7bcef0e#8954c04f4c5530374128f905bf49dda5d7bcef0e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "futures-intrusive 0.4.0",
  "tokio 1.5.0",
@@ -2836,7 +2836,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-config"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=8954c04f4c5530374128f905bf49dda5d7bcef0e#8954c04f4c5530374128f905bf49dda5d7bcef0e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "async-trait",
  "base64 0.12.3",
@@ -2855,7 +2855,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-retry"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=8954c04f4c5530374128f905bf49dda5d7bcef0e#8954c04f4c5530374128f905bf49dda5d7bcef0e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "snafu",
  "tokio 1.5.0",
@@ -2864,7 +2864,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-shared"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=8954c04f4c5530374128f905bf49dda5d7bcef0e#8954c04f4c5530374128f905bf49dda5d7bcef0e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "async-trait",
  "bytes 0.4.12",
@@ -2882,13 +2882,14 @@ dependencies = [
  "shrinkwraprs",
  "snafu",
  "tokio 1.5.0",
+ "tokio-rustls",
  "uuid",
 ]
 
 [[package]]
 name = "pravega-connection-pool"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=8954c04f4c5530374128f905bf49dda5d7bcef0e#8954c04f4c5530374128f905bf49dda5d7bcef0e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "async-trait",
  "dashmap 3.11.10",
@@ -2902,7 +2903,7 @@ dependencies = [
 [[package]]
 name = "pravega-controller-client"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=8954c04f4c5530374128f905bf49dda5d7bcef0e#8954c04f4c5530374128f905bf49dda5d7bcef0e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "async-trait",
  "clap 2.33.3",
@@ -2976,7 +2977,7 @@ dependencies = [
 [[package]]
 name = "pravega-wire-protocol"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=8954c04f4c5530374128f905bf49dda5d7bcef0e#8954c04f4c5530374128f905bf49dda5d7bcef0e"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "async-trait",
  "bincode2",

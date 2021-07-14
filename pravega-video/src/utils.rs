@@ -12,7 +12,6 @@
 
 use std::net::{SocketAddr, AddrParseError};
 use std::time::{Duration, UNIX_EPOCH};
-use std::io::{Seek, SeekFrom};
 
 use pravega_client::byte::ByteReader;
 use pravega_client_config::{ClientConfig, ClientConfigBuilder};
@@ -52,7 +51,7 @@ pub fn create_client_config(controller: String, keycloak_file: Option<String>) -
             if keycloak_file.is_empty() {
                 (false, Credentials::basic("".into(), "".into()))
             } else {
-                (true, Credentials::keycloak(&keycloak_file[..]))
+                (true, Credentials::keycloak(&keycloak_file[..], false))
             }
         },
         None => (false, Credentials::basic("".into(), "".into()))
