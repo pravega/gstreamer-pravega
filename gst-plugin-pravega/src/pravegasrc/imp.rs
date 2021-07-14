@@ -26,7 +26,6 @@ use std::sync::{Arc, Mutex};
 use std::u8;
 
 use once_cell::sync::Lazy;
-use futures::executor;
 
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::byte::ByteReader;

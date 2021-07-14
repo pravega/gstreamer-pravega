@@ -12,7 +12,7 @@
 
 use std::net::{SocketAddr, AddrParseError};
 use std::time::{Duration, UNIX_EPOCH};
-use futures::executor;
+use std::io::{Seek, SeekFrom};
 
 use pravega_client::byte::ByteReader;
 use pravega_client_config::{ClientConfig, ClientConfigBuilder};
@@ -21,14 +21,14 @@ use pravega_client_config::credentials::Credentials;
 /// A trait that allows retrieval of the current head of a Pravega byte stream.
 /// The default implementation returns 0 to indicate that no data has been truncated.
 pub trait CurrentHead {
-    fn current_head(&self) -> std::io::Result<u64> {
+    fn current_head(&mut self) -> std::io::Result<u64> {
         Ok(0)
     }
 }
 
 impl CurrentHead for ByteReader {
-    fn current_head(&self) -> std::io::Result<u64> {
-        executor::block_on(self.current_head())
+    fn current_head(&mut self) -> std::io::Result<u64> {
+        self.current_head()
     }
 }
 

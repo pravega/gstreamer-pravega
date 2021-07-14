@@ -1358,7 +1358,6 @@ version = "0.7.0"
 dependencies = [
  "chrono",
  "enumflags2",
- "futures",
  "glib",
  "gst-plugin-version-helper",
  "gstreamer",
@@ -2940,7 +2939,6 @@ dependencies = [
  "chrono",
  "enumflags2",
  "env_logger",
- "futures",
  "once_cell",
  "pravega-client",
  "pravega-client-config",
