@@ -30,7 +30,7 @@ use once_cell::sync::Lazy;
 
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::byte::{ByteWriter, ByteReader};
-use pravega_client_shared::{Scope, Stream, Segment, ScopedSegment, StreamConfiguration, ScopedStream, Scaling, ScaleType};
+use pravega_client_shared::{Scope, Stream, StreamConfiguration, ScopedStream, Scaling, ScaleType};
 use pravega_video::event_serde::{EventWithHeader, EventWriter};
 use pravega_video::index::{IndexRecord, IndexRecordWriter, IndexSearcher, SearchMethod, get_index_stream_name};
 use pravega_video::timestamp::{PravegaTimestamp, SECOND};
@@ -140,10 +140,10 @@ struct RetentionMaintainer {
 }
 
 impl RetentionMaintainer {
-    fn new(element: super::PravegaSink, interval_seconds: u64, retention_policy: RetentionPolicy, factory: ClientFactory, index_scoped_segment: ScopedSegment, data_scoped_segment: ScopedSegment) -> Self {
-        let index_reader = factory.create_byte_reader(index_scoped_segment.clone());
-        let index_writer = factory.create_byte_writer(index_scoped_segment);
-        let data_writer = factory.create_byte_writer(data_scoped_segment);
+    fn new(element: super::PravegaSink, interval_seconds: u64, retention_policy: RetentionPolicy, factory: ClientFactory, index_scoped_stream: ScopedStream, data_scoped_stream: ScopedStream) -> Self {
+        let index_reader = factory.create_byte_reader(index_scoped_stream.clone());
+        let index_writer = factory.create_byte_writer(index_scoped_stream);
+        let data_writer = factory.create_byte_writer(data_scoped_stream);
         let index_searcher = IndexSearcher::new(index_reader);
         Self {
             element,
@@ -791,21 +791,19 @@ impl BaseSinkImpl for PravegaSink {
                 gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega index stream: {:?}", error])
             })?;
 
-            let scoped_segment = ScopedSegment {
+            let scoped_stream = ScopedStream {
                 scope: scope.clone(),
                 stream: stream.clone(),
-                segment: Segment::from(0),
             };
-            let mut writer = client_factory.create_byte_writer(scoped_segment.clone());
+            let mut writer = client_factory.create_byte_writer(scoped_stream.clone());
             gst_info!(CAT, obj: element, "start: Opened Pravega writer for data");
             writer.seek_to_tail();
 
-            let index_scoped_segment = ScopedSegment {
+            let index_scoped_stream = ScopedStream {
                 scope: scope.clone(),
                 stream: index_stream.clone(),
-                segment: Segment::from(0),
             };
-            let mut index_writer = client_factory.create_byte_writer(index_scoped_segment.clone());
+            let mut index_writer = client_factory.create_byte_writer(index_scoped_stream.clone());
             gst_info!(CAT, obj: element, "start: Opened Pravega writer for index");
             index_writer.seek_to_tail();
 
@@ -820,7 +818,7 @@ impl BaseSinkImpl for PravegaSink {
             gst_info!(CAT, obj: element, "start: retention_policy={:?}", retention_policy);
             
             let retention_maintainer = RetentionMaintainer::new(element.clone(), settings.retention_maintenance_interval_seconds, retention_policy, client_factory.clone(),
-                index_scoped_segment, scoped_segment);
+                index_scoped_stream, scoped_stream);
             let (retention_thread_stop_tx, retention_thread_stop_rx) = mpsc::channel();
             let retention_thread_handle = retention_maintainer.run(retention_thread_stop_rx);
 

@@ -13,7 +13,7 @@ use log::info;
 use std::{thread, time};
 
 use pravega_client::client_factory::ClientFactory;
-use pravega_client_shared::{Scope, Stream, Segment, ScopedSegment};
+use pravega_client_shared::{Scope, Stream, ScopedStream};
 
 use pravega_video::utils;
 use pravega_video::index::{IndexSearcher};
@@ -52,12 +52,11 @@ fn main() {
     let scope = Scope::from(opts.scope);
     let stream_name = format!("{}-index", opts.stream);
     let stream = Stream::from(stream_name);
-    let index_scoped_segment = ScopedSegment {
+    let index_scoped_stream = ScopedStream {
         scope: scope,
         stream: stream,
-        segment: Segment::from(0),
     };
-    let index_reader = client_factory.create_byte_reader(index_scoped_segment);
+    let index_reader = client_factory.create_byte_reader(index_scoped_stream);
     let mut index_searcher = IndexSearcher::new(index_reader);
     let check_period = time::Duration::from_secs(opts.check_period);
 
