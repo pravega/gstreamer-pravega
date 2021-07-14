@@ -1902,6 +1902,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "hyper-rustls"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f9f7a97316d44c0af9b0301e65010573a853a9fc97046d7331d7f6bc0fd5a64"
+dependencies = [
+ "futures-util",
+ "hyper",
+ "log",
+ "rustls",
+ "tokio 1.5.0",
+ "tokio-rustls",
+ "webpki",
+]
+
+[[package]]
 name = "hyper-tls"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2362,6 +2377,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "num"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43db66d1170d347f9a065114077f7dccb00c1b9478c89384490a3425279a4606"
+dependencies = [
+ "num-bigint 0.4.0",
+ "num-complex",
+ "num-integer",
+ "num-iter",
+ "num-rational",
+ "num-traits",
+]
+
+[[package]]
 name = "num-bigint"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2370,6 +2399,37 @@ dependencies = [
  "autocfg",
  "num-integer",
  "num-traits",
+]
+
+[[package]]
+name = "num-bigint"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e0d047c1062aa51e256408c560894e5251f08925980e53cf1aa5bd00eec6512"
+dependencies = [
+ "autocfg",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "num-complex"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26873667bbbb7c5182d4a37c1add32cdf09f841af72da53318fdb81543c15085"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
+name = "num-derive"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "876a53fff98e03a936a674b29568b0e605f06b29372c2489ff4de23f1949743d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2383,12 +2443,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-iter"
+version = "0.1.42"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2021c8337a54d21aca0d59a92577a029af9431cb59b909b03252b9c164fad59"
+dependencies = [
+ "autocfg",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
 name = "num-rational"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d41702bd167c2df5520b384281bc111a4b5efcf7fbc4c9c222c815b07e0a6a6a"
 dependencies = [
  "autocfg",
+ "num-bigint 0.4.0",
  "num-integer",
  "num-traits",
 ]
@@ -2701,7 +2773,7 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 [[package]]
 name = "pravega-client"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "ahash 0.6.3",
  "async-stream 0.2.1",
@@ -2740,7 +2812,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-auth"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "async-trait",
  "base64 0.12.3",
@@ -2755,7 +2827,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-channel"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "futures-intrusive 0.4.0",
  "tokio 1.5.0",
@@ -2764,7 +2836,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-config"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "async-trait",
  "base64 0.12.3",
@@ -2783,7 +2855,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-retry"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "snafu",
  "tokio 1.5.0",
@@ -2792,7 +2864,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-shared"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "async-trait",
  "bytes 0.4.12",
@@ -2800,19 +2872,24 @@ dependencies = [
  "derive_more",
  "encoding_rs",
  "im",
+ "lazy_static",
  "murmurhash3",
+ "num-derive",
+ "num-traits",
  "ordered-float 1.1.1",
+ "regex",
  "serde",
  "shrinkwraprs",
  "snafu",
  "tokio 1.5.0",
+ "tokio-rustls",
  "uuid",
 ]
 
 [[package]]
 name = "pravega-connection-pool"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "async-trait",
  "dashmap 3.11.10",
@@ -2826,7 +2903,7 @@ dependencies = [
 [[package]]
 name = "pravega-controller-client"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "async-trait",
  "clap 2.33.3",
@@ -2834,6 +2911,9 @@ dependencies = [
  "futures",
  "im",
  "jsonwebtoken",
+ "num",
+ "num-derive",
+ "num-traits",
  "ordered-float 1.1.1",
  "pravega-client-config",
  "pravega-client-retry",
@@ -2845,6 +2925,7 @@ dependencies = [
  "snafu",
  "structopt",
  "tokio 1.5.0",
+ "tokio-rustls",
  "tonic",
  "tonic-build",
  "tracing",
@@ -2896,7 +2977,7 @@ dependencies = [
 [[package]]
 name = "pravega-wire-protocol"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=9ed43aaefabfb2750a2361419a7232200e6ed4a0#9ed43aaefabfb2750a2361419a7232200e6ed4a0"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=6614df550bd286e3d1867022c3f235836c6cc278#6614df550bd286e3d1867022c3f235836c6cc278"
 dependencies = [
  "async-trait",
  "bincode2",
@@ -3245,6 +3326,7 @@ dependencies = [
  "http",
  "http-body",
  "hyper",
+ "hyper-rustls",
  "hyper-tls",
  "ipnet",
  "js-sys",
@@ -3254,15 +3336,18 @@ dependencies = [
  "native-tls",
  "percent-encoding",
  "pin-project-lite 0.2.6",
+ "rustls",
  "serde",
  "serde_json",
  "serde_urlencoded",
  "tokio 1.5.0",
  "tokio-native-tls",
+ "tokio-rustls",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+ "webpki-roots",
  "winreg",
 ]
 
@@ -3550,7 +3635,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "692ca13de57ce0613a363c8c2f1de925adebc81b04c923ac60c5488bb44abe4b"
 dependencies = [
  "chrono",
- "num-bigint",
+ "num-bigint 0.2.6",
  "num-traits",
 ]
 
@@ -4404,6 +4489,15 @@ checksum = "b8e38c0608262c46d4a56202ebabdeb094cef7e560ca7a226c6bf055188aa4ea"
 dependencies = [
  "ring",
  "untrusted",
+]
+
+[[package]]
+name = "webpki-roots"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aabe153544e473b775453675851ecc86863d2a81d786d741f6b76778f2a48940"
+dependencies = [
+ "webpki",
 ]
 
 [[package]]

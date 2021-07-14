@@ -112,6 +112,7 @@ impl EventWriterPool {
                         ..Default::default()
                     },
                     retention: Default::default(),
+                    tags: None,
                 };
                 let create_stream_result = controller_client.create_stream(&stream_config).await.unwrap();
                 info!("EventWriterPool::get_or_create: Stream created, create_stream_result={}", create_stream_result);

@@ -767,6 +767,7 @@ impl BaseSinkImpl for PravegaSink {
                     ..Default::default()
                 },
                 retention: Default::default(),
+                tags: None,
             };
             runtime.block_on(controller_client.create_stream(&stream_config)).map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega data stream: {:?}", error])
@@ -784,6 +785,7 @@ impl BaseSinkImpl for PravegaSink {
                     ..Default::default()
                 },
                 retention: Default::default(),
+                tags: None,
             };
             runtime.block_on(controller_client.create_stream(&index_stream_config)).map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega index stream: {:?}", error])
