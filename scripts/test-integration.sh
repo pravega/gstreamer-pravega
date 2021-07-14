@@ -56,12 +56,13 @@ export JUNIT_OUTPUT=${JUNIT_OUTPUT:-0}
 cargo test --release --locked $* -- --skip ignore --list \
 |& tee /tmp/integration-test.log
 
+# Run tests.
+cargo test --release --locked $* -- --skip ignore --nocapture --test-threads=${TEST_THREADS} \
+-Z unstable-options --format json --report-time |& tee /tmp/integration-test.log || true
+TEST_RESULT=${PIPESTATUS[0]}
+
 if [[ "${JUNIT_OUTPUT}" != "0" ]]; then
-    # Run tests.
-    cargo test --release --locked $* -- --skip ignore --nocapture --test-threads=${TEST_THREADS} \
-    -Z unstable-options --format json | cargo2junit | tee junit.xml
-else
-    # Run tests.
-    cargo test --release --locked $* -- --skip ignore --nocapture --test-threads=${TEST_THREADS} \
-    |& tee -a /tmp/integration-test.log
+    cat /tmp/integration-test.log | cargo2junit | tee junit.xml
 fi
+
+exit ${TEST_RESULT}
