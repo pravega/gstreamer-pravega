@@ -88,7 +88,7 @@ def start_http_server(hostname='0.0.0.0', port=8080):
 
 class IdleDetector():
     def __init__(self, tolerance):
-        self.update_at = 0
+        self.update_at = time.monotonic() - tolerance
         self.idle_time = 0
         self.update_tolerance = tolerance
 
