@@ -78,6 +78,7 @@ fn main() {
 
         if opts.use_byte_stream_writer {
             let client_factory = client_factory.clone();
+            let scoped_stream = scoped_stream.clone();
             runtime.spawn_blocking(move || {
                 let mut writer = client_factory.create_byte_writer(scoped_stream);
                 for i in 0..num_events {
