@@ -268,7 +268,7 @@ mod models {
                 span.in_scope(|| {
                     info!("BEGIN");
                     let client_factory = self.client_factory;
-                    let data_scoped_stream = ScopedStream {
+                    let scoped_stream = ScopedStream {
                         scope: Scope::from(scope_name),
                         stream: Stream::from(stream_name),
                     };
