@@ -22,10 +22,12 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         curl \
         dnsutils \
+        iproute2 \
         iputils-ping \
         less \
         nano \
         netcat \
+        net-tools \
         openssh-server \
         sudo \
         wget
