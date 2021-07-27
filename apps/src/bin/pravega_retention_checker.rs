@@ -69,7 +69,7 @@ fn main() {
         info!("The last index record: timestamp={}", last_record.timestamp);
         let size = last_record.offset - first_record.offset;
         let size_in_mb = size / 1024 / 1024;
-        info!("Data size between the first index and last index is {} mb\r\n",  size_in_mb);
+        info!("Data size between the first index and last index is {} MB",  size_in_mb);
 
         thread::sleep(check_period);
     }
