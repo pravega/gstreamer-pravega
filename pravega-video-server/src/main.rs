@@ -10,7 +10,7 @@
 
 use clap::Clap;
 use pravega_client::client_factory::ClientFactory;
-use pravega_video::utils::create_client_config;
+use pravega_video::utils;
 use tracing_subscriber::fmt::format::FmtSpan;
 #[allow(unused_imports)]
 use tracing::{error, info, info_span, warn, trace, event, Level, span};
@@ -47,7 +47,7 @@ fn main() {
 
     // Let Pravega ClientFactory create the Tokio runtime. It will also be used by Warp.
 
-    let config = create_client_config(opts.pravega_controller_uri, Some(opts.keycloak_service_account_file)).expect("creating config");
+    let config = utils::create_client_config(opts.pravega_controller_uri, Some(opts.keycloak_service_account_file)).expect("creating config");
     let client_factory = ClientFactory::new(config);
     let client_factory_db = client_factory.clone();
     let runtime = client_factory.runtime();
@@ -79,6 +79,7 @@ mod filters {
         get_media_segment(db.clone())
             .or(get_m3u8_playlist(db.clone()))
             .or(list_video_streams(db.clone()))
+            .or(list_scopes(db.clone()))
     }
 
     /// GET /scopes/my_scope/streams/my_stream/media?begin=0&end=204
@@ -103,6 +104,17 @@ mod filters {
             .and(with_db(db))
             .and_then(handlers::get_m3u8_playlist)
             .with(warp::compression::gzip())
+    }
+
+    /// List scopes this player has access to
+    /// GET /scopes
+    pub fn list_scopes(
+        db: Db,
+    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        warp::path!("scopes")
+            .and(warp::get())
+            .and(with_db(db))
+            .and_then(handlers::list_scopes)
     }
 
     /// List streams within the given scope
@@ -184,6 +196,14 @@ mod handlers {
         Ok(warp::reply::with_header(playlist, "content-type", "application/x-mpegURL"))
     }
 
+    pub async fn list_scopes(
+        db: Db,
+    ) -> Result<impl warp::Reply, Infallible> {
+        info!("list_scopes");
+        let streams = db.list_scopes().await.unwrap();
+        Ok(warp::reply::json(&streams))
+    }
+
     pub async fn list_video_streams(
         scope_name: String,
         db: Db,
@@ -201,7 +221,7 @@ mod models {
     use hyper::body::{Body, Bytes};
     use pravega_client::client_factory::ClientFactory;
     use pravega_client_shared::{Scope, ScopedStream, Stream};
-    use pravega_controller_client::paginator::list_streams;
+    use pravega_controller_client::paginator::{list_streams_for_tag, list_scopes};
     use pravega_video::{event_serde::{EventReader}, index::IndexSearcher};
     use pravega_video::index::{IndexRecord, IndexRecordReader, SearchMethod, get_index_stream_name};
     use pravega_video::timestamp::PravegaTimestamp;
@@ -236,8 +256,20 @@ mod models {
     }
 
     #[derive(Debug, Deserialize, Serialize, Clone)]
+    pub struct ListScopesResult {
+        pub scopes: Vec<ListScopesRecord>,
+    }
+
+    #[derive(Debug, Deserialize, Serialize, Clone)]
     pub struct ListStreamsResult {
         pub streams: Vec<ListStreamsRecord>,
+    }
+
+
+    #[derive(Debug, Deserialize, Serialize, Clone)]
+    pub struct ListScopesRecord {
+        #[serde(rename = "scopeName")]
+        pub scope_name: String
     }
 
     #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -490,6 +522,35 @@ mod models {
             Ok(playlist)
         }
 
+        pub async fn list_scopes(
+            self
+        ) -> anyhow::Result<ListScopesResult> {
+
+            info!("list_scopes");
+            let controller_client = self.client_factory.controller_client();
+            let mut scopes = Vec::new();
+            let mut had_error = false;
+
+            list_scopes(controller_client).for_each(|scope| {
+                if scope.is_ok() {
+                    scopes.push(scope.unwrap())
+                } else {
+                    had_error = true;
+                }
+
+                future::ready(())
+            }).await;
+
+            if had_error {
+                anyhow::bail!("Error listing scopes");
+            }
+
+            let scopes: Vec<_> = scopes.into_iter().map(|scope| ListScopesRecord {
+                scope_name: scope.name.clone()
+            }).collect();
+            Ok(ListScopesResult { scopes })
+        }
+
         pub async fn list_video_streams(
             self,
             scope_name: String,
@@ -500,7 +561,7 @@ mod models {
             let scope = Scope { name : scope_name.clone() };
             let mut streams = Vec::new();
             let mut had_error = false;
-            list_streams(scope, controller_client).for_each(|stream| {
+            list_streams_for_tag(scope, utils::get_video_tag_query(), controller_client).for_each(|stream| {
                 if stream.is_ok() {
                     streams.push(stream.unwrap());
                 } else {

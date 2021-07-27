@@ -63,3 +63,11 @@ pub fn create_client_config(controller: String, keycloak_file: Option<String>) -
         .credentials(credential)
         .build()
 }
+
+pub fn get_video_tags() -> Option<Vec<String>> {
+    Some(vec!["video".to_string()])
+}
+
+pub fn get_video_tag_query() -> String {
+    "video".to_string()
+}
