@@ -63,7 +63,7 @@ services:
         -XX:+CrashOnOutOfMemoryError
         -XX:+HeapDumpOnOutOfMemoryError
       SERVICE_HOST_IP: segmentstore
-    image: devops-repo.isus.emc.com:8116/nautilus/nautilus-pravega:0.10.0-2918.46d007f82-1.3-W8-3-b6e25cb
+    image: pravega/pravega:latest
     links:
       - zookeeper
     networks:
@@ -75,7 +75,7 @@ services:
     restart: always
 
   segmentstore:
-    image: pravega/pravega:0.9.0
+    image: pravega/pravega:latest
     ports:
       - "12345:12345"
     command: segmentstore
