@@ -16,7 +16,7 @@ pushd ${ROOT_DIR}/apps
 cargo build
 popd
 
-export RUST_LOG=info,pravega_video:debug
+export RUST_LOG=${RUST_LOG:-info}
 export RUST_BACKTRACE=1
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
 PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}

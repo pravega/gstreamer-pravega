@@ -60,15 +60,16 @@ fn main() {
     let mut index_searcher = IndexSearcher::new(index_reader);
     let check_period = time::Duration::from_secs(opts.check_period);
 
-    info!("check period is {} seconds",  opts.check_period);
+    info!("Checking period is {} seconds",  opts.check_period);
 
     loop {
         let first_record = index_searcher.get_first_record().unwrap();
-        info!("The first index record has the timestamp of {}", first_record.timestamp);
+        info!("The first index record: timestamp={}", first_record.timestamp);
         let last_record = index_searcher.get_last_record().unwrap();
+        info!("The last index record: timestamp={}", last_record.timestamp);
         let size = last_record.offset - first_record.offset;
         let size_in_mb = size / 1024 / 1024;
-        info!("Data size between the first index and last index is {} mb",  size_in_mb);
+        info!("Data size between the first index and last index is {} mb\r\n",  size_in_mb);
 
         thread::sleep(check_period);
     }
