@@ -65,7 +65,7 @@ pub fn create_client_config(controller: String, keycloak_file: Option<String>) -
 }
 
 pub fn get_video_tags() -> Option<Vec<String>> {
-    Some(vec!["video".to_string()])
+    Some(vec![get_video_tag_query()])
 }
 
 pub fn get_video_tag_query() -> String {
