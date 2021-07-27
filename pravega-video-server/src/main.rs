@@ -143,9 +143,9 @@ mod ui {
     #[derive(Debug, Deserialize, Serialize)]
     pub struct GetPlayerHtmlOptions {
         #[serde(rename = "scope")]
-        pub scope_name: String,
+        pub scope_name: Option<String>,
         #[serde(rename = "stream")]
-        pub stream_name: String,
+        pub stream_name: Option<String>,
         pub begin: Option<DateTime<Utc>>,
         pub end: Option<DateTime<Utc>>,
     }
