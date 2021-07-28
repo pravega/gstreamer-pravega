@@ -52,13 +52,13 @@ fn test_timestampcvt() {
     println!("Large jump forward.");
     push_and_validate(&mut h, first_input_pts + 1000 * gst::MSECOND, Some(first_expected_pts + 1000 * gst::MSECOND));
     println!("Decreasing PTS.");
-    push_and_validate(&mut h, first_input_pts + 500 * gst::MSECOND, Some(first_expected_pts + 1001 * gst::MSECOND));
-    push_and_validate(&mut h, first_input_pts + 500 * gst::MSECOND, Some(first_expected_pts + 1001 * gst::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 500 * gst::MSECOND, Some(first_expected_pts + 1015 * gst::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 500 * gst::MSECOND, Some(first_expected_pts + 1015 * gst::MSECOND));
     println!("Next frame but still decreasing.");
-    push_and_validate(&mut h, first_input_pts + 550 * gst::MSECOND, Some(first_expected_pts + 1002 * gst::MSECOND));
-    push_and_validate(&mut h, first_input_pts + 550 * gst::MSECOND, Some(first_expected_pts + 1002 * gst::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 550 * gst::MSECOND, Some(first_expected_pts + 1030 * gst::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 550 * gst::MSECOND, Some(first_expected_pts + 1030 * gst::MSECOND));
     println!("Back to PTS before decrease.");
-    push_and_validate(&mut h, first_input_pts + 1000 * gst::MSECOND, Some(first_expected_pts + 1003 * gst::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 1000 * gst::MSECOND, Some(first_expected_pts + 1045 * gst::MSECOND));
     println!("Back to normal.");
     push_and_validate(&mut h, first_input_pts + 1050 * gst::MSECOND, Some(first_expected_pts + 1050 * gst::MSECOND));
     push_and_validate(&mut h, first_input_pts + 1050 * gst::MSECOND, Some(first_expected_pts + 1050 * gst::MSECOND));
