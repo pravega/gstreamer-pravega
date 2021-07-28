@@ -127,7 +127,7 @@ impl TimestampCvt {
         };
 
         // If input PTS decreases, the output PTS will be set to the previous PTS plus this amount.
-        let pts_correction_delta = 1 * MSECOND;
+        let pts_correction_delta = 15 * MSECOND;
 
         let input_pts = buffer.pts();
         if input_pts.is_some() {
