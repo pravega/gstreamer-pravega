@@ -19,6 +19,8 @@ use pravega_client::client_factory::ClientFactory;
 use pravega_client_config::ClientConfigBuilder;
 use pravega_client_shared::{Scope, Stream, StreamConfiguration, ScopedStream, Scaling, ScaleType};
 
+use pravega_video::utils;
+
 #[derive(Clap)]
 struct Opts {
     /// Pravega controller in format "127.0.0.1:9090"
@@ -71,7 +73,7 @@ fn main() {
                 ..Default::default()
             },
             retention: Default::default(),
-            tags: None,
+            tags: utils::get_video_tags(),
         };
         controller_client.create_stream(&stream_config).await.unwrap();
         let num_events: u64 = 3;

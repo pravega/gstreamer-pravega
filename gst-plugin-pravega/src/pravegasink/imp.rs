@@ -150,7 +150,7 @@ impl RetentionMaintainer {
             interval_seconds,
             retention_policy,
             factory,
-            index_searcher, 
+            index_searcher,
             index_writer,
             data_writer,
         }
@@ -172,7 +172,7 @@ impl RetentionMaintainer {
         if seconds.is_none() && bytes.is_none() {
             return None;
         }
-        
+
         gst_info!(CAT, obj: &self.element, "start: retention_maintainer_interval_seconds={}", self.interval_seconds);
         let handle = thread::spawn(move || {
             loop {
@@ -767,7 +767,7 @@ impl BaseSinkImpl for PravegaSink {
                     ..Default::default()
                 },
                 retention: Default::default(),
-                tags: None,
+                tags: utils::get_video_tags(),
             };
             runtime.block_on(controller_client.create_stream(&stream_config)).map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega data stream: {:?}", error])
@@ -811,12 +811,12 @@ impl BaseSinkImpl for PravegaSink {
             gst_info!(CAT, obj: element, "start: Buffer size is {}", settings.buffer_size);
             let buf_writer = BufWriter::with_capacity(settings.buffer_size, seekable_writer);
             let counting_writer = CountingWriter::new(buf_writer).unwrap();
-            
+
             let retention_policy = RetentionPolicy::new(settings.retention_type, settings.retention_days, settings.retention_bytes).map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Settings, ["Failed to create retention policy: {}", error])
             })?;
             gst_info!(CAT, obj: element, "start: retention_policy={:?}", retention_policy);
-            
+
             let retention_maintainer = RetentionMaintainer::new(element.clone(), settings.retention_maintenance_interval_seconds, retention_policy, client_factory.clone(),
                 index_scoped_stream, scoped_stream);
             let (retention_thread_stop_tx, retention_thread_stop_rx) = mpsc::channel();

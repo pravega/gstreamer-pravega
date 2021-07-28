@@ -63,7 +63,7 @@ services:
         -XX:+CrashOnOutOfMemoryError
         -XX:+HeapDumpOnOutOfMemoryError
       SERVICE_HOST_IP: segmentstore
-    image: pravega/pravega:0.9.0
+    image: pravega/pravega:latest
     links:
       - zookeeper
     networks:
@@ -75,7 +75,7 @@ services:
     restart: always
 
   segmentstore:
-    image: pravega/pravega:0.9.0
+    image: pravega/pravega:latest
     ports:
       - "12345:12345"
     command: segmentstore

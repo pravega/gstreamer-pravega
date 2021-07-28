@@ -584,7 +584,7 @@ impl BaseSrcImpl for PravegaSrc {
                     ..Default::default()
                 },
                 retention: Default::default(),
-                tags: None,
+                tags: utils::get_video_tags(),
             };
             runtime.block_on(controller_client.create_stream(&stream_config)).map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega data stream: {:?}", error])
