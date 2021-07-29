@@ -31,7 +31,6 @@ FPS=30
 
 NAMESPACE=${PRAVEGA_SCOPE}
 KEYCLOAK_SERVICE_ACCOUNT_FILE=${HOME}/keycloak.json
-kubectl config use-context eaglemonk
 kubectl get secret ${NAMESPACE}-pravega -n ${NAMESPACE} -o jsonpath="{.data.keycloak\.json}" | base64 -d > ${KEYCLOAK_SERVICE_ACCOUNT_FILE}
 
 gst-launch-1.0 \
