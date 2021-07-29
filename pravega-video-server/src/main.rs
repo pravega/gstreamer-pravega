@@ -46,7 +46,7 @@ fn main() {
     info!("opts={:?}", opts);
 
     let static_dir_name = format!("{}/static", opts.resource_dir);
-    ensure_extra_files(static_dir_name.clone());
+    ensure_extra_files(opts.resource_dir.clone());
 
     // Let Pravega ClientFactory create the Tokio runtime. It will also be used by Warp.
 
@@ -72,9 +72,9 @@ fn main() {
     })
 }
 
-fn ensure_extra_files(static_dir_name: String) {
-    for file in ["gap-5s.mp4"] {
-        let path = format!("{}/{}", static_dir_name, file);
+fn ensure_extra_files(resourc_dir: String) {
+    for file in ["static/gap-5s.mp4", "static/hls-js.js", "templates/player.html"] {
+        let path = format!("{}/{}", resourc_dir, file);
         if ! Path::new(&path).exists() {
             error!("Missing file to run pravega-video-server: {}", file);
             std::process::exit(1);
