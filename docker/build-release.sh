@@ -16,10 +16,11 @@ ROOT_DIR=$(readlink -f $(dirname $0)/..)
 GSTREAMER_CHECKOUT=${GSTREAMER_CHECKOUT:-1.18.4}
 RUST_JOBS=${RUST_JOBS:-4}
 DOCKER_REPOSITORY=${DOCKER_REPOSITORY}
+FROM_IMAGE=ubuntu:21.04
 
 # Make sure to always have fresh base image.
 if [[ "${PULL_BASE}" != "0" ]]; then
-    docker pull ${DOCKER_REPOSITORY}ubuntu:20.10
+    docker pull ${DOCKER_REPOSITORY}${FROM_IMAGE}
 fi
 
 # Build pravega-prod image which includes the binaries for all applications.
@@ -42,6 +43,7 @@ if [[ "${BUILD_PROD}" != "0" ]]; then
         --build-arg GST_RTSP_SERVER_CHECKOUT=${GSTREAMER_CHECKOUT} \
         --build-arg RUST_JOBS=${RUST_JOBS} \
         --build-arg DOCKER_REPOSITORY=${DOCKER_REPOSITORY} \
+        --build-arg FROM_IMAGE=${FROM_IMAGE} \
         --target prod \
         -f ${ROOT_DIR}/docker/pravega.Dockerfile \
         ${ROOT_DIR}
@@ -68,6 +70,7 @@ if [[ "${BUILD_DEV}" != "0" ]]; then
         --build-arg GST_RTSP_SERVER_CHECKOUT=${GSTREAMER_CHECKOUT} \
         --build-arg RUST_JOBS=${RUST_JOBS} \
         --build-arg DOCKER_REPOSITORY=${DOCKER_REPOSITORY} \
+        --build-arg FROM_IMAGE=${FROM_IMAGE} \
         --target pravega-dev \
         -f ${ROOT_DIR}/docker/pravega.Dockerfile \
         ${ROOT_DIR}
