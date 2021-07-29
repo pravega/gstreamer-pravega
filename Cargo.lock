@@ -2773,7 +2773,7 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 [[package]]
 name = "pravega-client"
 version = "0.3.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=c3b92686c2890d80909e7b9ad0c79acd02717b81#c3b92686c2890d80909e7b9ad0c79acd02717b81"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=c42d55af935d8a7bf1c3460ba2a13fc280691613#c42d55af935d8a7bf1c3460ba2a13fc280691613"
 dependencies = [
  "ahash 0.6.3",
  "async-stream 0.2.1",
@@ -2812,7 +2812,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-auth"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=c3b92686c2890d80909e7b9ad0c79acd02717b81#c3b92686c2890d80909e7b9ad0c79acd02717b81"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=c42d55af935d8a7bf1c3460ba2a13fc280691613#c42d55af935d8a7bf1c3460ba2a13fc280691613"
 dependencies = [
  "async-trait",
  "base64 0.12.3",
@@ -2827,7 +2827,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-channel"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=c3b92686c2890d80909e7b9ad0c79acd02717b81#c3b92686c2890d80909e7b9ad0c79acd02717b81"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=c42d55af935d8a7bf1c3460ba2a13fc280691613#c42d55af935d8a7bf1c3460ba2a13fc280691613"
 dependencies = [
  "futures-intrusive 0.4.0",
  "tokio 1.5.0",
@@ -2836,7 +2836,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-config"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=c3b92686c2890d80909e7b9ad0c79acd02717b81#c3b92686c2890d80909e7b9ad0c79acd02717b81"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=c42d55af935d8a7bf1c3460ba2a13fc280691613#c42d55af935d8a7bf1c3460ba2a13fc280691613"
 dependencies = [
  "async-trait",
  "base64 0.12.3",
@@ -2855,7 +2855,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-retry"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=c3b92686c2890d80909e7b9ad0c79acd02717b81#c3b92686c2890d80909e7b9ad0c79acd02717b81"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=c42d55af935d8a7bf1c3460ba2a13fc280691613#c42d55af935d8a7bf1c3460ba2a13fc280691613"
 dependencies = [
  "snafu",
  "tokio 1.5.0",
@@ -2864,7 +2864,7 @@ dependencies = [
 [[package]]
 name = "pravega-client-shared"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=c3b92686c2890d80909e7b9ad0c79acd02717b81#c3b92686c2890d80909e7b9ad0c79acd02717b81"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=c42d55af935d8a7bf1c3460ba2a13fc280691613#c42d55af935d8a7bf1c3460ba2a13fc280691613"
 dependencies = [
  "async-trait",
  "bytes 0.4.12",
@@ -2889,7 +2889,7 @@ dependencies = [
 [[package]]
 name = "pravega-connection-pool"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=c3b92686c2890d80909e7b9ad0c79acd02717b81#c3b92686c2890d80909e7b9ad0c79acd02717b81"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=c42d55af935d8a7bf1c3460ba2a13fc280691613#c42d55af935d8a7bf1c3460ba2a13fc280691613"
 dependencies = [
  "async-trait",
  "dashmap 3.11.10",
@@ -2903,7 +2903,7 @@ dependencies = [
 [[package]]
 name = "pravega-controller-client"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=c3b92686c2890d80909e7b9ad0c79acd02717b81#c3b92686c2890d80909e7b9ad0c79acd02717b81"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=c42d55af935d8a7bf1c3460ba2a13fc280691613#c42d55af935d8a7bf1c3460ba2a13fc280691613"
 dependencies = [
  "async-trait",
  "clap 2.33.3",
@@ -2977,7 +2977,7 @@ dependencies = [
 [[package]]
 name = "pravega-wire-protocol"
 version = "0.2.0"
-source = "git+https://github.com/pravega/pravega-client-rust?rev=c3b92686c2890d80909e7b9ad0c79acd02717b81#c3b92686c2890d80909e7b9ad0c79acd02717b81"
+source = "git+https://github.com/pravega/pravega-client-rust?rev=c42d55af935d8a7bf1c3460ba2a13fc280691613#c42d55af935d8a7bf1c3460ba2a13fc280691613"
 dependencies = [
  "async-trait",
  "bincode2",
@@ -3337,6 +3337,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite 0.2.6",
  "rustls",
+ "rustls-native-certs",
  "serde",
  "serde_json",
  "serde_urlencoded",
@@ -3347,7 +3348,6 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "webpki-roots",
  "winreg",
 ]
 
@@ -3408,6 +3408,18 @@ dependencies = [
  "ring",
  "sct",
  "webpki",
+]
+
+[[package]]
+name = "rustls-native-certs"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a07b7c1885bd8ed3831c289b7870b13ef46fe0e856d288c30d9cc17d75a2092"
+dependencies = [
+ "openssl-probe",
+ "rustls",
+ "schannel",
+ "security-framework",
 ]
 
 [[package]]
@@ -4489,15 +4501,6 @@ checksum = "b8e38c0608262c46d4a56202ebabdeb094cef7e560ca7a226c6bf055188aa4ea"
 dependencies = [
  "ring",
  "untrusted",
-]
-
-[[package]]
-name = "webpki-roots"
-version = "0.21.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aabe153544e473b775453675851ecc86863d2a81d786d741f6b76778f2a48940"
-dependencies = [
- "webpki",
 ]
 
 [[package]]
