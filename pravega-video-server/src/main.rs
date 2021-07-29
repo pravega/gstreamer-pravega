@@ -11,6 +11,9 @@
 use clap::Clap;
 use pravega_client::client_factory::ClientFactory;
 use pravega_video::utils;
+use std::fs;
+use std::collections::HashSet;
+
 use tracing_subscriber::fmt::format::FmtSpan;
 #[allow(unused_imports)]
 use tracing::{error, info, info_span, warn, trace, event, Level, span};
@@ -44,6 +47,7 @@ fn main() {
     info!("opts={:?}", opts);
 
     let static_dir_name = format!("{}/static", opts.resource_dir);
+    ensure_extra_files(static_dir_name.clone());
 
     // Let Pravega ClientFactory create the Tokio runtime. It will also be used by Warp.
 
@@ -68,6 +72,29 @@ fn main() {
         warp::serve(routes).run(([0, 0, 0, 0], 3030)).await;
     })
 }
+
+fn ensure_extra_files(static_dir_name: String) {
+    let paths = fs::read_dir(static_dir_name).unwrap();
+    let mut needed_files = HashSet::new();
+    needed_files.insert("gap-5s.mp4".to_string());
+
+    for path in paths {
+        let file_name = path.unwrap().file_name().into_string();
+        if file_name.is_ok() {
+            let file_name = file_name.unwrap();
+            needed_files.remove(&file_name.to_string());
+        }
+    }
+
+    let not_found_files = needed_files;
+
+    if not_found_files.len() > 0 {
+        error!("Missing files to run pravega-video-server: {:?}", not_found_files);
+        std::process::exit(1);
+    }
+
+}
+
 mod filters {
     use super::handlers;
     use super::models::{Db, GetMediaSegmentOptions, GetM3u8PlaylistOptions};
