@@ -16,7 +16,7 @@ use crate::utils::CurrentHead;
 use enumflags2::BitFlags;
 use std::convert::TryInto;
 use std::io::{BufReader, Error, ErrorKind, Read, Write, Seek, SeekFrom};
-use tracing::{debug, trace};
+use tracing::{debug};
 
 pub fn get_index_stream_name(stream_name: &str) -> String {
     format!("{}-index", stream_name)
@@ -213,47 +213,24 @@ impl<R: Read + Seek + CurrentHead> IndexSearcher<R> {
             let mut last_index_offset = self.reader.seek(SeekFrom::Start(tail_offset - IndexRecord::RECORD_SIZE as u64))?;
             // TODO: Below may fail due to https://github.com/pravega/pravega-client-rust/issues/163.
             let tail_index_record = index_record_reader.read(&mut self.reader)?;
-            let mut last_index_record= tail_index_record.clone();
 
             // Read first record.
             let mut first_index_offset = self.reader.seek(SeekFrom::Start(first_index_offset))?;
-            let mut first_index_record = index_record_reader.read(&mut self.reader)?;
+            let first_index_record = index_record_reader.read(&mut self.reader)?;
 
             // Return first record if desired size is larger or equal to it.
             if tail_index_record.offset - first_index_record.offset <= size_bytes {
                 return Ok((first_index_record, first_index_offset));
             }
 
-            // Read index from the beginning until we find a size greater or equal to the desired size.
-            // TODO: Use binary search or Newton's method.
-            // loop {
-            //     let index_record = index_record_reader.read(&mut self.reader)?;
-            //     let index_offset = prev_index_offset + IndexRecord::RECORD_SIZE as u64;
-            //     trace!("IndexSearcher::search_size_and_return_index_offset: index_record={:?}", index_record);
-            //     if last_index_record.offset - index_record.offset < size_bytes {
-            //         // Approximate match returns index record before or after desired size, depending on method.
-            //         return match method {
-            //             SearchMethod::Before => Ok((prev_index_record, prev_index_offset)),
-            //             SearchMethod::After => Ok((index_record, index_offset)),
-            //         }
-            //     } else if last_index_record.offset - index_record.offset == size_bytes {
-            //         // Exact match
-            //         return Ok((index_record, index_offset));
-            //     }
-            //     prev_index_offset = index_offset;
-            //     prev_index_record = index_record;
-            // }
-
             loop {
                 let middle_index = (last_index_offset + first_index_offset) / 2 / IndexRecord::RECORD_SIZE as u64;
-                let middle_index_offset = middle_index * IndexRecord::RECORD_SIZE as u64;
+                let middle_index_offset = self.reader.seek(SeekFrom::Start(middle_index * IndexRecord::RECORD_SIZE as u64))?;
                 let middle_index_record = index_record_reader.read(&mut self.reader)?;
                 if size_bytes > tail_index_record.offset - middle_index_record.offset {
                     last_index_offset = middle_index_offset - IndexRecord::RECORD_SIZE as u64;
-                    last_index_record = middle_index_record;
                 } else if size_bytes < tail_index_record.offset - middle_index_record.offset {
                     first_index_offset = middle_index_offset + IndexRecord::RECORD_SIZE as u64;
-                    first_index_record = middle_index_record;
                 } else {
                     return Ok((middle_index_record, middle_index_offset));
                 }
@@ -263,8 +240,16 @@ impl<R: Read + Seek + CurrentHead> IndexSearcher<R> {
             }
             // first_index_offset == last_index_offset + IndexRecord::RECORD_SIZE
             return match method {
-                SearchMethod::Before => Ok((last_index_record, last_index_offset)),
-                SearchMethod::After => Ok((first_index_record, first_index_offset)),
+                SearchMethod::Before => {
+                    self.reader.seek(SeekFrom::Start(last_index_offset))?;
+                    let last_index_record = index_record_reader.read(&mut self.reader)?;
+                    Ok((last_index_record, last_index_offset))
+                },
+                SearchMethod::After => {
+                    self.reader.seek(SeekFrom::Start(first_index_offset))?;
+                    let first_index_record = index_record_reader.read(&mut self.reader)?;
+                    Ok((first_index_record, first_index_offset))
+                },
             }
         })();
         debug!("IndexSearcher::search_size_and_return_index_offset({}, {:?}) = {:?}", size_bytes, method, result);
@@ -309,36 +294,14 @@ impl<R: Read + Seek + CurrentHead> IndexSearcher<R> {
                 return Ok((first_index_record, first_index_offset));
             }
 
-            // Read index from the beginning until we find a timestamp greater or equal to the desired timestamp.
-            // TODO: Use binary search or Newton's method.
-            // loop {
-            //     let index_record = index_record_reader.read(&mut self.reader)?;
-            //     let index_offset = prev_index_offset + IndexRecord::RECORD_SIZE as u64;
-            //     trace!("IndexSearcher::search_timestamp_and_return_index_offset: index_record={:?}", index_record);
-            //     if timestamp < index_record.timestamp {
-            //         // Approximate match returns index record before or after desired timestamp, depending on method.
-            //         return match method {
-            //             SearchMethod::Before => Ok((prev_index_record, prev_index_offset)),
-            //             SearchMethod::After => Ok((index_record, index_offset)),
-            //         }
-            //     } else if timestamp == index_record.timestamp {
-            //         // Exact match
-            //         return Ok((index_record, index_offset));
-            //     }
-            //     prev_index_offset = index_offset;
-            //     prev_index_record = index_record;
-            // }
-
             loop {
                 let middle_index = (last_index_offset + first_index_offset) / 2 / IndexRecord::RECORD_SIZE as u64;
-                let middle_index_offset = middle_index * IndexRecord::RECORD_SIZE as u64;
+                let middle_index_offset = self.reader.seek(SeekFrom::Start(middle_index * IndexRecord::RECORD_SIZE as u64))?;
                 let middle_index_record = index_record_reader.read(&mut self.reader)?;
                 if timestamp < middle_index_record.timestamp {
                     last_index_offset = middle_index_offset - IndexRecord::RECORD_SIZE as u64;
-                    last_index_record = middle_index_record;
                 } else if timestamp > middle_index_record.timestamp {
                     first_index_offset = middle_index_offset + IndexRecord::RECORD_SIZE as u64;
-                    first_index_record = middle_index_record;
                 } else {
                     return Ok((middle_index_record, middle_index_offset));
                 }
@@ -348,8 +311,16 @@ impl<R: Read + Seek + CurrentHead> IndexSearcher<R> {
             }
             // first_index_offset == last_index_offset + IndexRecord::RECORD_SIZE
             return match method {
-                SearchMethod::Before => Ok((last_index_record, last_index_offset)),
-                SearchMethod::After => Ok((first_index_record, first_index_offset)),
+                SearchMethod::Before => {
+                    self.reader.seek(SeekFrom::Start(last_index_offset))?;
+                    last_index_record = index_record_reader.read(&mut self.reader)?;
+                    Ok((last_index_record, last_index_offset))
+                },
+                SearchMethod::After => {
+                    self.reader.seek(SeekFrom::Start(first_index_offset))?;
+                    first_index_record = index_record_reader.read(&mut self.reader)?;
+                    Ok((first_index_record, first_index_offset))
+                },
             }
         })();
         debug!("IndexSearcher::search_timestamp_and_return_index_offset({}, {:?}) = {:?}", timestamp, method, result);
