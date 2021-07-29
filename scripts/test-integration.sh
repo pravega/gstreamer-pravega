@@ -62,7 +62,9 @@ cargo test --release --locked $* -- --skip ignore --nocapture --test-threads=${T
 TEST_RESULT=${PIPESTATUS[0]}
 
 if [[ "${JUNIT_OUTPUT}" != "0" ]]; then
-    cat /tmp/integration-test.log | cargo2junit | tee junit.xml
+    # Use grep to extract all JSON objects produced by cargo test anywhere in the line.
+    # This is required because sometimes such JSON objects are output on lines shared with other output.
+    cat /tmp/integration-test.log | grep -o '{ "type": .* }' | cargo2junit | tee junit.xml
 fi
 
 exit ${TEST_RESULT}
