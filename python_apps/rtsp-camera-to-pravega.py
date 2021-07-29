@@ -130,7 +130,7 @@ def main():
         auto_env_var_prefix="")
     # Note that below arguments can be passed through the environment such as PRAVEGA_CONTROLLER_URI.
     parser.add_argument("--allow-create-scope", type=str2bool, default=True)
-    parser.add_argument("--buffer-size-mb", type=float, default=10.0, help='Buffer size in MiB')
+    parser.add_argument("--buffer-size-mb", type=float, default=100.0, help='Buffer size in MiB')
     parser.add_argument("--camera-address")
     parser.add_argument("--camera-height", type=int, default=180)
     parser.add_argument("--camera-password")
@@ -147,7 +147,7 @@ def main():
     parser.add_argument("--fakesource", type=str2bool, default=False)
     parser.add_argument("--fragment-duration-ms", type=int, default=1)
     parser.add_argument("--health-check-enabled", type=str2bool, default=False)
-    parser.add_argument("--health-check-idle-seconds", type=float, default=30.0)
+    parser.add_argument("--health-check-idle-seconds", type=float, default=120.0)
     parser.add_argument("--keycloak-service-account-file")
     parser.add_argument("--log-level", type=int, default=logging.INFO, help="10=DEBUG,20=INFO")
     parser.add_argument("--pravega-controller-uri", default="tcp://127.0.0.1:9090")
