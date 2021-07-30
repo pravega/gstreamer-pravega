@@ -95,7 +95,7 @@ apt-get install -y --no-install-recommends \
   libsoup2.4-1 \
   libspandsp2 \
   libspeex1 \
-  libsrt1 \
+  libsrt1.4-openssl \
   libsrtp2-1 \
   libssl1.1 \
   libtag1v5 \
