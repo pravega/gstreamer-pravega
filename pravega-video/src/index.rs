@@ -16,7 +16,7 @@ use crate::utils::CurrentHead;
 use enumflags2::BitFlags;
 use std::convert::TryInto;
 use std::io::{BufReader, Error, ErrorKind, Read, Write, Seek, SeekFrom};
-use tracing::{debug};
+use tracing::{debug, trace};
 
 pub fn get_index_stream_name(stream_name: &str) -> String {
     format!("{}-index", stream_name)
@@ -223,10 +223,12 @@ impl<R: Read + Seek + CurrentHead> IndexSearcher<R> {
                 return Ok((first_index_record, first_index_offset));
             }
 
+            // Use binary search algorithm
             loop {
                 let middle_index = (last_index_offset + first_index_offset) / 2 / IndexRecord::RECORD_SIZE as u64;
                 let middle_index_offset = self.reader.seek(SeekFrom::Start(middle_index * IndexRecord::RECORD_SIZE as u64))?;
                 let middle_index_record = index_record_reader.read(&mut self.reader)?;
+                trace!("IndexSearcher::search_timestamp_and_return_index_offset: index_record={:?}", middle_index_record);
                 if size_bytes > tail_index_record.offset - middle_index_record.offset {
                     last_index_offset = middle_index_offset - IndexRecord::RECORD_SIZE as u64;
                 } else if size_bytes < tail_index_record.offset - middle_index_record.offset {
@@ -238,7 +240,7 @@ impl<R: Read + Seek + CurrentHead> IndexSearcher<R> {
                     break;
                 }
             }
-            // first_index_offset == last_index_offset + IndexRecord::RECORD_SIZE
+            
             return match method {
                 SearchMethod::Before => {
                     self.reader.seek(SeekFrom::Start(last_index_offset))?;
@@ -294,10 +296,12 @@ impl<R: Read + Seek + CurrentHead> IndexSearcher<R> {
                 return Ok((first_index_record, first_index_offset));
             }
 
+            // Use binary search algorithm
             loop {
                 let middle_index = (last_index_offset + first_index_offset) / 2 / IndexRecord::RECORD_SIZE as u64;
                 let middle_index_offset = self.reader.seek(SeekFrom::Start(middle_index * IndexRecord::RECORD_SIZE as u64))?;
                 let middle_index_record = index_record_reader.read(&mut self.reader)?;
+                trace!("IndexSearcher::search_timestamp_and_return_index_offset: index_record={:?}", middle_index_record);
                 if timestamp < middle_index_record.timestamp {
                     last_index_offset = middle_index_offset - IndexRecord::RECORD_SIZE as u64;
                 } else if timestamp > middle_index_record.timestamp {
@@ -309,7 +313,7 @@ impl<R: Read + Seek + CurrentHead> IndexSearcher<R> {
                     break;
                 }
             }
-            // first_index_offset == last_index_offset + IndexRecord::RECORD_SIZE
+            
             return match method {
                 SearchMethod::Before => {
                     self.reader.seek(SeekFrom::Start(last_index_offset))?;
@@ -409,7 +413,7 @@ mod test {
     fn test_index_searcher() {
         // env_logger::init();
         // Create index in memory.
-        let num_recs = 10;
+        let num_recs = 100;
         let mut index_records: Vec<IndexRecord> = Vec::new();
         let mut memory_index_cursor = Cursor::new(vec![0 as u8; num_recs * IndexRecord::RECORD_SIZE]);
         let mut index_record_writer = IndexRecordWriter::new();
