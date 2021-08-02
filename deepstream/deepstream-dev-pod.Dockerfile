@@ -28,6 +28,7 @@ RUN apt-get update && \
         nano \
         netcat \
         net-tools \
+        openjdk-11-jdk \
         openssh-server \
         sudo \
         wget
