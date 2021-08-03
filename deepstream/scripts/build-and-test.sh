@@ -10,6 +10,8 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
+# This can be run in the DeepStream Development Pod to build gstreamer-pravega and run a sample DeepStream application.
+
 set -ex
 ROOT_DIR=$(readlink -f $(dirname $0)/../..)
 pushd ${ROOT_DIR}
@@ -22,21 +24,17 @@ gst-inspect-1.0 pravega
 echo "[message-broker]" > /tmp/msgapi-config.txt &&
 echo "keycloak-file = ${KEYCLOAK_SERVICE_ACCOUNT_FILE}" >> /tmp/msgapi-config.txt
 
+export ADD_MESSAGE_WHEN_NO_OBJECTS_FOUND=true
 export ALLOW_CREATE_SCOPE=false
 export GST_DEBUG=INFO,pravegasrc:LOG,pravegasink:LOG,pravegatc:TRACE,fragmp4pay:LOG,qtdemux:LOG,h264parse:LOG,v4l2:LOG
-export INPUT_STREAM=camera-claudio-06
+export INPUT_STREAM=camera-claudio-07
 export LOG_LEVEL=10
 export MSGAPI_CONFIG_FILE=/tmp/msgapi-config.txt
 export OUTPUT_METADATA_STREAM=metadata-claudio-08
-export RECOVERY_TABLE=recovery-table-1
+#export OUTPUT_VIDEO_STREAM=osd-claudio-14
+export RECOVERY_TABLE=metadata-recovery-table-3
+#export RECOVERY_TABLE=osd-recovery-table-2
 export RUST_LOG=nvds_pravega_proto=trace,info
-export pravega_client_tls_cert_path=/etc/ssl/certs/ca-certificates.crt
-#export pravega_client_tls_cert_path=/tmp/truststore/ca-certificates.crt
-
-# GST_DEBUG=WARN gst-launch-1.0 -v pravegasrc controller=$PRAVEGA_CONTROLLER_URI stream=$PRAVEGA_SCOPE/$INPUT_STREAM \
-# allow-create-scope=false keycloak-file=$KEYCLOAK_SERVICE_ACCOUNT_FILE \
-# start-mode=earliest \
-# ! qtdemux ! \
-# h264parse ! video/x-h264,alignment=au ! nvv4l2decoder ! identity silent=false ! fakesink
+#export START_MODE=latest
 
 deepstream/python_apps/deepstream-pravega-demos/pravega-to-object-detection-to-pravega.py >& /tmp/app.log

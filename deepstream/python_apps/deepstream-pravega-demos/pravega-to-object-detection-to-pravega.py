@@ -339,7 +339,7 @@ def generate_event_msg_meta(data, class_id, pravega_timestamp):
 
 def set_event_message_meta_probe(pad, info, u_data):
     logging.info("set_event_message_meta_probe: BEGIN")
-    add_message_when_no_objects_found = False
+    global app_args
     gst_buffer = info.get_buffer()
     if gst_buffer:
         batch_meta = pyds.gst_buffer_get_nvds_batch_meta(hash(gst_buffer))
@@ -396,7 +396,7 @@ def set_event_message_meta_probe(pad, info, u_data):
                             pyds.set_user_releasefunc(user_event_meta, meta_free_func)
                             pyds.nvds_add_user_meta_to_frame(frame_meta, user_event_meta)
                             added_message = True
-                    if add_message_when_no_objects_found and not added_message:
+                    if app_args.add_message_when_no_objects_found and not added_message:
                         msg_meta = pyds.alloc_nvds_event_msg_meta()
                         msg_meta.frameId = frame_meta.frame_num
                         msg_meta = generate_event_msg_meta(msg_meta, PGIE_CLASS_ID_NONE, pravega_timestamp)
@@ -434,11 +434,13 @@ def main():
     parser = argparse.ArgumentParser(
         description="Read video from a Pravega stream, detect objects, write metadata and/or video with on-screen display to Pravega streams",
         auto_env_var_prefix="")
+    parser.add_argument("--add-message-when-no-objects-found", type=str2bool, default=False)
     parser.add_argument("--allow-create-scope", type=str2bool, default=True)
     parser.add_argument("--container-format", default="mp4", help="mpegts or mp4")
     parser.add_argument("--input-stream", required=True, metavar="SCOPE/STREAM")
     parser.add_argument("--gst-debug",
-        default="WARNING,pravegasrc:INFO,h264parse:LOG,nvv4l2decoder:LOG,nvmsgconv:INFO,pravegasrc:LOG")
+        default="WARNING,pravegasrc:LOG,h264parse:LOG,nvv4l2decoder:LOG,nvmsgconv:INFO,pravegatc:LOG")
+    parser.add_argument("--height", type=int, default=480)
     parser.add_argument("--pravega-controller-uri", default="tcp://127.0.0.1:9090")
     parser.add_argument("--pravega-scope")
     parser.add_argument("--keycloak-service-account-file")
@@ -457,9 +459,12 @@ def main():
     parser.add_argument("-p", "--proto-lib", dest="proto_lib",
         help="Absolute path of adaptor library", metavar="PATH",
         default="/opt/nvidia/deepstream/deepstream/lib/libnvds_pravega_proto.so")
-    parser.add_argument("--recovery-table", required=True, metavar="SCOPE/TABLE")
-    parser.add_argument("-s", "--schema-type", dest="schema_type", type=int, default=0,
+    parser.add_argument("--recovery-table", metavar="SCOPE/TABLE")
+    parser.add_argument("--schema-type", type=int, default=0,
         help="Type of message schema (0=Full, 1=minimal), default=0", metavar="<0|1>")
+    parser.add_argument("--start-mode", default="earliest")
+    parser.add_argument("--start-utc")
+    parser.add_argument("--width", type=int, default=640)
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
@@ -474,6 +479,9 @@ def main():
     # Print configuration parameters.
     for arg in vars(args):
         logging.info("argument: %s: %s" % (arg, getattr(args, arg)))
+
+    global app_args
+    app_args = args
 
     # Set GStreamer log level.
     os.environ["GST_DEBUG"] = args.gst_debug
@@ -498,6 +506,11 @@ def main():
     else:
         raise Exception("Unsupported container-format '%s'." % args.container_format)
 
+    if args.recovery_table:
+        pravegatc_pipeline = "   ! pravegatc name=pravegatc\n"
+    else:
+        pravegatc_pipeline = ""
+
     inference_pipeline_desc = (
         "pravegasrc name=pravegasrc\n" +
         "   ! identity name=from_pravegasrc silent=false\n" +
@@ -520,7 +533,7 @@ def main():
         inference_pipeline_desc +
         "   ! identity name=before_msgconv silent=false\n" +
         "   ! nvmsgconv name=msgconv\n" +
-        "   ! pravegatc name=pravegatc\n" +
+        pravegatc_pipeline +
         "   ! identity name=before_msgbroker silent=false\n" +
         "   ! nvmsgbroker name=msgbroker\n" +
         "")
@@ -542,7 +555,7 @@ def main():
         # "   ! mp4mux streamable=true fragment-duration=1\n" +
         # "   ! fragmp4pay\n" +
         "   ! mpegtsmux\n" +
-        "   ! pravegatc name=pravegatc\n" +
+        pravegatc_pipeline +
         "   ! identity name=to_pravegasink silent=false\n" +
         "   ! pravegasink name=pravegasink\n" +
         "")
@@ -566,8 +579,9 @@ def main():
         pravegasrc.set_property("stream", args.input_stream)
         pravegasrc.set_property("allow-create-scope", args.allow_create_scope)
         pravegasrc.set_property("keycloak-file", args.keycloak_service_account_file)
-        pravegasrc.set_property("start-mode", "earliest")
-        # pravegasrc.set_property("end-mode", "latest")
+        pravegasrc.set_property("start-mode", args.start_mode)
+        if args.start_utc:
+            pravegasrc.set_property("start-utc", args.start_utc)
         pravegatc = pipeline.get_by_name("pravegatc")
         if pravegatc:
             pravegatc.set_property("controller", args.pravega_controller_uri)
@@ -575,8 +589,8 @@ def main():
             pravegatc.set_property("keycloak-file", args.keycloak_service_account_file)
         streammux = pipeline.get_by_name("streammux")
         if streammux:
-            streammux.set_property("width", 640)
-            streammux.set_property("height", 480)
+            streammux.set_property("width", args.width)
+            streammux.set_property("height", args.height)
             streammux.set_property("batch-size", 1)
             streammux.set_property("batched-push-timeout", 4000000)
             streammux.set_property("live-source", 1)
