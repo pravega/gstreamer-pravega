@@ -38,3 +38,7 @@ export RUST_LOG=nvds_pravega_proto=trace,info
 #export START_MODE=latest
 
 deepstream/python_apps/deepstream-pravega-demos/pravega-to-object-detection-to-pravega.py >& /tmp/app.log
+
+#export OUTPUT_STREAM=${INPUT_STREAM}-copy3
+#export RECOVERY_TABLE=copy-recovery-table-5
+#python_apps/pravega-to-pravega.py >& /tmp/app.log
