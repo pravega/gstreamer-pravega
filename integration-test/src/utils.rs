@@ -336,9 +336,11 @@ impl BufferListSummary {
 impl fmt::Display for BufferListSummary {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         f.write_fmt(format_args!("BufferListSummary {{ num_buffers: {}, num_buffers_with_valid_pts: {}, \
+            corrupted_buffer_count: {}, \
             first_pts: {}, first_valid_pts: {}, first_valid_dts: {}, min_pts: {}, last_valid_pts: {}, max_pts_plus_duration: {}, pts_range: {}, \
             min_size: {}, max_size: {} }}",
             self.num_buffers(), self.num_buffers_with_valid_pts(),
+            self.corrupted_buffer_count(),
             self.first_pts(), self.first_valid_pts(), self.first_valid_dts(), self.min_pts(),
             self.last_valid_pts(), self.max_pts_plus_duration(), self.pts_range(),
             self.min_size(), self.max_size()))
@@ -406,10 +408,21 @@ pub fn launch_pipeline(pipeline_description: &str) -> Result<(), Error> {
     run_pipeline_until_eos(&pipeline)
 }
 
+pub struct LaunchPipelineError {
+    pub error: Error,
+    pub buffer_list_summary: BufferListSummary,
+}
+
+impl fmt::Debug for LaunchPipelineError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{:?}", self.error)
+    }
+}
+
 /// Run a pipeline until end-of-stream and return a summary of buffers sent to the AppSink named 'sink'.
-pub fn launch_pipeline_and_get_summary(pipeline_description: &str) -> Result<BufferListSummary, Error> {
+pub fn launch_pipeline_and_get_summary(pipeline_description: &str) -> Result<BufferListSummary, LaunchPipelineError> {
     info!("Launch Pipeline: {}", pipeline_description);
-    let pipeline = gst::parse_launch(&pipeline_description)?;
+    let pipeline = gst::parse_launch(&pipeline_description).unwrap();
     let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
     // Subscribe to any property changes.
     // Identity elements with silent=false will produce bus messages and will be logged by monitor_pipeline_until_eos.
@@ -424,7 +437,7 @@ pub fn launch_pipeline_and_get_summary(pipeline_description: &str) -> Result<Buf
                 gst_app::AppSinkCallbacks::builder()
                     .new_sample(move |sink| {
                         let sample = sink.pull_sample().unwrap();
-                        trace!("sample={:?}", sample);
+                        debug!("sample={:?}", sample);
                         let buffer = sample.buffer().unwrap();
                         let summary = BufferSummary::from(buffer);
                         let mut summary_list = summary_list_clone.lock().unwrap();
@@ -436,12 +449,18 @@ pub fn launch_pipeline_and_get_summary(pipeline_description: &str) -> Result<Buf
         },
         None => warn!("Element named 'sink' not found"),
     };
-    run_pipeline_until_eos(&pipeline)?;
+    let run_result = run_pipeline_until_eos(&pipeline);
     let summary_list = summary_list.lock().unwrap().clone();
     let summary = BufferListSummary {
         buffer_summary_list: summary_list,
     };
-    Ok(summary)
+    match run_result {
+        Ok(()) => Ok(summary),
+        Err(error) => Err(LaunchPipelineError {
+            error,
+            buffer_list_summary: summary,
+        }),
+    }
 }
 
 fn run_pipeline_until_eos(pipeline: &gst::Pipeline) -> Result<(), Error> {

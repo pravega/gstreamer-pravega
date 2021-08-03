@@ -10,7 +10,7 @@
 
 #[cfg(test)]
 mod test {
-    use pravega_video::timestamp::{SECOND, MSECOND};
+    use pravega_video::timestamp::MSECOND;
     use rstest::rstest;
     #[allow(unused_imports)]
     use tracing::{error, info, debug};

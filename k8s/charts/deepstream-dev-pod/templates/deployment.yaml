@@ -18,6 +18,8 @@ spec:
       app: "{{ $.Release.Name }}"
   template:
     metadata:
+      # annotations:
+      #   sdp.dellemc.com/TRUSTSTORE_DIR: /tmp/truststore
       labels:
         app: "{{ $.Release.Name }}"
     spec:
@@ -38,7 +40,7 @@ spec:
           sudo /usr/sbin/sshd -D
         env:
         - name: pravega_client_tls_cert_path
-          value: "/etc/ssl/certs/DST_Root_CA_X3.pem"
+          value: "/etc/ssl/certs/ca-certificates.crt"
         volumeMounts:
         - name: ssh
           mountPath: /tmp/ssh-configmap

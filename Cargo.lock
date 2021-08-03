@@ -1368,6 +1368,8 @@ dependencies = [
  "pravega-client-config",
  "pravega-client-shared",
  "pravega-video",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

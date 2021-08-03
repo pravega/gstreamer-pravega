@@ -11,11 +11,10 @@
 #
 
 #
-# Read video from a Pravega stream, detect objects, write metadata and/or video with on-screen display to Pravega streams.
+# Copy a Pravega stream written by pravegasink to another stream.
 #
 
 import configargparse as argparse
-import ctypes
 import datetime
 import logging
 import os
@@ -27,55 +26,6 @@ import distutils.util
 import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import GObject, Gst
-
-# See https://docs.nvidia.com/metropolis/deepstream/5.0DP/python-api/
-import pyds
-
-
-class PravegaTimestamp():
-    """This is a Python version of PravegaTimestamp in pravega-video/src/timestamp.rs."""
-
-    # Difference between NTP and Unix epochs.
-    # Equals 70 years plus 17 leap days.
-    # See [https://stackoverflow.com/a/29138806/5890553].
-    UNIX_TO_NTP_SECONDS = (70 * 365 + 17) * 24 * 60 * 60
-
-    # UTC to TAI offset.
-    # Below is valid for dates between 2017-01-01 and the next leap second.
-    # TODO: Beyond this range, we must use a table that incorporates the leap second schedule.
-    # See [https://en.wikipedia.org/wiki/International_Atomic_Time].
-    UTC_TO_TAI_SECONDS = 37
-
-    def __init__(self, nanoseconds):
-        self._nanoseconds = nanoseconds
-
-    def from_nanoseconds(nanoseconds):
-        """Create a PravegaTimestamp from the number of nanoseconds since the TAI epoch 1970-01-01 00:00:00 TAI."""
-        return PravegaTimestamp(nanoseconds)
-
-    def nanoseconds(self):
-        return self._nanoseconds
-
-    def to_unix_nanoseconds(self):
-        return self.nanoseconds() - self.UTC_TO_TAI_SECONDS * 1000*1000*1000
-
-    def to_unix_seconds(self):
-        return self.to_unix_nanoseconds() * 1e-9
-
-    def to_iso_8601(self):
-        seconds = self.to_unix_seconds()
-        return datetime.datetime.fromtimestamp(seconds, datetime.timezone.utc).isoformat()
-
-    def is_valid(self):
-        return self.nanoseconds() > 0
-
-    def __repr__(self):
-        return "%s (%d ns)" % (self.to_iso_8601(), self.nanoseconds())
-
-
-def long_to_int(l):
-    value = ctypes.c_int(l & 0xffffffff).value
-    return value
 
 
 def bus_call(bus, message, loop):
@@ -109,14 +59,6 @@ def make_element(factory_name, element_name):
     return element
 
 
-def format_clock_time(ns):
-    """Format time in nanoseconds like 01:45:35.975000000"""
-    s, ns = divmod(ns, 1000000000)
-    m, s = divmod(s, 60)
-    h, m = divmod(m, 60)
-    return "%u:%02u:%02u.%09u" % (h, m, s, ns)
-
-
 def str2bool(v):
     return bool(distutils.util.strtobool(v))
 
@@ -135,10 +77,9 @@ def resolve_pravega_stream(stream_name, default_scope):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Read video from a Pravega stream, and directly write back to Pravega streams",
+        description="Copy a Pravega stream written by pravegasink to another stream",
         auto_env_var_prefix="")
     parser.add_argument("--allow-create-scope", type=str2bool, default=True)
-    parser.add_argument("--container-format", default="mp4", help="mpegts or mp4")
     parser.add_argument("--input-stream", required=True, metavar="SCOPE/STREAM")
     parser.add_argument("--gst-debug",
         default="WARNING,pravegasrc:INFO,h264parse:LOG,pravegasink:LOG")
@@ -147,8 +88,11 @@ def main():
     parser.add_argument("--keycloak-service-account-file")
     parser.add_argument("--log-level", type=int, default=logging.INFO, help="10=DEBUG,20=INFO")
     parser.add_argument("--rust-log", default="warn")
-    parser.add_argument("--output-video-stream",
-        help="Name of output stream for video with on-screen display.", metavar="SCOPE/STREAM")
+    parser.add_argument("--output-stream", required=True,
+        help="Name of output stream.", metavar="SCOPE/STREAM")
+    parser.add_argument("--recovery-table", metavar="SCOPE/TABLE")
+    parser.add_argument("--start-mode", default="earliest")
+    parser.add_argument("--start-utc")
 
     args = parser.parse_args()
 
@@ -156,7 +100,8 @@ def main():
     logging.info("args=%s" % str(args))
 
     args.input_stream = resolve_pravega_stream(args.input_stream, args.pravega_scope)
-    args.output_video_stream = resolve_pravega_stream(args.output_video_stream, args.pravega_scope)
+    args.output_stream = resolve_pravega_stream(args.output_stream, args.pravega_scope)
+    args.recovery_table = resolve_pravega_stream(args.recovery_table, args.pravega_scope)
 
     # Print configuration parameters.
     for arg in vars(args):
@@ -173,19 +118,15 @@ def main():
     logging.info(Gst.version_string())
     loop = GObject.MainLoop()
 
-    if args.container_format == "mpegts":
-        container_pipeline = "tsdemux name=tsdemux"
-    elif args.container_format == "mp4":
-        container_pipeline = "qtdemux name=qtdemux"
+    if args.recovery_table:
+        pravegatc_pipeline = "   ! pravegatc name=pravegatc\n"
     else:
-        raise Exception("Unsupported container-format '%s'." % args.container_format)
+        pravegatc_pipeline = ""
 
     pipeline_desc = (
         "pravegasrc name=pravegasrc\n" +
-        "   ! " + container_pipeline + "\n" +
-        "   ! h264parse name=h264parse\n" +
-        "   ! video/x-h264,alignment=au\n" +
-        "   ! mpegtsmux \n" +\
+        pravegatc_pipeline +
+        "   ! identity name=to_pravegasink silent=false\n" +
         "   ! pravegasink name=pravegasink\n" +
         "")
 
@@ -200,20 +141,24 @@ def main():
     pravegasrc.set_property("stream", args.input_stream)
     pravegasrc.set_property("allow-create-scope", args.allow_create_scope)
     pravegasrc.set_property("keycloak-file", args.keycloak_service_account_file)
-    # pravegasrc.set_property("start-mode", "latest")
-    # pravegasrc.set_property("end-mode", "latest")
-
+    pravegasrc.set_property("start-mode", args.start_mode)
+    if args.start_utc:
+        pravegasrc.set_property("start-utc", args.start_utc)
+    pravegatc = pipeline.get_by_name("pravegatc")
+    if pravegatc:
+        pravegatc.set_property("controller", args.pravega_controller_uri)
+        pravegatc.set_property("table", args.recovery_table)
+        pravegatc.set_property("keycloak-file", args.keycloak_service_account_file)
     pravegasink = pipeline.get_by_name("pravegasink")
     if pravegasink:
         pravegasink.set_property("allow-create-scope", args.allow_create_scope)
         pravegasink.set_property("controller", args.pravega_controller_uri)
         if args.keycloak_service_account_file:
             pravegasink.set_property("keycloak-file", args.keycloak_service_account_file)
-        pravegasink.set_property("stream", args.output_video_stream)
+        pravegasink.set_property("stream", args.output_stream)
         # Always write to Pravega immediately regardless of PTS
         pravegasink.set_property("sync", False)
-        pravegasink.set_property("timestamp-mode", "realtime-clock")
-
+        pravegasink.set_property("timestamp-mode", "tai")
     
     # Feed GStreamer bus messages to event loop.
     bus = pipeline.get_bus()
