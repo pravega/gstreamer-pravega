@@ -11,7 +11,7 @@
 #
 
 set -ex
-ROOT_DIR=$(readlink -f $(dirname $0)/..)
+ROOT_DIR=$(readlink -f $(dirname $0)/../..)
 pushd ${ROOT_DIR}
 cargo build --package gst-plugin-pravega --locked --release
 cargo build --package pravega_protocol_adapter --locked --release
@@ -24,12 +24,14 @@ echo "keycloak-file = ${KEYCLOAK_SERVICE_ACCOUNT_FILE}" >> /tmp/msgapi-config.tx
 
 export ALLOW_CREATE_SCOPE=false
 export GST_DEBUG=INFO,pravegasrc:LOG,pravegasink:LOG,pravegatc:TRACE,fragmp4pay:LOG,qtdemux:LOG,h264parse:LOG,v4l2:LOG
-export INPUT_STREAM=camera-claudio-05
+export INPUT_STREAM=camera-claudio-06
 export LOG_LEVEL=10
 export MSGAPI_CONFIG_FILE=/tmp/msgapi-config.txt
 export OUTPUT_METADATA_STREAM=metadata-claudio-08
 export RECOVERY_TABLE=recovery-table-1
 export RUST_LOG=nvds_pravega_proto=trace,info
+export pravega_client_tls_cert_path=/etc/ssl/certs/ca-certificates.crt
+#export pravega_client_tls_cert_path=/tmp/truststore/ca-certificates.crt
 
 # GST_DEBUG=WARN gst-launch-1.0 -v pravegasrc controller=$PRAVEGA_CONTROLLER_URI stream=$PRAVEGA_SCOPE/$INPUT_STREAM \
 # allow-create-scope=false keycloak-file=$KEYCLOAK_SERVICE_ACCOUNT_FILE \

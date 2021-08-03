@@ -11,14 +11,10 @@
 #[cfg(test)]
 mod test {
     use anyhow::Error;
-    use gst::prelude::*;
-    use gstpravega::utils::{clocktime_to_pravega, pravega_to_clocktime};
-    use pravega_video::timestamp::{PravegaTimestamp, MSECOND, NSECOND, SECOND};
+    use pravega_video::timestamp::{PravegaTimestamp, MSECOND, NSECOND};
     use rstest::rstest;
     use std::convert::TryFrom;
-    use std::sync::Arc;
     use std::env;
-    use std::time::Instant;
     #[allow(unused_imports)]
     use tracing::{error, info, debug, trace};
     use uuid::Uuid;
@@ -145,7 +141,7 @@ mod test {
         VideoEncoder::H264(H264EncoderConfigBuilder::default().key_int_max_frames(30).build().unwrap()),
         ContainerFormat::Mp4(Mp4MuxConfigBuilder::default().fragment_duration(1 * MSECOND).build().unwrap()),
     )]
-    fn test_transaction_coordinator_1(#[case] video_encoder: VideoEncoder, #[case] container_format: ContainerFormat) {
+    fn test_transaction_coordinator(#[case] video_encoder: VideoEncoder, #[case] container_format: ContainerFormat) {
         let test_config = &get_test_config();
         info!("test_config={:?}", test_config);
         let stream_name = &format!("test-pravegatc-{}-{}", test_config.test_id, Uuid::new_v4())[..];
@@ -214,7 +210,7 @@ mod test {
         debug!("summary_run2=             {}", summary_run2);
         let first_pts_run2 = summary_run2.first_pts();
         let last_pts_run2 = summary_run2.last_pts();
-        assert_between_timestamp("first_pts_run2", first_pts_run2, last_pts_run1 + 1 * NSECOND, last_pts_run1 + 34 * MSECOND);
+        assert_between_timestamp("first_pts_run2", first_pts_run2, last_pts_run1 - 2000 * MSECOND, last_pts_run1 + 2000 * MSECOND);
         assert_timestamp_eq("last_pts_run2", last_pts_run2, last_pts_without_pravegatc);
     }
 }

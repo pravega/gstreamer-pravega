@@ -31,7 +31,13 @@ pub const ELEMENT_NAME: &str = "pravegatc";
 const ELEMENT_CLASS_NAME: &str = "PravegaTC";
 const ELEMENT_LONG_NAME: &str = "Pravega Transaction Coordinator";
 const ELEMENT_DESCRIPTION: &str = "\
-Pravega Transaction Coordinator";
+This element can be used in a pipeline with a pravegasrc element to provide failure recovery. \
+A pipeline that includes these elements can be restarted after a failure and the pipeline will \
+resume from where it left off. \
+The current implementation is best-effort which means that some buffers may be processed more than once or never at all. \
+The pravegatc element periodically writes the PTS of the current buffer to a Pravega table. \
+When the pravegatc element starts, if it finds a PTS in this Pravega table, it sets the start-timestamp property of the pravegasrc element.\
+";
 const ELEMENT_AUTHOR: &str = "Claudio Fahey <claudio.fahey@dell.com>";
 const DEBUG_CATEGORY: &str = ELEMENT_NAME;
 
@@ -40,6 +46,7 @@ const PROPERTY_NAME_CONTROLLER: &str = "controller";
 const PROPERTY_NAME_KEYCLOAK_FILE: &str = "keycloak-file";
 
 const DEFAULT_CONTROLLER: &str = "127.0.0.1:9090";
+const DEFAULT_RECORD_PERIOD_MSECOND: u64 = 1000;
 
 const PERSISTENT_STATE_TABLE_KEY: &str = "pravegatc.PersistentState";
 
@@ -55,6 +62,7 @@ struct Settings {
     controller: Option<String>,
     keycloak_file: Option<String>,
     fault_injection_pts: ClockTime,
+    record_period: ClockTime,
 }
 
 impl Default for Settings {
@@ -65,6 +73,7 @@ impl Default for Settings {
             controller: Some(DEFAULT_CONTROLLER.to_owned()),
             keycloak_file: None,
             fault_injection_pts: ClockTime::none(),
+            record_period: DEFAULT_RECORD_PERIOD_MSECOND * gst::MSECOND,
         }
     }
 }
@@ -72,6 +81,7 @@ impl Default for Settings {
 struct StartedState {
     client_factory: ClientFactory,
     table: Arc<Mutex<Table>>,
+    last_recorded_pts: ClockTime,
 }
 
 impl fmt::Debug for StartedState {
@@ -158,6 +168,8 @@ impl PravegaTC {
             let mut settings = self.settings.lock().unwrap();
 
             // Set fault injection parameters.
+            // If the environment variable FAULT_INJECTION_PTS_pravegatc is set to a u64, this element will inject
+            // a fault when the PTS reaches this value.
             if let Ok(fault_injection_pts) = str::parse::<u64>(env::var(format!("FAULT_INJECTION_PTS_{}", element.name())).unwrap_or_default().as_str()) {
                 settings.fault_injection_pts = fault_injection_pts * gst::NSECOND;
                 gst_warning!(CAT, obj: element, "start: fault_injection_pts={:?}", settings.fault_injection_pts);
@@ -204,7 +216,7 @@ impl PravegaTC {
                     // Find all pravegasrc elements and set start-timestamp property.
                     let mut elements_found = false;
                     for child in children {
-                        gst_debug!(CAT, obj: element, "start: child={:?}", child);
+                        gst_trace!(CAT, obj: element, "start: child={:?}", child);
                         let child_type_name = child.type_().name();
                         if child_type_name == "PravegaSrc" {
                             gst_debug!(CAT, obj: element, "start: Setting start-timestamp of element {:?}", child.name());
@@ -226,6 +238,7 @@ impl PravegaTC {
                 state: StartedState {
                     client_factory,
                     table: Arc::new(Mutex::new(table)),
+                    last_recorded_pts: ClockTime::none(),
                 },
             };
             gst_info!(CAT, obj: element, "start: Started");
@@ -243,9 +256,9 @@ impl PravegaTC {
     ) -> Result<gst::FlowSuccess, gst::FlowError> {
         gst_log!(CAT, obj: pad, "sink_chain: Handling buffer {:?}", buffer);
 
-        let fault_injection_pts = {
+        let (fault_injection_pts, record_period) = {
             let settings = self.settings.lock().unwrap();
-            settings.fault_injection_pts
+            (settings.fault_injection_pts, settings.record_period)
         };
 
         let mut state = self.state.lock().unwrap();
@@ -260,25 +273,35 @@ impl PravegaTC {
             }
         };
 
-        // If duration of the buffer is reported as 0, we handle it as a 1 nanosecond duration.
-        let duration = cmp::max(1, buffer.duration().nanoseconds().unwrap_or_default());
-        let resume_at_pts = clocktime_to_pravega(buffer.pts()) + duration * NSECOND;
-        gst_trace!(CAT, obj: element, "sink_chain: resume_at_pts={:?}", resume_at_pts);
-
         if buffer.pts() >= fault_injection_pts {
             gst_error!(CAT, obj: pad, "Injecting fault");
             return Err(gst::FlowError::Error)
         }
 
+        let buffer_pts = buffer.pts();
+        let buffer_duration = buffer.duration();
+
         self.srcpad.push(buffer)?;
 
-        let runtime = state.client_factory.runtime();
-        let table = state.table.lock().unwrap();
-        let persistent_state = PersistentState {
-            resume_at_pts: resume_at_pts.nanoseconds().unwrap(),
-        };
-        gst_trace!(CAT, obj: element, "sink_chain: writing persistent_state={:?}", persistent_state);
-        runtime.block_on(table.insert(&PERSISTENT_STATE_TABLE_KEY.to_string(), &persistent_state, -1)).unwrap();
+        // Periodically write buffer PTS to persistent state.
+        if state.last_recorded_pts.is_none() || state.last_recorded_pts + record_period <= buffer_pts {
+            // If duration of the buffer is reported as 0, we handle it as a 1 nanosecond duration.
+            let duration = cmp::max(1, buffer_duration.nanoseconds().unwrap_or_default());
+            let resume_at_pts = clocktime_to_pravega(buffer_pts) + duration * NSECOND;
+            gst_trace!(CAT, obj: element, "sink_chain: resume_at_pts={:?}", resume_at_pts);
+
+            let runtime = state.client_factory.runtime();
+            let table = state.table.lock().unwrap();
+            let persistent_state = PersistentState {
+                resume_at_pts: resume_at_pts.nanoseconds().unwrap(),
+            };
+            gst_trace!(CAT, obj: element, "sink_chain: writing persistent_state={:?}", persistent_state);
+            runtime.block_on(table.insert(&PERSISTENT_STATE_TABLE_KEY.to_string(), &persistent_state, -1)).map_err(|error| {
+                gst::element_error!(element, gst::CoreError::Failed, ["Failed to write to Pravega table: {}", error]);
+                gst::FlowError::Error
+            })?;
+            state.last_recorded_pts = buffer_pts;
+        }
 
         gst_trace!(CAT, obj: element, "sink_chain: END: state={:?}", state);
         Ok(gst::FlowSuccess::Ok)
@@ -391,7 +414,7 @@ impl ObjectImpl for PravegaTC {
             glib::ParamSpec::new_string(
                 PROPERTY_NAME_TABLE,
                 "Table",
-                "scope/table",
+                "The scope and table name that will be used for storing the persistent state. The format must be 'scope/table'.",
                 None,
                 glib::ParamFlags::WRITABLE,
             ),
