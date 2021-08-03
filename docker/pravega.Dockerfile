@@ -188,3 +188,5 @@ COPY --from=pravega-dev /usr/src/gstreamer-pravega/target/release/rtsp-camera-si
 COPY --from=pravega-dev /usr/src/gstreamer-pravega/target/release/pravega-video-server /usr/local/bin/
 COPY pravega-video-server/resources /opt/pravega-video-server/resources
 ENV PRAVEGA_VIDEO_SERVER_RESOURCE_DIR=/opt/pravega-video-server/resources
+COPY docker/entrypoint.sh /entrypoint.sh
+CMD ["/entrypoint.sh"]

@@ -122,3 +122,8 @@ RUN pip3 install \
 
 # Copy applications.
 COPY deepstream deepstream
+COPY python_apps python_apps
+
+# Define default entrypoint.
+COPY docker/entrypoint.sh /entrypoint.sh
+CMD ["/entrypoint.sh"]
