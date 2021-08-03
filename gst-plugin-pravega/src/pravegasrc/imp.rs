@@ -756,8 +756,8 @@ impl BaseSrcImpl for PravegaSrc {
                 gst_info!(CAT, obj: src, "do_seek: index_record={:?}", index_record);
                 match index_record {
                     Ok(index_record) => {
-                        let segment_start_timestamp = if requested_seek_timestamp < index_record.timestamp {
-                            // First indexed record is after requested timestamp.
+                        let segment_start_timestamp = if requested_seek_timestamp < index_record.timestamp || requested_seek_timestamp == PravegaTimestamp::MAX {
+                            // First indexed record is after requested timestamp OR we are starting at the latest timestamp.
                             // The segment will start at the indexed time.
                             index_record.timestamp
                         } else {
