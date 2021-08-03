@@ -542,6 +542,7 @@ def main():
         # "   ! mp4mux streamable=true fragment-duration=1\n" +
         # "   ! fragmp4pay\n" +
         "   ! mpegtsmux\n" +
+        "   ! pravegatc name=pravegatc\n" +
         "   ! identity name=to_pravegasink silent=false\n" +
         "   ! pravegasink name=pravegasink\n" +
         "")
