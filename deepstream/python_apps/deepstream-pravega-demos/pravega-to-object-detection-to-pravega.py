@@ -19,7 +19,9 @@ import ctypes
 import datetime
 import logging
 import os
+from os import fdopen
 import sys
+import tempfile
 import time
 import traceback
 import distutils.util
@@ -430,6 +432,19 @@ def resolve_pravega_stream(stream_name, default_scope):
         return None
 
 
+def create_msgapi_config(in_filename, keycloak_service_account_file):
+    fd, out_filename = tempfile.mkstemp(prefix="msgapi_config_", suffix=".txt", text=True)
+    with fdopen(fd, "w") as out_file:
+        if in_filename:
+            with open(in_filename, "r") as in_file:
+                for line in in_file.readlines():
+                    out_file.write(line)
+        out_file.write("\n[message-broker]\n")
+        out_file.write("keycloak-file = %s\n" % keycloak_service_account_file)
+    logging.info("Created file " + out_filename)
+    return out_filename
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Read video from a Pravega stream, detect objects, write metadata and/or video with on-screen display to Pravega streams",
@@ -482,6 +497,8 @@ def main():
 
     global app_args
     app_args = args
+
+    msgapi_config_file = create_msgapi_config(args.msgapi_config_file, args.keycloak_service_account_file)
 
     # Set GStreamer log level.
     os.environ["GST_DEBUG"] = args.gst_debug
@@ -606,7 +623,7 @@ def main():
         if msgbroker:
             msgbroker.set_property("proto-lib", args.proto_lib)
             msgbroker.set_property("conn-str", args.pravega_controller_uri)
-            msgbroker.set_property("config", args.msgapi_config_file)
+            msgbroker.set_property("config", msgapi_config_file)
             msgbroker.set_property("topic", args.output_metadata_stream)
             msgbroker.set_property("sync", False)
         pravegasink = pipeline.get_by_name("pravegasink")

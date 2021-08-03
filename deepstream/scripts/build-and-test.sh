@@ -21,15 +21,11 @@ sudo ln -f -s -v ${ROOT_DIR}/target/release/libgstpravega.so /usr/lib/x86_64-lin
 sudo ln -f -s -v ${ROOT_DIR}/target/release/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/
 gst-inspect-1.0 pravega
 
-echo "[message-broker]" > /tmp/msgapi-config.txt &&
-echo "keycloak-file = ${KEYCLOAK_SERVICE_ACCOUNT_FILE}" >> /tmp/msgapi-config.txt
-
 export ADD_MESSAGE_WHEN_NO_OBJECTS_FOUND=true
 export ALLOW_CREATE_SCOPE=false
 export GST_DEBUG=INFO,pravegasrc:LOG,pravegasink:LOG,pravegatc:TRACE,fragmp4pay:LOG,qtdemux:LOG,h264parse:LOG,v4l2:LOG
 export INPUT_STREAM=camera-claudio-07
 export LOG_LEVEL=10
-export MSGAPI_CONFIG_FILE=/tmp/msgapi-config.txt
 export OUTPUT_METADATA_STREAM=metadata-claudio-08
 #export OUTPUT_VIDEO_STREAM=osd-claudio-14
 export RECOVERY_TABLE=metadata-recovery-table-3
