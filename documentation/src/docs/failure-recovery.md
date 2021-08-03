@@ -14,7 +14,7 @@ You may obtain a copy of the License at
 
 ## Transaction Coordinator
 
-Pravega Transaction Coordinator (pravegatc) element can be used in a pipeline with a pravegasrc element to provide failure recovery.
+The Pravega Transaction Coordinator (pravegatc) element can be used in a pipeline with a pravegasrc element to provide failure recovery.
 A pipeline that includes these elements can be restarted after a failure and the pipeline will resume from where it left off.
 The current implementation is best-effort which means that some buffers may be processed more than once or never at all.
 The pravegatc element periodically writes the PTS of the current buffer to a Pravega table.
