@@ -9,10 +9,11 @@
 #
 
 ARG DOCKER_REPOSITORY=""
+ARG FROM_IMAGE
 
 
 # Build image that that will contain the GStreamer source code.
-FROM "${DOCKER_REPOSITORY}ubuntu:20.10" as gstreamer-source-code
+FROM "${DOCKER_REPOSITORY}${FROM_IMAGE}" as gstreamer-source-code
 
 COPY docker/build-gstreamer/install-dependencies /
 
@@ -152,7 +153,7 @@ ENV PATH=/usr/src/gstreamer-pravega/python_apps:$PATH
 
 
 # Build base production image including OS dependencies.
-FROM "${DOCKER_REPOSITORY}ubuntu:20.10" as prod-base
+FROM "${DOCKER_REPOSITORY}${FROM_IMAGE}" as prod-base
 COPY docker/install-prod-dependencies /
 RUN ["/install-prod-dependencies"]
 ENV GST_PLUGIN_PATH /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
