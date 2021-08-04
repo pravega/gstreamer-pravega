@@ -25,6 +25,8 @@ import tempfile
 import time
 import traceback
 import distutils.util
+from threading import Thread
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 import gi
 gi.require_version("Gst", "1.0")
@@ -445,6 +447,69 @@ def create_msgapi_config(in_filename, keycloak_service_account_file):
     return out_filename
 
 
+def buffer_probe(pad, info, data):
+    gst_buffer = info.get_buffer()
+    if gst_buffer:
+        data.update()
+        logging.debug("buffer_timestamp_probe: %20s:%-8s: " % (
+            pad.get_parent_element().name,
+            pad.name) + data.to_string()
+        )
+    return Gst.PadProbeReturn.OK
+
+
+def start_http_server(hostname='0.0.0.0', port=8080):
+    httpd = HTTPServer((hostname, port), HealthCheckHttpHandler)
+    def serve_forever(httpd):
+        with httpd:  # to make sure httpd.server_close is called
+            httpd.serve_forever()
+
+    thread = Thread(target=serve_forever, args=(httpd, ))
+    # flag the http server thread as daemon thread so that it can be abruptly stopped at shutdown
+    thread.setDaemon(True)
+    thread.start()
+    logging.info('Health check server is listening on %s:%d' % (hostname, port))
+    return httpd
+
+
+class IdleDetector():
+    def __init__(self, tolerance):
+        self.update_at = time.monotonic() - tolerance
+        self.idle_time = 0
+        self.update_tolerance = tolerance
+
+    def update(self):
+        self.update_at = time.monotonic()
+    
+    def to_string(self):
+        return "last update at %u seconds of the monotonic clock" % (self.update_at)
+    
+    def is_healthy(self):
+        self.idle_time = time.monotonic() - self.update_at
+        return self.idle_time < self.update_tolerance
+
+
+class HealthCheckHttpHandler(BaseHTTPRequestHandler):
+    idle_detector = None
+    def send_code_msg(self, code, msg):
+        self.send_response(code)
+        self.send_header('Content-Type',
+                         'text/plain; charset=utf-8')
+        self.end_headers()
+        self.wfile.write(msg.encode('utf-8'))
+
+    # Any code greater than or equal to 200 and less than 400 indicates success. Any other code indicates failure
+    # https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+    def do_GET(self):
+        if self.path == "/ishealthy":
+            if HealthCheckHttpHandler.idle_detector.is_healthy():
+                self.send_code_msg(200, "OK")
+            else:
+                self.send_code_msg(500, "Pipeline has been idle for %d seconds" % (HealthCheckHttpHandler.idle_detector.idle_time))
+        else:
+            self.send_code_msg(404, "Not Found")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Read video from a Pravega stream, detect objects, write metadata and/or video with on-screen display to Pravega streams",
@@ -480,11 +545,16 @@ def main():
     parser.add_argument("--start-mode", default="earliest")
     parser.add_argument("--start-utc")
     parser.add_argument("--width", type=int, default=640)
+    parser.add_argument("--health-check-enabled", type=str2bool, default=False)
+    parser.add_argument("--health-check-idle-seconds", type=float, default=120.0)
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
     logging.info("args=%s" % str(args))
     logging.debug("Debug logging enabled.")
+
+    if args.health_check_enabled:
+        start_http_server()
 
     args.input_stream = resolve_pravega_stream(args.input_stream, args.pravega_scope)
     args.output_video_stream = resolve_pravega_stream(args.output_video_stream, args.pravega_scope)
@@ -636,6 +706,11 @@ def main():
             # Always write to Pravega immediately regardless of PTS
             pravegasink.set_property("sync", False)
             pravegasink.set_property("timestamp-mode", "tai")
+            if args.health_check_enabled:
+                idle_detector = IdleDetector(args.health_check_idle_seconds)
+                HealthCheckHttpHandler.idle_detector = idle_detector
+                pravegasinkpad = pravegasink.get_static_pad("sink")
+                pravegasinkpad.add_probe(Gst.PadProbeType.BUFFER, buffer_probe, idle_detector)
 
         before_msgconv = pipeline.get_by_name("before_msgconv")
         if before_msgconv:
