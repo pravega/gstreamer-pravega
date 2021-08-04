@@ -123,6 +123,7 @@ RUN pip3 install \
 # Copy applications.
 COPY deepstream deepstream
 COPY python_apps python_apps
+ENV PYTHONPATH=/usr/src/gstreamer-pravega/python_apps/lib
 
 # Define default entrypoint.
 COPY docker/entrypoint.sh /entrypoint.sh

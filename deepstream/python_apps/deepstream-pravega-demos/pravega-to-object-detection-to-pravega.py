@@ -16,7 +16,6 @@
 
 import configargparse as argparse
 import ctypes
-import datetime
 import logging
 import os
 from os import fdopen
@@ -24,11 +23,12 @@ import sys
 import tempfile
 import time
 import traceback
-import distutils.util
 
 import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import GObject, Gst
+
+from gstpravega import HealthCheckServer, add_probe, bus_call, format_clock_time, glist_iterator, long_to_int, make_element, resolve_pravega_stream, str2bool, PravegaTimestamp
 
 # See https://docs.nvidia.com/metropolis/deepstream/5.0DP/python-api/
 import pyds
@@ -39,98 +39,6 @@ PGIE_CLASS_ID_VEHICLE = 0
 PGIE_CLASS_ID_BICYCLE = 1
 PGIE_CLASS_ID_PERSON = 2
 PGIE_CLASS_ID_ROADSIGN = 3
-
-
-class PravegaTimestamp():
-    """This is a Python version of PravegaTimestamp in pravega-video/src/timestamp.rs."""
-
-    # Difference between NTP and Unix epochs.
-    # Equals 70 years plus 17 leap days.
-    # See [https://stackoverflow.com/a/29138806/5890553].
-    UNIX_TO_NTP_SECONDS = (70 * 365 + 17) * 24 * 60 * 60
-
-    # UTC to TAI offset.
-    # Below is valid for dates between 2017-01-01 and the next leap second.
-    # TODO: Beyond this range, we must use a table that incorporates the leap second schedule.
-    # See [https://en.wikipedia.org/wiki/International_Atomic_Time].
-    UTC_TO_TAI_SECONDS = 37
-
-    def __init__(self, nanoseconds):
-        self._nanoseconds = nanoseconds
-
-    def from_nanoseconds(nanoseconds):
-        """Create a PravegaTimestamp from the number of nanoseconds since the TAI epoch 1970-01-01 00:00:00 TAI."""
-        return PravegaTimestamp(nanoseconds)
-
-    def nanoseconds(self):
-        return self._nanoseconds
-
-    def to_unix_nanoseconds(self):
-        return self.nanoseconds() - self.UTC_TO_TAI_SECONDS * 1000*1000*1000
-
-    def to_unix_seconds(self):
-        return self.to_unix_nanoseconds() * 1e-9
-
-    def to_iso_8601(self):
-        seconds = self.to_unix_seconds()
-        return datetime.datetime.fromtimestamp(seconds, datetime.timezone.utc).isoformat()
-
-    def is_valid(self):
-        return self.nanoseconds() > 0
-
-    def __repr__(self):
-        return "%s (%d ns)" % (self.to_iso_8601(), self.nanoseconds())
-
-
-def long_to_int(l):
-    value = ctypes.c_int(l & 0xffffffff).value
-    return value
-
-
-def bus_call(bus, message, loop):
-    """Callback for GStreamer bus messages"""
-    t = message.type
-    if t == Gst.MessageType.EOS:
-        logging.info("End-of-stream")
-        loop.quit()
-    elif t == Gst.MessageType.WARNING:
-        err, debug = message.parse_warning()
-        logging.warning("%s: %s" % (err, debug))
-    elif t == Gst.MessageType.ERROR:
-        err, debug = message.parse_error()
-        logging.error("%s: %s" % (err, debug))
-        loop.quit()
-    elif t == Gst.MessageType.ELEMENT:
-        details = message.get_structure().to_string()
-        logging.info("%s: %s" % (message.src.name, str(details),))
-    elif t == Gst.MessageType.PROPERTY_NOTIFY:
-        details = message.get_structure().to_string()
-        logging.debug("%s: %s" % (message.src.name, str(details),))
-    return True
-
-
-def make_element(factory_name, element_name):
-    """Create a GStreamer element, raising an exception on failure."""
-    logging.info("Creating element %s of type %s" % (element_name, factory_name))
-    element = Gst.ElementFactory.make(factory_name, element_name)
-    if not element:
-        raise Exception("Unable to create element %s of type %s" % (element_name, factory_name))
-    return element
-
-
-def format_clock_time(ns):
-    """Format time in nanoseconds like 01:45:35.975000000"""
-    s, ns = divmod(ns, 1000000000)
-    m, s = divmod(s, 60)
-    h, m = divmod(m, 60)
-    return "%u:%02u:%02u.%09u" % (h, m, s, ns)
-
-
-def glist_iterator(li):
-    """Iterator for a pyds.GLib object"""
-    while li is not None:
-        yield li.data
-        li = li.next
 
 
 # See https://docs.nvidia.com/metropolis/deepstream/dev-guide/text/DS_plugin_metadata.html
@@ -163,17 +71,6 @@ def show_metadata_probe(pad, info, user_data):
     else:
         logging.info("show_metadata_probe: %20s:%-8s: no buffer")
     return Gst.PadProbeReturn.OK
-
-
-def add_probe(pipeline, element_name, callback, pad_name="sink", probe_type=Gst.PadProbeType.BUFFER):
-    logging.info("add_probe: Adding probe to %s pad of %s" % (pad_name, element_name))
-    element = pipeline.get_by_name(element_name)
-    if not element:
-        raise Exception("Unable to get element %s" % element_name)
-    sinkpad = element.get_static_pad(pad_name)
-    if not sinkpad:
-        raise Exception("Unable to get %s pad of %s" % (pad_name, element_name))
-    sinkpad.add_probe(probe_type, callback, 0)
 
 
 # Callback function for deep-copying an NvDsEventMsgMeta struct
@@ -416,22 +313,6 @@ def set_event_message_meta_probe(pad, info, u_data):
     return Gst.PadProbeReturn.OK
 
 
-def str2bool(v):
-    return bool(distutils.util.strtobool(v))
-
-
-def resolve_pravega_stream(stream_name, default_scope):
-    if stream_name:
-        if "/" in stream_name:
-            return stream_name
-        else:
-            if not default_scope:
-                raise Exception("Stream %s given without a scope but pravega-scope has not been provided" % stream_name)
-            return "%s/%s" % (default_scope, stream_name)
-    else:
-        return None
-
-
 def create_msgapi_config(in_filename, keycloak_service_account_file):
     fd, out_filename = tempfile.mkstemp(prefix="msgapi_config_", suffix=".txt", text=True)
     with fdopen(fd, "w") as out_file:
@@ -480,6 +361,7 @@ def main():
     parser.add_argument("--start-mode", default="earliest")
     parser.add_argument("--start-utc")
     parser.add_argument("--width", type=int, default=640)
+    HealthCheckServer.add_arguments(parser)
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
@@ -494,6 +376,8 @@ def main():
     # Print configuration parameters.
     for arg in vars(args):
         logging.info("argument: %s: %s" % (arg, getattr(args, arg)))
+
+    health_check_server = HealthCheckServer(**vars(args))
 
     global app_args
     app_args = args
@@ -636,10 +520,10 @@ def main():
             # Always write to Pravega immediately regardless of PTS
             pravegasink.set_property("sync", False)
             pravegasink.set_property("timestamp-mode", "tai")
-
         before_msgconv = pipeline.get_by_name("before_msgconv")
         if before_msgconv:
             add_probe(pipeline, "before_msgconv", set_event_message_meta_probe, pad_name='sink')
+        health_check_server.add_probe(pipeline, "pravegasrc", "src")
 
     #
     # Start pipelines.
