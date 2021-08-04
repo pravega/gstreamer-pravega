@@ -23,18 +23,22 @@ gst-inspect-1.0 pravega
 
 export ADD_MESSAGE_WHEN_NO_OBJECTS_FOUND=true
 export ALLOW_CREATE_SCOPE=false
-export GST_DEBUG=INFO,pravegasrc:LOG,pravegasink:LOG,pravegatc:TRACE,fragmp4pay:LOG,qtdemux:LOG,h264parse:LOG,v4l2:LOG
-export INPUT_STREAM=camera-claudio-07
-export LOG_LEVEL=10
+#export GST_DEBUG=INFO,pravegasrc:LOG,pravegasink:LOG,pravegatc:TRACE,fragmp4pay:LOG,qtdemux:LOG,h264parse:LOG,v4l2:LOG
+export HEALTH_CHECK_ENABLED=true
+export HEALTH_CHECK_IDLE_SECONDS=15
+export INPUT_STREAM=camera002
+#export INPUT_STREAM=camera-claudio-07
+#export LOG_LEVEL=10
 export OUTPUT_METADATA_STREAM=metadata-claudio-08
 #export OUTPUT_VIDEO_STREAM=osd-claudio-14
-export RECOVERY_TABLE=metadata-recovery-table-3
+export PYTHONPATH=${ROOT_DIR}/python_apps/lib
+export RECOVERY_TABLE=metadata-recovery-table-4
 #export RECOVERY_TABLE=osd-recovery-table-2
-export RUST_LOG=nvds_pravega_proto=trace,info
-#export START_MODE=latest
-
+#export RUST_LOG=nvds_pravega_proto=trace,info
+export START_MODE=latest
 deepstream/python_apps/deepstream-pravega-demos/pravega-to-object-detection-to-pravega.py >& /tmp/app.log
 
-#export OUTPUT_STREAM=${INPUT_STREAM}-copy3
-#export RECOVERY_TABLE=copy-recovery-table-5
-#python_apps/pravega-to-pravega.py >& /tmp/app.log
+# export INPUT_STREAM=camera002
+# export OUTPUT_STREAM=${INPUT_STREAM}-copy3
+# export RECOVERY_TABLE=copy-recovery-table-8
+# python_apps/pravega-to-pravega.py # >& /tmp/app.log

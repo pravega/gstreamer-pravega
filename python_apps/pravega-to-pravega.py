@@ -21,58 +21,12 @@ import os
 import sys
 import time
 import traceback
-import distutils.util
 
 import gi
 gi.require_version("Gst", "1.0")
 from gi.repository import GObject, Gst
 
-
-def bus_call(bus, message, loop):
-    """Callback for GStreamer bus messages"""
-    t = message.type
-    if t == Gst.MessageType.EOS:
-        logging.info("End-of-stream")
-        loop.quit()
-    elif t == Gst.MessageType.WARNING:
-        err, debug = message.parse_warning()
-        logging.warning("%s: %s" % (err, debug))
-    elif t == Gst.MessageType.ERROR:
-        err, debug = message.parse_error()
-        logging.error("%s: %s" % (err, debug))
-        loop.quit()
-    elif t == Gst.MessageType.ELEMENT:
-        details = message.get_structure().to_string()
-        logging.info("%s: %s" % (message.src.name, str(details),))
-    elif t == Gst.MessageType.PROPERTY_NOTIFY:
-        details = message.get_structure().to_string()
-        logging.debug("%s: %s" % (message.src.name, str(details),))
-    return True
-
-
-def make_element(factory_name, element_name):
-    """Create a GStreamer element, raising an exception on failure."""
-    logging.info("Creating element %s of type %s" % (element_name, factory_name))
-    element = Gst.ElementFactory.make(factory_name, element_name)
-    if not element:
-        raise Exception("Unable to create element %s of type %s" % (element_name, factory_name))
-    return element
-
-
-def str2bool(v):
-    return bool(distutils.util.strtobool(v))
-
-
-def resolve_pravega_stream(stream_name, default_scope):
-    if stream_name:
-        if "/" in stream_name:
-            return stream_name
-        else:
-            if not default_scope:
-                raise Exception("Stream %s given without a scope but pravega-scope has not been provided" % stream_name)
-            return "%s/%s" % (default_scope, stream_name)
-    else:
-        return None
+from gstpravega import HealthCheckServer, bus_call, make_element, resolve_pravega_stream, str2bool
 
 
 def main():
@@ -82,7 +36,7 @@ def main():
     parser.add_argument("--allow-create-scope", type=str2bool, default=True)
     parser.add_argument("--input-stream", required=True, metavar="SCOPE/STREAM")
     parser.add_argument("--gst-debug",
-        default="WARNING,pravegasrc:INFO,h264parse:LOG,pravegasink:LOG")
+        default="WARNING,pravegasrc:DEBUG,pravegatc:DEBUG,pravegasink:DEBUG")
     parser.add_argument("--pravega-controller-uri", default="tcp://127.0.0.1:9090")
     parser.add_argument("--pravega-scope")
     parser.add_argument("--keycloak-service-account-file")
@@ -93,7 +47,7 @@ def main():
     parser.add_argument("--recovery-table", metavar="SCOPE/TABLE")
     parser.add_argument("--start-mode", default="earliest")
     parser.add_argument("--start-utc")
-
+    HealthCheckServer.add_arguments(parser)
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
@@ -112,6 +66,8 @@ def main():
     # Initialize a Rust tracing subscriber which is used by the Pravega Rust Client in pravegasrc, pravegasink, and libnvds_pravega_proto.
     # Either of these environment variables may be used, depending on the load order.
     os.environ["PRAVEGA_VIDEO_LOG"] = args.rust_log
+
+    health_check_server = HealthCheckServer(**vars(args))
 
     # Standard GStreamer initialization.
     Gst.init(None)
@@ -159,7 +115,8 @@ def main():
         # Always write to Pravega immediately regardless of PTS
         pravegasink.set_property("sync", False)
         pravegasink.set_property("timestamp-mode", "tai")
-    
+    health_check_server.add_probe(pipeline, "pravegasink", "sink")
+
     # Feed GStreamer bus messages to event loop.
     bus = pipeline.get_bus()
     bus.add_signal_watch()
