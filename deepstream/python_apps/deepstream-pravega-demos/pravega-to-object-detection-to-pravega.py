@@ -502,6 +502,9 @@ class HealthCheckHttpHandler(BaseHTTPRequestHandler):
     # https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
     def do_GET(self):
         if self.path == "/ishealthy":
+            if HealthCheckHttpHandler.idle_detector is None:
+                self.send_code_msg(500, "No detetor is set")
+                return
             if HealthCheckHttpHandler.idle_detector.is_healthy():
                 self.send_code_msg(200, "OK")
             else:
