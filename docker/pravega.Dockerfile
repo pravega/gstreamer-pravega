@@ -71,7 +71,7 @@ FROM debug-prod-compile as builder-base
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH \
-    RUST_VERSION=1.51.0
+    RUST_VERSION=1.54.0
 
 RUN set -eux; \
     rustArch="x86_64-unknown-linux-gnu"; \
