@@ -347,8 +347,7 @@ pub extern "C" fn nvds_msgapi_send_async(
             // Call callback function.
         cb(user_ptr, result);
         });
-
-        debug!("nvds_msgapi_send_async: END");
+    debug!("nvds_msgapi_send_async: END");
     return NvDsMsgApiErrorType::NVDS_MSGAPI_OK;
 }
 
