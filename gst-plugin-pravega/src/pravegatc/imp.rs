@@ -273,18 +273,18 @@ impl PravegaTC {
             }
         };
 
-        if buffer.pts() >= fault_injection_pts {
+        let buffer_pts = buffer.pts();
+        let buffer_duration = buffer.duration();
+
+        if fault_injection_pts.is_some() && buffer_pts >= fault_injection_pts {
             gst_error!(CAT, obj: pad, "Injecting fault");
             return Err(gst::FlowError::Error)
         }
 
-        let buffer_pts = buffer.pts();
-        let buffer_duration = buffer.duration();
-
         self.srcpad.push(buffer)?;
 
         // Periodically write buffer PTS to persistent state.
-        if state.last_recorded_pts.is_none() || state.last_recorded_pts + record_period <= buffer_pts {
+        if buffer_pts.is_some() && (state.last_recorded_pts.is_none() || state.last_recorded_pts + record_period <= buffer_pts) {
             // If duration of the buffer is reported as 0, we handle it as a 1 nanosecond duration.
             let duration = cmp::max(1, buffer_duration.nanoseconds().unwrap_or_default());
             let resume_at_pts = clocktime_to_pravega(buffer_pts) + duration * NSECOND;
