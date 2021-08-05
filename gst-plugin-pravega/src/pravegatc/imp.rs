@@ -82,6 +82,8 @@ struct StartedState {
     client_factory: ClientFactory,
     table: Arc<Mutex<Table>>,
     last_recorded_pts: ClockTime,
+    // The resume_at_pts that will be written to the persistent state upon end-of-stream.
+    final_resume_at_pts: PravegaTimestamp,
 }
 
 impl fmt::Debug for StartedState {
@@ -239,6 +241,7 @@ impl PravegaTC {
                     client_factory,
                     table: Arc::new(Mutex::new(table)),
                     last_recorded_pts: ClockTime::none(),
+                    final_resume_at_pts: PravegaTimestamp::none(),
                 },
             };
             gst_info!(CAT, obj: element, "start: Started");
@@ -261,15 +264,15 @@ impl PravegaTC {
             (settings.fault_injection_pts, settings.record_period)
         };
 
-        let mut state = self.state.lock().unwrap();
+        let mut st = self.state.lock().unwrap();
 
-        let state = match *state {
+        let state = match *st {
             State::Started {
                 ref mut state,
                 ..
             } => state,
             State::Stopped => {
-                panic!("Not started yet");
+                return Err(gst::FlowError::Error)
             }
         };
 
@@ -283,24 +286,27 @@ impl PravegaTC {
 
         self.srcpad.push(buffer)?;
 
-        // Periodically write buffer PTS to persistent state.
-        if buffer_pts.is_some() && (state.last_recorded_pts.is_none() || state.last_recorded_pts + record_period <= buffer_pts) {
+        if buffer_pts.is_some() {
             // If duration of the buffer is reported as 0, we handle it as a 1 nanosecond duration.
             let duration = cmp::max(1, buffer_duration.nanoseconds().unwrap_or_default());
-            let resume_at_pts = clocktime_to_pravega(buffer_pts) + duration * NSECOND;
-            gst_debug!(CAT, obj: element, "sink_chain: writing persistent state to resume at {:?}", resume_at_pts);
+            let resume_at_pts = clocktime_to_pravega(buffer_pts) + duration * NSECOND;            
+            state.final_resume_at_pts = resume_at_pts;
 
-            let runtime = state.client_factory.runtime();
-            let table = state.table.lock().unwrap();
-            let persistent_state = PersistentState {
-                resume_at_pts: resume_at_pts.nanoseconds().unwrap(),
-            };
-            gst_log!(CAT, obj: element, "sink_chain: writing persistent state {:?}", persistent_state);
-            runtime.block_on(table.insert(&PERSISTENT_STATE_TABLE_KEY.to_string(), &persistent_state, -1)).map_err(|error| {
-                gst::element_error!(element, gst::CoreError::Failed, ["Failed to write to Pravega table: {}", error]);
-                gst::FlowError::Error
-            })?;
-            state.last_recorded_pts = buffer_pts;
+            // Periodically write buffer PTS to persistent state.
+            if state.last_recorded_pts.is_none() || state.last_recorded_pts + record_period <= buffer_pts {
+                gst_debug!(CAT, obj: element, "sink_chain: writing persistent state to resume at {:?}", resume_at_pts);
+                let runtime = state.client_factory.runtime();
+                let table = state.table.lock().unwrap();
+                let persistent_state = PersistentState {
+                    resume_at_pts: resume_at_pts.nanoseconds().unwrap(),
+                };
+                gst_log!(CAT, obj: element, "sink_chain: writing persistent state {:?}", persistent_state);
+                runtime.block_on(table.insert(&PERSISTENT_STATE_TABLE_KEY.to_string(), &persistent_state, -1)).map_err(|error| {
+                    gst::element_error!(element, gst::CoreError::Failed, ["Failed to write to Pravega table: {}", error]);
+                    gst::FlowError::Error
+                })?;
+                state.last_recorded_pts = buffer_pts;
+            }
         }
 
         gst_trace!(CAT, obj: element, "sink_chain: END: state={:?}", state);
@@ -326,14 +332,28 @@ impl PravegaTC {
     fn stop(&self, element: &super::PravegaTC) -> Result<(), gst::ErrorMessage> {
         gst_info!(CAT, obj: element, "stop: BEGIN");
         let result = (|| {
-            let mut state = self.state.lock().unwrap();
-            if let State::Stopped = *state {
-                return Err(gst::error_msg!(
-                    gst::ResourceError::Settings,
-                    ["not started"]
-                ));
+            let mut st = self.state.lock().unwrap();
+            let state = match *st {
+                State::Started {
+                    ref mut state,
+                    ..
+                } => state,
+                State::Stopped => {
+                    return Ok(())
+                }
+            };
+            if state.final_resume_at_pts.is_some() {
+                gst_info!(CAT, obj: element, "stop: writing final persistent state to resume at {:?}", state.final_resume_at_pts);
+                let runtime = state.client_factory.runtime();
+                let table = state.table.lock().unwrap();
+                let persistent_state = PersistentState {
+                    resume_at_pts: state.final_resume_at_pts.nanoseconds().unwrap(),
+                };
+                runtime.block_on(table.insert(&PERSISTENT_STATE_TABLE_KEY.to_string(), &persistent_state, -1)).map_err(|error| {
+                    gst::error_msg!(gst::ResourceError::Write, ["Failed to write to Pravega table: {}", error])
+                })?;
             }
-            *state = State::Stopped;
+            *st = State::Stopped;
             Ok(())
         })();
         gst_info!(CAT, obj: element, "stop: END: result={:?}", result);
