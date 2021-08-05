@@ -254,7 +254,7 @@ impl PravegaTC {
         element: &super::PravegaTC,
         buffer: gst::Buffer,
     ) -> Result<gst::FlowSuccess, gst::FlowError> {
-        gst_log!(CAT, obj: pad, "sink_chain: Handling buffer {:?}", buffer);
+        gst_trace!(CAT, obj: pad, "sink_chain: Handling buffer {:?}", buffer);
 
         let (fault_injection_pts, record_period) = {
             let settings = self.settings.lock().unwrap();
@@ -288,14 +288,14 @@ impl PravegaTC {
             // If duration of the buffer is reported as 0, we handle it as a 1 nanosecond duration.
             let duration = cmp::max(1, buffer_duration.nanoseconds().unwrap_or_default());
             let resume_at_pts = clocktime_to_pravega(buffer_pts) + duration * NSECOND;
-            gst_trace!(CAT, obj: element, "sink_chain: resume_at_pts={:?}", resume_at_pts);
+            gst_debug!(CAT, obj: element, "sink_chain: writing persistent state to resume at {:?}", resume_at_pts);
 
             let runtime = state.client_factory.runtime();
             let table = state.table.lock().unwrap();
             let persistent_state = PersistentState {
                 resume_at_pts: resume_at_pts.nanoseconds().unwrap(),
             };
-            gst_trace!(CAT, obj: element, "sink_chain: writing persistent_state={:?}", persistent_state);
+            gst_log!(CAT, obj: element, "sink_chain: writing persistent state {:?}", persistent_state);
             runtime.block_on(table.insert(&PERSISTENT_STATE_TABLE_KEY.to_string(), &persistent_state, -1)).map_err(|error| {
                 gst::element_error!(element, gst::CoreError::Failed, ["Failed to write to Pravega table: {}", error]);
                 gst::FlowError::Error
