@@ -336,7 +336,7 @@ def main():
     parser.add_argument("--input-stream", required=True, metavar="SCOPE/STREAM")
     parser.add_argument("--fragment-duration-ms", type=int, default=1)
     parser.add_argument("--gst-debug",
-        default="WARNING,pravegasrc:LOG,h264parse:LOG,nvv4l2decoder:LOG,nvmsgconv:INFO,pravegatc:LOG")
+        default="WARNING,pravegasrc:LOG,h264parse:LOG,nvv4l2decoder:LOG,timestampcvt:LOG,nvmsgconv:INFO,pravegatc:LOG")
     parser.add_argument("--height", type=int, default=480)
     parser.add_argument("--pravega-controller-uri", default="tcp://127.0.0.1:9090")
     parser.add_argument("--pravega-scope")
@@ -406,7 +406,8 @@ def main():
         output_container_pipeline = "mpegtsmux"
     elif args.container_format == "mp4":
         input_container_pipeline = "qtdemux name=qtdemux"
-        output_container_pipeline = "mp4mux ! fragmp4pay"
+        # Use timestampcvt to remove buffers with no PTS because mp4mux will stop. streamdemux sometime sends buffers with NvDsMeta and no PTS.
+        output_container_pipeline = "timestampcvt input-timestamp-mode=tai ! mp4mux ! fragmp4pay"
     else:
         raise Exception("Unsupported container-format '%s'." % args.container_format)
 
