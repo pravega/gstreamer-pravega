@@ -9,27 +9,30 @@
 #
 
 {{- if $.Values.enabled }}
-{{- range $i := until (int $.Values.global.pravega.numStreams) }}
+{{- range $s := until (int $.Values.global.pravega.numStreams) }}
+{{- range $r := until (int $.Values.numReadersPerStream) }}
 
 {{- $alias := "" }}
 {{- if $.Values.alias }}
   {{- $alias = print "-" $.Values.alias }}
 {{- end }}
 
-{{- $suffix := "" }}
+{{- $streamSuffix := "" }}
 {{- if (gt (int $.Values.global.pravega.numStreams) 1) }}
-  {{- $suffix = print "-" $i }}
+  {{- $streamSuffix = print "-" $s }}
 {{- end }}
+{{- $suffix := print $streamSuffix "-" $r }}
 
 {{- $name := print $.Release.Name $alias $suffix }}
 
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ $name }}
   labels: 
     release: {{ $name }}
 spec:
+  serviceName: {{ $name }}
   selector:
     matchLabels:
       release: {{ $name }}
@@ -43,44 +46,26 @@ spec:
       - name: gstreamer
         image: {{ $.Values.image.repository | quote }}
         imagePullPolicy: {{ $.Values.image.pullPolicy | quote }}
+        resources:
+          limits:
+            cpu: "4"
+            memory: "1Gi"
+          requests:
+            cpu: "4"
+            memory: "1Gi"
+        workingDir: /usr/src/gstreamer-pravega
         command: ["bash", "-c", "--"]
         args:
           - mkdir -p ${LOG_DIR} &&
-            rtsp-camera-to-pravega.py |& tee ${LOG_DIR}/${PRAVEGA_STREAM}_${HOSTNAME}.log
+            longevity-test |& tee ${LOG_DIR}/${PRAVEGA_STREAM}_${HOSTNAME}.log
         env:
-        - name: CAMERA_ADDRESS
-        {{- if $.Values.global.camera.address }}
-          value: {{ $.Values.global.camera.address | quote }}
-        {{- else }}
-          value: "{{ $.Release.Name }}-simulator"
-        {{- end }}
-        - name: CAMERA_USER
-          value: {{ $.Values.global.camera.user | quote }}
-        - name: CAMERA_PASSWORD
-          value: {{ $.Values.global.camera.password | quote }}
-        - name: CAMERA_PORT
-          value: {{ $.Values.global.camera.rtspPort | quote }}
-        - name: PRAVEGA_STREAM
-          value: "{{ $.Values.global.pravega.stream }}{{ $suffix }}"
         - name: LOG_DIR
           value: "/mnt/logs/test-logs"
-        {{- if $.Values.healthCheck.enabled }}
-        - name: HEALTH_CHECK_ENABLED
-          value: "true"
-        - name: HEALTH_CHECK_IDLE_SECONDS
-          value: {{ $.Values.healthCheck.idleSeconds | quote }}
-        {{- end }}
+        - name: PRAVEGA_STREAM
+          value: "{{ $.Values.global.pravega.stream }}{{ $streamSuffix }}"
         {{- range $key, $value := $.Values.appParameters }}
         - name: {{ $key | quote }}
           value: {{ $value | quote }}
-        {{- end }}
-        {{- if $.Values.healthCheck.enabled }}
-        livenessProbe:
-          httpGet:
-            path: /ishealthy
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 3
         {{- end }}
         volumeMounts:
         - mountPath: /mnt/logs/
@@ -91,5 +76,6 @@ spec:
           claimName: {{ $.Values.logPersistentVolumeClaimName }}
 ---
 
+{{- end }}
 {{- end }}
 {{- end }}
