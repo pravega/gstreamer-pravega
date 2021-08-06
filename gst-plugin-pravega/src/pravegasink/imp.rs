@@ -59,22 +59,23 @@ const PROPERTY_NAME_RETENTION_MAINTENANCE_INTERVAL_SECONDS: &str = "retention-ma
 #[genum(type_name = "GstTimestampMode")]
 pub enum TimestampMode {
     #[genum(
-        name = "Pipeline uses the realtime clock which provides nanoseconds \
-                since the Unix epoch 1970-01-01 00:00:00 UTC, not including leap seconds.",
+        name = "(DEPRECATED) Pipeline uses the realtime clock which provides nanoseconds \
+                since the Unix epoch 1970-01-01 00:00:00 UTC, not including leap seconds. \
+                This mode is deprecated. Instead, use the timestampcvt element with input-timestamp-mode=relative.",
         nick = "realtime-clock"
     )]
     RealtimeClock = 0,
     #[genum(
-        name = "Input buffer timestamps are nanoseconds \
+        name = "(DEPRECATED) Input buffer timestamps are nanoseconds \
                 since the NTP epoch 1900-01-01 00:00:00 UTC, not including leap seconds. \
-                Use this for buffers from rtspsrc (ntp-sync=true ntp-time-source=running-time).",
+                Use this for buffers from rtspsrc (ntp-sync=true ntp-time-source=running-time). \
+                This mode is deprecated. Instead, use the timestampcvt element with input-timestamp-mode=ntp.",
         nick = "ntp"
     )]
     Ntp = 1,
     #[genum(
         name = "Input buffer timestamps are nanoseconds \
-                since 1970-01-01 00:00:00 TAI International Atomic Time, including leap seconds. \
-                Use this for buffers from pravegasrc.",
+                since 1970-01-01 00:00:00 TAI International Atomic Time, including leap seconds.",
         nick = "tai"
     )]
     Tai = 2,
@@ -690,7 +691,7 @@ impl ElementImpl for PravegaSink {
         PAD_TEMPLATES.as_ref()
     }
 
-    // We always want to use the realtime (Unix) clock, although it is ignored when timestamp-mode=ntp.
+    // We always want to use the realtime (Unix) clock, although it is ignored when timestamp-mode=ntp or tai.
     fn provide_clock(&self, element: &Self::Type) -> Option<gst::Clock> {
         let clock = gst::SystemClock::obtain();
         let clock_type = gst::ClockType::Realtime;
