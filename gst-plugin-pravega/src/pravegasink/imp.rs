@@ -68,7 +68,7 @@ pub enum TimestampMode {
     #[genum(
         name = "(DEPRECATED) Input buffer timestamps are nanoseconds \
                 since the NTP epoch 1900-01-01 00:00:00 UTC, not including leap seconds. \
-                Use this for buffers from rtspsrc (ntp-sync=true ntp-time-source=running-time) \
+                Use this for buffers from rtspsrc (ntp-sync=true ntp-time-source=running-time). \
                 This mode is deprecated. Instead, use the timestampcvt element with input-timestamp-mode=ntp.",
         nick = "ntp"
     )]
