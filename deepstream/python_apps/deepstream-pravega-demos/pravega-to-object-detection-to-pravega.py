@@ -334,8 +334,9 @@ def main():
     parser.add_argument("--allow-create-scope", type=str2bool, default=True)
     parser.add_argument("--container-format", default="mp4", help="mpegts or mp4")
     parser.add_argument("--input-stream", required=True, metavar="SCOPE/STREAM")
+    parser.add_argument("--fragment-duration-ms", type=int, default=1)
     parser.add_argument("--gst-debug",
-        default="WARNING,pravegasrc:LOG,h264parse:LOG,nvv4l2decoder:LOG,nvmsgconv:INFO,pravegatc:LOG")
+        default="WARNING,pravegasrc:LOG,h264parse:LOG,nvv4l2decoder:LOG,timestampcvt:LOG,nvmsgconv:INFO,pravegatc:LOG")
     parser.add_argument("--height", type=int, default=480)
     parser.add_argument("--pravega-controller-uri", default="tcp://127.0.0.1:9090")
     parser.add_argument("--pravega-scope")
@@ -401,9 +402,12 @@ def main():
     # We create 2 independent pipelines because attempting to share buffers across tees fails with a seg fault.
 
     if args.container_format == "mpegts":
-        container_pipeline = "tsdemux name=tsdemux"
+        input_container_pipeline = "tsdemux name=tsdemux"
+        output_container_pipeline = "mpegtsmux"
     elif args.container_format == "mp4":
-        container_pipeline = "qtdemux name=qtdemux"
+        input_container_pipeline = "qtdemux name=qtdemux"
+        # Use timestampcvt to remove buffers with no PTS because mp4mux will stop. streamdemux sometime sends buffers with NvDsMeta and no PTS.
+        output_container_pipeline = "timestampcvt input-timestamp-mode=tai ! mp4mux ! fragmp4pay"
     else:
         raise Exception("Unsupported container-format '%s'." % args.container_format)
 
@@ -415,7 +419,7 @@ def main():
     inference_pipeline_desc = (
         "pravegasrc name=pravegasrc\n" +
         "   ! identity name=from_pravegasrc silent=false\n" +
-        "   ! " + container_pipeline + "\n" +
+        "   ! " + input_container_pipeline + "\n" +
         "   ! h264parse name=h264parse\n" +
         "   ! video/x-h264,alignment=au\n" +
         "   ! nvv4l2decoder name=decoder\n" +
@@ -444,18 +448,12 @@ def main():
         "   ! nvvideoconvert\n" +
         "   ! nvdsosd\n" +
         "   ! nvvideoconvert\n" +
-        # Remove buffers with no PTS because mp4mux will stop. streamdemux sometime sends buffers with NvDsMeta and no PTS.
-        # (Not needed for mpegtsmux.)
-        # "   ! timestampcvt\n" +
         "   ! identity name=before_encoder silent=false\n" +
         "   ! nvv4l2h264enc control-rate=1 bitrate=1000000\n" +
         "   ! identity name=after_encoder silent=false\n" +
         "   ! h264parse\n" +
         "   ! identity name=after_h264parse silent=false\n" +
-        # MP4 mux does not work reliably. Use MPEG TS instead.
-        # "   ! mp4mux streamable=true fragment-duration=1\n" +
-        # "   ! fragmp4pay\n" +
-        "   ! mpegtsmux\n" +
+        "   ! " + output_container_pipeline + "\n" +
         pravegatc_pipeline +
         "   ! identity name=to_pravegasink silent=false\n" +
         "   ! pravegasink name=pravegasink\n" +
@@ -499,6 +497,10 @@ def main():
         pgie = pipeline.get_by_name("pgie")
         if pgie:
             pgie.set_property("config-file-path", args.pgie_config_file)
+        mp4mux = pipeline.get_by_name("mp4mux0")
+        if mp4mux:
+            mp4mux.set_property("streamable", True)
+            mp4mux.set_property("fragment-duration", args.fragment_duration_ms)
         msgconv = pipeline.get_by_name("msgconv")
         if msgconv:
             msgconv.set_property("config", args.msgconv_config_file)

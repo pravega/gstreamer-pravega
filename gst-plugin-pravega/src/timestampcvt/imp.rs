@@ -51,6 +51,13 @@ pub enum InputTimestampMode {
         nick = "relative"
     )]
     Relative = 1,
+    #[genum(
+        name = "Input buffer timestamps are nanoseconds \
+                since 1970-01-01 00:00:00 TAI International Atomic Time, including leap seconds. \
+                Use this for buffers from pravegasrc.",
+        nick = "tai"
+    )]
+    Tai = 2,
 }
 
 const DEFAULT_INPUT_TIMESTAMP_MODE: InputTimestampMode = InputTimestampMode::Ntp;
@@ -151,7 +158,14 @@ impl TimestampCvt {
                     state.prev_output_pts
                 } else {
                     // PTS has changed. Calculate new output PTS.
-                    let output_pts = PravegaTimestamp::from_ntp_nanoseconds(corrected_input_pts.nseconds());
+                    let output_pts = match input_timestamp_mode {
+                        InputTimestampMode::Tai => {
+                            PravegaTimestamp::from_nanoseconds(corrected_input_pts.nseconds())
+                        },
+                        _ => {
+                            PravegaTimestamp::from_ntp_nanoseconds(corrected_input_pts.nseconds())
+                        }
+                    };
                     if state.prev_output_pts < output_pts {
                         // PTS has increased normally.
                         output_pts
@@ -166,7 +180,14 @@ impl TimestampCvt {
                 }
             } else {
                 // This is our first buffer with a PTS.
-                PravegaTimestamp::from_ntp_nanoseconds(corrected_input_pts.nseconds())
+                match input_timestamp_mode {
+                    InputTimestampMode::Tai => {
+                        PravegaTimestamp::from_nanoseconds(corrected_input_pts.nseconds())
+                    },
+                    _ => {
+                        PravegaTimestamp::from_ntp_nanoseconds(corrected_input_pts.nseconds())
+                    }
+                }
             };
             let success = if output_pts.is_some() {
                 if state.prev_output_pts.is_some() && output_pts < state.prev_output_pts {
