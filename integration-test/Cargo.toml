@@ -32,9 +32,9 @@ gst-rtsp-server = { package = "gstreamer-rtsp-server", git = "https://gitlab.fre
 java-properties = "1.2"
 lazy_static = "1.4"
 once_cell = "1.7.2"
-pravega-client = { git = "https://github.com/pravega/pravega-client-rust", rev = "c42d55af935d8a7bf1c3460ba2a13fc280691613" }
-pravega-client-config = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-config", rev = "c42d55af935d8a7bf1c3460ba2a13fc280691613" }
-pravega-client-shared = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-shared", rev = "c42d55af935d8a7bf1c3460ba2a13fc280691613" }
+pravega-client = { git = "https://github.com/pravega/pravega-client-rust", rev = "08338688fbea790f9bc947cd8cfb9a90f13b6498" }
+pravega-client-config = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-config", rev = "08338688fbea790f9bc947cd8cfb9a90f13b6498" }
+pravega-client-shared = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-shared", rev = "08338688fbea790f9bc947cd8cfb9a90f13b6498" }
 pravega-video = { path = "../pravega-video" }
 tracing = { version = "0.1", default-features = false, features = ["log", "std"] }
 tracing-subscriber = "0.2"
