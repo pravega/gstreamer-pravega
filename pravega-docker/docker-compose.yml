@@ -90,6 +90,8 @@ services:
         -Dbookkeeper.ensemble.size=1
         -Dbookkeeper.ack.quorum.size=1
         -Dbookkeeper.write.quorum.size=1
+        -Dstorage.readindex.block.size=137438953472
+        -Dwriter.rollover.size.bytes.max=134217728
         -Xmx4000m
         -XX:OnError="kill -9 p%"
         -XX:+ExitOnOutOfMemoryError
