@@ -9,31 +9,16 @@
 #
 
 apiVersion: v2
-name: longevity-test
-description: Longevity test
+name: object-detector
+description: Object detection inference from a Pravega video stream
 type: application
 
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
 # Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 0.1.0
+version: 0.2.0
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application. Versions are not expected to
 # follow Semantic Versioning. They should reflect the version the application is using.
 appVersion: 0.7.0
-
-# After updating dependencies, run: helm dep update --skip-refresh
-dependencies:
-- name: rtsp-camera-simulator
-  version: "*"
-  repository: "file://../rtsp-camera-simulator"
-- name: rtsp-camera-to-pravega
-  version: "*"
-  repository: "file://../rtsp-camera-to-pravega"
-- name: media-validator
-  version: "*"
-  repository: "file://../media-validator"
-- name: object-detector
-  version: "*"
-  repository: "file://../object-detector"

@@ -25,3 +25,6 @@ rtsp-camera-to-pravega:
 
 media-validator:
   alias: "validator"
+
+object-detector:
+  alias: "detector"
