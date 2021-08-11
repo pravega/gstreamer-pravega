@@ -55,8 +55,13 @@ spec:
           requests:
             cpu: "1000m"
             memory: "2Gi"
+        # startupProbe:
+        #   httpGet:
+        #     path: /ishealthy
+        #     port: 8080
+        #     scheme: HTTP
         livenessProbe:
-          failureThreshold: 3
+          failureThreshold: 30
           httpGet:
             path: /ishealthy
             port: 8080
@@ -69,7 +74,7 @@ spec:
         command: ["bash", "-c", "--"]
         args:
           - mkdir -p ${LOG_DIR} &&
-            ${ENTRYPOINT} |& tee ${LOG_DIR}/${PRAVEGA_STREAM}_${HOSTNAME}.log
+            ${ENTRYPOINT} |& tee ${LOG_DIR}/${INPUT_STREAM}_${HOSTNAME}.log
         env:
         - name: LOG_DIR
           value: "/mnt/logs/test-logs"
