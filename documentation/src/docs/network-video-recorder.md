@@ -29,7 +29,8 @@ You may obtain a copy of the License at
 sudo apt-get install \
   docker \
   docker-compose \
-  git
+  git \
+  openjdk-11-jdk
 sudo usermod -a -G docker ${USER}
 ```
 
@@ -44,6 +45,9 @@ RUST_JOBS=4 BUILD_PROD=0 docker/build-release.sh
 ### Start Pravega Server
 
 ```bash
+git clone https://github.com/pravega/pravega
+cd pravega
+./gradlew docker
 cd ~/gstreamer-pravega/pravega-docker
 export HOST_IP=192.168.1.131
 export PRAVEGA_LTS_PATH=/mnt/data1/pravega-lts
