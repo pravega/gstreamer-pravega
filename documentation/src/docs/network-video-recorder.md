@@ -52,24 +52,24 @@ The following hardware is recommended to ensure sufficient performance for build
 
 ### Start Pravega
 
-Build the Pravega Docker image from source.
+1. Build the Pravega Docker image from source.
 
-```bash
-cd
-git clone https://github.com/pravega/pravega
-cd pravega
-./gradlew docker
-```
+    ```bash
+    cd
+    git clone https://github.com/pravega/pravega
+    cd pravega
+    ./gradlew docker
+    ```
 
-Run Pravega in Docker.
-In the command below, replace HOST_IP with the IP address of your Ethernet NIC.
+2. Run Pravega in Docker.
+   In the command below, replace HOST_IP with the IP address of your Ethernet NIC.
 
-```bash
-cd ~/gstreamer-pravega/pravega-docker
-export HOST_IP=192.168.1.101
-export PRAVEGA_LTS_PATH=/mnt/data1/pravega-lts
-docker-compose up -d
-```
+    ```bash
+    cd ~/gstreamer-pravega/pravega-docker
+    export HOST_IP=192.168.1.101
+    export PRAVEGA_LTS_PATH=/mnt/data1/pravega-lts
+    docker-compose up -d
+    ```
 
 ### Start Camera Recorder
 
@@ -86,7 +86,7 @@ Be sure to change CAMERA_URI and PRAVEGA_STREAM for each camera.
     export PRAVEGA_SCOPE=default
     export DOCKER_IMAGE=pravega/gstreamer:pravega-dev
     export PRAVEGA_RETENTION_POLICY_TYPE=bytes
-    export PRAVEGA_RETENTION_BYTES=1000000000
+    export PRAVEGA_RETENTION_BYTES=300000000000
     ```
 
 2. Start a camera recorder container.
