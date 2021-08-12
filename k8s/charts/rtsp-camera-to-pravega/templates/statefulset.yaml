@@ -61,9 +61,15 @@ spec:
         - name: CAMERA_ADDRESS
           value: {{ $cameraAddress | quote }}
         - name: CAMERA_USER
-          value: {{ $.Values.global.camera.user | quote }}
+          valueFrom:
+            secretKeyRef:
+              key: "username"
+              name: {{ $.Release.Name | quote }}
         - name: CAMERA_PASSWORD
-          value: {{ $.Values.global.camera.password | quote }}
+          valueFrom:
+            secretKeyRef:
+              key: "password"
+              name: {{ $.Release.Name | quote }}
         - name: CAMERA_PATH
           value: {{ $.Values.global.camera.path | quote }}
         - name: CAMERA_PORT
@@ -87,6 +93,16 @@ spec:
           value: {{ $value | quote }}
         {{- end }}
         {{- if $.Values.healthCheck.enabled }}
+        startupProbe:
+          httpGet:
+            path: /ishealthy
+            port: 8080
+          periodSeconds: 3
+        readinessProbe:
+          httpGet:
+            path: /ishealthy
+            port: 8080
+          periodSeconds: 3
         livenessProbe:
           httpGet:
             path: /ishealthy

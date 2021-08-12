@@ -45,28 +45,30 @@ spec:
     spec:
       serviceAccount: {{ $.Release.Namespace }}-pravega
       nodeSelector:
-        kubernetes.io/hostname: "node{{ add 1 (mod $r 3) }}"
+        # Manually distribute across nodes to ensure equal GPU usage.
+        kubernetes.io/hostname: "node{{ add 1 (mod (add (mul $s $.Values.numReadersPerStream) $r) $.Values.numNodes) }}"
       containers:
       - name: gstreamer
         image: {{ $.Values.image.repository | quote }}
         imagePullPolicy: {{ $.Values.image.pullPolicy | quote }}
         resources:
 {{ toYaml $.Values.resources | indent 10 }}  
-        # startupProbe:
-        #   httpGet:
-        #     path: /ishealthy
-        #     port: 8080
-        #     scheme: HTTP
-        livenessProbe:
-          failureThreshold: 30
+        startupProbe:
           httpGet:
             path: /ishealthy
             port: 8080
-            scheme: HTTP
-          initialDelaySeconds: 30
           periodSeconds: 3
-          successThreshold: 1
-          timeoutSeconds: 1
+        readinessProbe:
+          httpGet:
+            path: /ishealthy
+            port: 8080
+          periodSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /ishealthy
+            port: 8080
+          initialDelaySeconds: 120
+          periodSeconds: 3
         workingDir: /usr/src/gstreamer-pravega
         command: ["bash", "-c", "--"]
         args:

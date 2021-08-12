@@ -29,12 +29,13 @@ appParametersStatefulSet:
 healthCheck:
   enabled: true
   idleSeconds: 30
+numNodes: 3
 numReadersPerStream: 1
 logPersistentVolumeClaimName: data-project
 resources:
   limits:
     cpu: "1000m"
-    memory: "2Gi"
+    memory: "3Gi"
   requests:
     cpu: "1000m"
     memory: "2Gi"
