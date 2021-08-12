@@ -47,12 +47,7 @@ spec:
         image: {{ $.Values.image.repository | quote }}
         imagePullPolicy: {{ $.Values.image.pullPolicy | quote }}
         resources:
-          limits:
-            cpu: "4"
-            memory: "1Gi"
-          requests:
-            cpu: "4"
-            memory: "1Gi"
+{{ toYaml $.Values.resources | indent 10 }}  
         workingDir: /usr/src/gstreamer-pravega
         command: ["bash", "-c", "--"]
         args:

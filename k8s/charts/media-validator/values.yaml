@@ -20,6 +20,13 @@ appParameters:
   pravega_client_tls_cert_path: "/etc/ssl/certs/ca-certificates.crt"
 numReadersPerStream: 1
 logPersistentVolumeClaimName: data-project
+resources:
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+  requests:
+    cpu: "1000m"
+    memory: "1Gi"
 global:
   pravega:
     stream: "camera1"
