@@ -12,7 +12,7 @@ appParametersStatefulSet:
   CAMERA_PROTOCOLS: "tcp"
   pravega_client_tls_cert_path: "/etc/ssl/certs/ca-certificates.crt"
 healthCheck:
-  enabled: false
+  enabled: true
   idleSeconds: 30
 logPersistentVolumeClaimName: data-project
 pravega:
