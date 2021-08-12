@@ -19,14 +19,26 @@ appParameters:
   ENTRYPOINT: "/usr/src/gstreamer-pravega/deepstream/python_apps/deepstream-pravega-demos/pravega-to-object-detection-to-pravega.py"
   HEALTH_CHECK_ENABLED: "true"
   HEALTH_CHECK_IDLE_SECONDS: "30"
-  GST_DEBUG: "INFO,pravegasrc:LOG,pravegatc:LOG,pravegasink:LOG,fragmp4pay:LOG,qtdemux:LOG,h264parse:LOG,v4l2:LOG"
-  LOG_LEVEL: "10"   # 10=DEBUG,20=INFO
-  pravega_client_tls_cert_path: "/etc/ssl/certs/ca-certificates.crt"
+  GST_DEBUG: "FIXME,pravegasrc:LOG,pravegatc:LOG,pravegasink:LOG,fragmp4pay:LOG,qtdemux:INFO,h264parse:INFO,v4l2:FIXME"
+  LOG_LEVEL: "20"   # 10=DEBUG,20=INFO
   PYTHONUNBUFFERED: "1"
   RUST_LOG: "nvds_pravega_proto=trace,warn"
   START_MODE: "latest"
+appParametersStatefulSet:
+  pravega_client_tls_cert_path: "/etc/ssl/certs/ca-certificates.crt"
+healthCheck:
+  enabled: true
+  idleSeconds: 30
 numReadersPerStream: 1
 logPersistentVolumeClaimName: data-project
+resources:
+  limits:
+    cpu: "1000m"
+    memory: "2Gi"
+  requests:
+    cpu: "1000m"
+    memory: "2Gi"
+useGStreamerOperator: false
 global:
   pravega:
     stream: "camera1"
