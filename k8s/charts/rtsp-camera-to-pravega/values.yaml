@@ -5,17 +5,29 @@ image:
   pullPolicy: "Always"
 appParameters:
   # See available application parameters in https://github.com/pravega/gstreamer-pravega/blob/master/python_apps/rtsp-camera-to-pravega.py
-  ALLOW_CREATE_SCOPE: "false"
   BUFFER_SIZE_MB: "10.0"
-  CAMERA_PATH: "/cam/realmonitor"
-  CAMERA_PROTOCOLS: "tcp"
   GST_DEBUG: "WARNING,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO,h264parse:WARN,pravegasink:DEBUG"
+appParametersStatefulSet:
+  ALLOW_CREATE_SCOPE: "false"
+  CAMERA_PROTOCOLS: "tcp"
   pravega_client_tls_cert_path: "/etc/ssl/certs/ca-certificates.crt"
 healthCheck:
-  enabled: false
+  enabled: true
   idleSeconds: 30
 logPersistentVolumeClaimName: data-project
+pravega:
+  retentionPolicy: {}
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+useGStreamerOperator: false
 global:
+  camera:
+    path: "/cam/realmonitor"
   pravega:
     stream: "camera1"
     numStreams: 1

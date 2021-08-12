@@ -23,6 +23,15 @@
 
 {{- $name := print $.Release.Name $alias $suffix }}
 
+{{- $cameraAddress := "" }}
+{{- if $.Values.global.camera.address }}
+  {{- $cameraAddress =  $.Values.global.camera.address }}
+{{- else }}
+  {{- $cameraAddress = print $.Release.Name "-simulator" }}
+{{- end }}
+
+{{- if not $.Values.useGStreamerOperator }}
+
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -50,15 +59,19 @@ spec:
             rtsp-camera-to-pravega.py |& tee ${LOG_DIR}/${PRAVEGA_STREAM}_${HOSTNAME}.log
         env:
         - name: CAMERA_ADDRESS
-        {{- if $.Values.global.camera.address }}
-          value: {{ $.Values.global.camera.address | quote }}
-        {{- else }}
-          value: "{{ $.Release.Name }}-simulator"
-        {{- end }}
+          value: {{ $cameraAddress | quote }}
         - name: CAMERA_USER
-          value: {{ $.Values.global.camera.user | quote }}
+          valueFrom:
+            secretKeyRef:
+              key: "username"
+              name: {{ $.Release.Name | quote }}
         - name: CAMERA_PASSWORD
-          value: {{ $.Values.global.camera.password | quote }}
+          valueFrom:
+            secretKeyRef:
+              key: "password"
+              name: {{ $.Release.Name | quote }}
+        - name: CAMERA_PATH
+          value: {{ $.Values.global.camera.path | quote }}
         - name: CAMERA_PORT
           value: {{ $.Values.global.camera.rtspPort | quote }}
         - name: PRAVEGA_STREAM
@@ -71,11 +84,25 @@ spec:
         - name: HEALTH_CHECK_IDLE_SECONDS
           value: {{ $.Values.healthCheck.idleSeconds | quote }}
         {{- end }}
+        {{- range $key, $value := $.Values.appParametersStatefulSet }}
+        - name: {{ $key | quote }}
+          value: {{ $value | quote }}
+        {{- end }}
         {{- range $key, $value := $.Values.appParameters }}
         - name: {{ $key | quote }}
           value: {{ $value | quote }}
         {{- end }}
         {{- if $.Values.healthCheck.enabled }}
+        startupProbe:
+          httpGet:
+            path: /ishealthy
+            port: 8080
+          periodSeconds: 3
+        readinessProbe:
+          httpGet:
+            path: /ishealthy
+            port: 8080
+          periodSeconds: 3
         livenessProbe:
           httpGet:
             path: /ishealthy
@@ -92,5 +119,38 @@ spec:
           claimName: {{ $.Values.logPersistentVolumeClaimName }}
 ---
 
+{{- else }}
+
+apiVersion: gstreamer.dellemc.com/v1alpha1
+kind: CameraRecorderPipeline
+metadata:
+  name: {{ $name }}
+spec:
+  image: {{ $.Values.image.repository | quote }}
+  pullPolicy: {{ $.Values.image.pullPolicy | quote }}
+  camera:
+    address: {{ $cameraAddress | quote }}
+    path: {{ $.Values.global.camera.path | quote }}
+    port: {{ $.Values.global.camera.rtspPort | quote }}
+    secret: {{ $.Release.Name | quote }}
+  pravega:
+    retentionPolicy:
+{{ toYaml $.Values.pravega.retentionPolicy | indent 6 }}  
+    stream: "{{ $.Values.global.pravega.stream }}{{ $suffix }}"
+  env:
+  {{- if $.Values.healthCheck.enabled }}
+  - name: HEALTH_CHECK_IDLE_SECONDS
+    value: {{ $.Values.healthCheck.idleSeconds | quote }}
+  {{- end }}
+  {{- range $key, $value := $.Values.appParameters }}
+  - name: {{ $key | quote }}
+    value: {{ $value | quote }}
+  {{- end }}
+  resources:
+{{ toYaml $.Values.resources | indent 4 }}  
+  state: Running
+---
+
+{{- end }}
 {{- end }}
 {{- end }}

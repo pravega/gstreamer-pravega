@@ -25,6 +25,8 @@
 
 {{- $name := print $.Release.Name $alias $suffix }}
 
+{{- if not $.Values.useGStreamerOperator }}
+
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -42,22 +44,47 @@ spec:
         release: {{ $name }}
     spec:
       serviceAccount: {{ $.Release.Namespace }}-pravega
+      nodeSelector:
+        # Manually distribute across nodes to ensure equal GPU usage.
+        kubernetes.io/hostname: "node{{ add 1 (mod (add (mul $s $.Values.numReadersPerStream) $r) $.Values.numNodes) }}"
       containers:
       - name: gstreamer
         image: {{ $.Values.image.repository | quote }}
         imagePullPolicy: {{ $.Values.image.pullPolicy | quote }}
         resources:
 {{ toYaml $.Values.resources | indent 10 }}  
+        startupProbe:
+          httpGet:
+            path: /ishealthy
+            port: 8080
+          periodSeconds: 3
+        readinessProbe:
+          httpGet:
+            path: /ishealthy
+            port: 8080
+          periodSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /ishealthy
+            port: 8080
+          initialDelaySeconds: 120
+          periodSeconds: 3
         workingDir: /usr/src/gstreamer-pravega
         command: ["bash", "-c", "--"]
         args:
           - mkdir -p ${LOG_DIR} &&
-            longevity-test |& tee ${LOG_DIR}/${PRAVEGA_STREAM}_${HOSTNAME}.log
+            ${ENTRYPOINT} |& tee ${LOG_DIR}/${INPUT_STREAM}_${HOSTNAME}.log
         env:
         - name: LOG_DIR
           value: "/mnt/logs/test-logs"
-        - name: PRAVEGA_STREAM
+        - name: INPUT_STREAM
           value: "{{ $.Values.global.pravega.stream }}{{ $streamSuffix }}"
+        - name: RECOVERY_TABLE
+          value: "{{ $name }}-recovery"
+        {{- range $key, $value := $.Values.appParametersStatefulSet }}
+        - name: {{ $key | quote }}
+          value: {{ $value | quote }}
+        {{- end }}
         {{- range $key, $value := $.Values.appParameters }}
         - name: {{ $key | quote }}
           value: {{ $value | quote }}
@@ -71,6 +98,38 @@ spec:
           claimName: {{ $.Values.logPersistentVolumeClaimName }}
 ---
 
+{{- else }}
+
+apiVersion: gstreamer.dellemc.com/v1alpha1
+kind: GStreamerPipeline
+metadata:
+  name: {{ $name }}
+spec:
+  image: {{ $.Values.image.repository | quote }}
+  pullPolicy: {{ $.Values.image.pullPolicy | quote }}
+  livenessProbe:
+    enabled: {{ $.Values.healthCheck.enabled }}
+  env:
+  - name: INPUT_STREAM
+    value: "{{ $.Values.global.pravega.stream }}{{ $streamSuffix }}"
+  - name: RECOVERY_TABLE
+    value: "{{ $name }}-recovery"
+  {{- if $.Values.healthCheck.enabled }}
+  - name: HEALTH_CHECK_ENABLED
+    value: "true"
+  - name: HEALTH_CHECK_IDLE_SECONDS
+    value: {{ $.Values.healthCheck.idleSeconds | quote }}
+  {{- end }}
+  {{- range $key, $value := $.Values.appParameters }}
+  - name: {{ $key | quote }}
+    value: {{ $value | quote }}
+  {{- end }}
+  resources:
+{{ toYaml $.Values.resources | indent 4 }}  
+  state: Running
+---
+
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
