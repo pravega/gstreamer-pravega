@@ -1,0 +1,9 @@
+Port 2222
+HostKey /home/ubuntu/.ssh/ssh_host_rsa_key
+HostKey /home/ubuntu/.ssh/ssh_host_ecdsa_key
+HostKey /home/ubuntu/.ssh/ssh_host_ed25519_key
+ChallengeResponseAuthentication no
+UsePAM yes
+PrintMotd no
+AcceptEnv LANG LC_*
+Subsystem	sftp	/usr/lib/openssh/sftp-server

@@ -20,7 +20,7 @@ spec:
   ports:
   - name: ssh
     port: 22
-    targetPort: 22
+    targetPort: 2222
     protocol: TCP
   selector:
     app: "{{ $.Release.Name }}"

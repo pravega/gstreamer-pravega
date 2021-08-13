@@ -82,3 +82,8 @@ RUN set -eux; \
 # Default user will be ubuntu.
 USER ubuntu
 WORKDIR /home/ubuntu
+
+# Entrypoint will start sshd.
+COPY docker/devpod-entrypoint.sh /entrypoint.sh
+COPY --chown=ubuntu:root docker/sshd_config /home/ubuntu/.ssh/sshd_config
+CMD ["/entrypoint.sh"]
