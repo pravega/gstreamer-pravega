@@ -18,11 +18,10 @@ ssh-keygen -f ${HOME}/.ssh/ssh_host_rsa_key -N '' -t rsa
 ssh-keygen -f ${HOME}/.ssh/ssh_host_ecdsa_key -N '' -t ecdsa
 ssh-keygen -f ${HOME}/.ssh/ssh_host_ed25519_key -N '' -t ed25519
 
+# This will copy authorized_keys.
 if [[ -e /tmp/ssh-configmap ]]; then
     cp /tmp/ssh-configmap/* ${HOME}/.ssh/
 fi
-
-ls -lhRa ${HOME}
 
 chmod 700 ${HOME}/.ssh
 chmod 600 ${HOME}/.ssh/*
