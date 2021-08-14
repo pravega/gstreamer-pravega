@@ -79,11 +79,42 @@ RUN set -eux; \
     cargo --version; \
     rustc --version;
 
-# Default user will be ubuntu.
+# Switch to non-root user.
 USER ubuntu
+
+ARG RUST_JOBS=4
+
 WORKDIR /home/ubuntu
+
+# Build gstreamer-pravega components.
+# We'll start with a clone of the Github repo to allow developers to push changes.
+
+RUN git clone --recursive https://github.com/pravega/gstreamer-pravega
+WORKDIR /home/ubuntu/gstreamer-pravega
+RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
+RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
+
+# Copy any changes and rebuild. This should be fast because only updated files will be compiled.
+COPY Cargo.toml .
+COPY Cargo.lock .
+COPY apps apps
+COPY deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
+COPY gst-plugin-pravega gst-plugin-pravega
+COPY integration-test integration-test
+COPY pravega-video pravega-video
+COPY pravega-video-server pravega-video-server
+RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
+RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
+
+# Install compiled gstreamer-pravega libraries.
+USER 0
+RUN mv -v target/release/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+RUN mv -v target/release/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/
+USER ubuntu
 
 # Entrypoint will start sshd.
 COPY docker/devpod-entrypoint.sh /entrypoint.sh
 COPY --chown=ubuntu:root docker/sshd_config /home/ubuntu/.ssh/sshd_config
 CMD ["/entrypoint.sh"]
+
+WORKDIR /home/ubuntu
