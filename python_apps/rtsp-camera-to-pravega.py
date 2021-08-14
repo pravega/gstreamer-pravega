@@ -161,7 +161,7 @@ def main():
     parser.add_argument("--timestamp-source", choices=["rtcp-sender-report", "local-clock"], default="local-clock",
         help="A value of rtcp-sender-report is the most accurate since the camera effectively timestamps each frame. " +
              "However for cameras that are unable to send RTSP Sender Reports or have unreliable clocks, " +
-             "local-clock can be used to used, in which the time offset is calculated when the first frame is received. " +
+             "local-clock can be used, in which the time offset is calculated when the first frame is received. " +
              "This will result in timestamps being incorrect by up to a few seconds.")
     args = parser.parse_args()
 
