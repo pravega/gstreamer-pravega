@@ -20,19 +20,15 @@ export GST_PLUGIN_PATH=${ROOT_DIR}/target/debug:${GST_PLUGIN_PATH}
 export GST_DEBUG="pravegasrc:TRACE"
 export PRAVEGA_VIDEO_LOG=debug
 export RUST_BACKTRACE=1
-PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
+export pravega_client_tls_cert_path=/etc/ssl/certs/ca-certificates.crt
 PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
 PRAVEGA_STREAM=${PRAVEGA_STREAM:-test1}
-ALLOW_CREATE_SCOPE=${ALLOW_CREATE_SCOPE:-true}
 export GST_DEBUG_DUMP_DOT_DIR="/tmp/gst-dot/$(basename "${0}" .sh)"
 mkdir -p ${GST_DEBUG_DUMP_DOT_DIR}
 
 gst-launch-1.0 \
 -v \
 pravegasrc \
-  allow-create-scope=${ALLOW_CREATE_SCOPE} \
-  controller=${PRAVEGA_CONTROLLER_URI} \
-  keycloak-file=\"${KEYCLOAK_SERVICE_ACCOUNT_FILE}\" \
   stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
   $* \
 ! identity silent=false \

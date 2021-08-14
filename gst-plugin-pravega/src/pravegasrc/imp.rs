@@ -111,7 +111,6 @@ pub enum EndMode {
     Timestamp = 3,
 }
 
-const DEFAULT_CONTROLLER: &str = "127.0.0.1:9090";
 const DEFAULT_BUFFER_SIZE: usize = 128*1024;
 const DEFAULT_START_MODE: StartMode = StartMode::Earliest;
 const DEFAULT_END_MODE: EndMode = EndMode::Unbounded;
@@ -137,14 +136,14 @@ impl Default for Settings {
         Settings {
             scope: None,
             stream: None,
-            controller: Some(DEFAULT_CONTROLLER.to_owned()),
+            controller: utils::default_pravega_controller_uri(),
             buffer_size: DEFAULT_BUFFER_SIZE,
             start_mode: DEFAULT_START_MODE,
             end_mode: DEFAULT_END_MODE,
             start_timestamp: DEFAULT_START_TIMESTAMP,
             end_timestamp: DEFAULT_END_TIMESTAMP,
             allow_create_scope: true,
-            keycloak_file: None,
+            keycloak_file: utils::default_keycloak_file(),
         }
     }
 }
@@ -250,7 +249,10 @@ impl ObjectImpl for PravegaSrc {
             glib::ParamSpec::new_string(
                 PROPERTY_NAME_CONTROLLER,
                 "Controller",
-                "Pravega controller",
+                format!("Pravega controller. \
+                    If not specified, this will use the value of the environment variable {}. \
+                    If that is empty, it will use the default of {}.",
+                    utils::ENV_PRAVEGA_CONTROLLER_URI, utils::DEFAULT_PRAVEGA_CONTROLLER_URI).as_str(),
                 None,
                 glib::ParamFlags::WRITABLE,
             ),
@@ -325,7 +327,10 @@ impl ObjectImpl for PravegaSrc {
             glib::ParamSpec::new_string(
                 PROPERTY_NAME_KEYCLOAK_FILE,
                 "Keycloak file",
-                "The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.",
+                format!("The filename containing the Keycloak credentials JSON. \
+                    If not specified, this will use the value of the environment variable {}. \
+                    If that is empty, authentication will be disabled.",
+                    utils::ENV_KEYCLOAK_SERVICE_ACCOUNT_FILE).as_str(),
                 None,
                 glib::ParamFlags::WRITABLE,
             ),
@@ -570,9 +575,11 @@ impl BaseSrcImpl for PravegaSrc {
             // Create scope.
             gst_info!(CAT, obj: element, "start: allow_create_scope={}", settings.allow_create_scope);
             if settings.allow_create_scope {
-                runtime.block_on(controller_client.create_scope(&scope)).map_err(|error| {
-                    gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega scope: {:?}", error])
-                })?;
+                // This is expected to fail in some environments, even if the scope already exists.
+                // We will log the error and continue.
+                let _ = runtime.block_on(controller_client.create_scope(&scope)).map_err(|error| {
+                    gst_debug!(CAT, obj: element, "Failed to create Pravega scope. This is normal if the scope already exists: {:?}", error);
+                });
             }
 
             // Create data stream.
