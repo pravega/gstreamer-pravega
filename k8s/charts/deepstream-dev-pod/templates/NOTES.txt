@@ -5,4 +5,12 @@ Your release is named "{{ .Release.Name }}" and installed into the namespace "{{
 
 You may connect to the pod with:
 
+  ssh ubuntu@$(kubectl get svc --namespace {{ $.Release.Namespace }} {{ $.Release.Name }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+{{- if $.Values.externalDnsHostnameSuffix }}
+
+OR
+
   ssh ubuntu@{{ $.Release.Name }}.{{ $.Release.Namespace }}{{ $.Values.externalDnsHostnameSuffix }}
+
+{{- end }}

@@ -9,10 +9,11 @@
 #
 
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: "{{ $.Release.Name }}"
 spec:
+  serviceName: "{{ $.Release.Name }}"
   selector:
     matchLabels:
       app: "{{ $.Release.Name }}"
@@ -28,16 +29,6 @@ spec:
       - name: gstreamer
         image: {{ $.Values.image.repository | quote }}
         imagePullPolicy: {{ $.Values.image.pullPolicy | quote }}
-        command: ["bash", "-c", "--"]
-        args:
-        - set -x &&
-          export >> ${HOME}/.profile &&
-          mkdir -p ${HOME}/.ssh &&
-          cp /tmp/ssh-configmap/* ${HOME}/.ssh/ &&
-          chown -R $(whoami) ${HOME} &&
-          chmod 700 ${HOME}/.ssh &&
-          chmod 600 ${HOME}/.ssh/* &&
-          sudo /usr/sbin/sshd -D
         env:
         - name: pravega_client_tls_cert_path
           value: "/etc/ssl/certs/ca-certificates.crt"
