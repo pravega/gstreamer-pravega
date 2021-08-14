@@ -17,6 +17,10 @@ use pravega_client::byte::ByteReader;
 use pravega_client_config::{ClientConfig, ClientConfigBuilder};
 use pravega_client_config::credentials::Credentials;
 
+pub const DEFAULT_PRAVEGA_CONTROLLER_URI: &str = "tcp://127.0.0.1:9090";
+pub const ENV_PRAVEGA_CONTROLLER_URI: &str = "PRAVEGA_CONTROLLER_URI";
+pub const ENV_KEYCLOAK_SERVICE_ACCOUNT_FILE: &str = "KEYCLOAK_SERVICE_ACCOUNT_FILE";
+
 /// A trait that allows retrieval of the current head of a Pravega byte stream.
 /// The default implementation returns 0 to indicate that no data has been truncated.
 pub trait CurrentHead {
@@ -37,7 +41,7 @@ pub fn parse_controller_uri(controller: String) -> Result<SocketAddr, AddrParseE
     controller.parse::<SocketAddr>()
 }
 
-// See [event_serde::EventWriter] for a description of timestamp.
+/// See [event_serde::EventWriter] for a description of timestamp.
 pub fn format_pravega_timestamp(timestamp: u64) -> String {
     let system_time = UNIX_EPOCH + Duration::from_micros(timestamp);
     let datetime: chrono::DateTime<chrono::offset::Utc> = system_time.into();
@@ -45,6 +49,34 @@ pub fn format_pravega_timestamp(timestamp: u64) -> String {
     formatted_time.to_string()
 }
 
+/// Return the Pravega controller URI from the environment if it exists or the URI for a local server.
+pub fn default_pravega_controller_uri() -> Option<String> {
+    match std::env::var(ENV_PRAVEGA_CONTROLLER_URI) {
+        Ok(value) => if value.is_empty() {
+            Some(DEFAULT_PRAVEGA_CONTROLLER_URI.to_owned())
+        } else {
+            Some(value)
+        },
+        Err(_) => Some(DEFAULT_PRAVEGA_CONTROLLER_URI.to_owned()),
+    }
+}
+
+/// Return the keycloak file name from the environment if it exists or None.
+pub fn default_keycloak_file() -> Option<String> {
+    match std::env::var(ENV_KEYCLOAK_SERVICE_ACCOUNT_FILE) {
+        Ok(value) => if value.is_empty() {
+            None
+        } else {
+            Some(value)
+        },
+        Err(_) => None,
+    }
+}
+
+/// Return a Pravega ClientConfig.
+///
+/// * `controller` - Pravega controller URI
+/// * `keycloak_file` - name of the file containing the Keycloak JSON, or None to disable authentication
 pub fn create_client_config(controller: String, keycloak_file: Option<String>) -> Result<ClientConfig, String> {
     let (is_auth_enabled, credential) = match keycloak_file {
         Some(keycloak_file) => {

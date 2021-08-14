@@ -218,7 +218,6 @@ impl RetentionMaintainer {
     }
 }
 
-const DEFAULT_CONTROLLER: &str = "127.0.0.1:9090";
 const DEFAULT_BUFFER_SIZE: usize = 128*1024;
 const DEFAULT_TIMESTAMP_MODE: TimestampMode = TimestampMode::RealtimeClock;
 const DEFAULT_INDEX_MIN_SEC: f64 = 0.5;
@@ -249,14 +248,14 @@ impl Default for Settings {
         Settings {
             scope: None,
             stream: None,
-            controller: Some(DEFAULT_CONTROLLER.to_owned()),
+            controller: utils::default_pravega_controller_uri(),
             seal: false,
             buffer_size: DEFAULT_BUFFER_SIZE,
             timestamp_mode: DEFAULT_TIMESTAMP_MODE,
             index_min_nanos: (DEFAULT_INDEX_MIN_SEC * 1e9) as u64,
             index_max_nanos: (DEFAULT_INDEX_MAX_SEC * 1e9) as u64,
             allow_create_scope: true,
-            keycloak_file: None,
+            keycloak_file: utils::default_keycloak_file(),
             retention_type: DEFAULT_RETENTION_TYPE,
             retention_days: None,
             retention_bytes: None,
@@ -378,8 +377,11 @@ impl ObjectImpl for PravegaSink {
             glib::ParamSpec::new_string(
                 PROPERTY_NAME_CONTROLLER,
                 "Controller",
-                "Pravega controller",
-                Some(DEFAULT_CONTROLLER),
+                format!("Pravega controller. \
+                    If not specified, this will use the value of the environment variable {}. \
+                    If that is empty, it will use the default of {}.",
+                    utils::ENV_PRAVEGA_CONTROLLER_URI, utils::DEFAULT_PRAVEGA_CONTROLLER_URI).as_str(),
+                None,
                 glib::ParamFlags::WRITABLE,
             ),
             glib::ParamSpec::new_boolean(
@@ -434,7 +436,10 @@ impl ObjectImpl for PravegaSink {
             glib::ParamSpec::new_string(
                 PROPERTY_NAME_KEYCLOAK_FILE,
                 "Keycloak file",
-                "The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.",
+                format!("The filename containing the Keycloak credentials JSON. \
+                    If not specified, this will use the value of the environment variable {}. \
+                    If that is empty, authentication will be disabled.",
+                    utils::ENV_KEYCLOAK_SERVICE_ACCOUNT_FILE).as_str(),
                 None,
                 glib::ParamFlags::WRITABLE,
             ),
