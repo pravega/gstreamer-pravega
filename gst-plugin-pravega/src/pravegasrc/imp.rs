@@ -575,9 +575,11 @@ impl BaseSrcImpl for PravegaSrc {
             // Create scope.
             gst_info!(CAT, obj: element, "start: allow_create_scope={}", settings.allow_create_scope);
             if settings.allow_create_scope {
-                runtime.block_on(controller_client.create_scope(&scope)).map_err(|error| {
-                    gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega scope: {:?}", error])
-                })?;
+                // This is expected to fail in some environments, even if the scope already exists.
+                // We will log the error and continue.
+                let _ = runtime.block_on(controller_client.create_scope(&scope)).map_err(|error| {
+                    gst_debug!(CAT, obj: element, "Failed to create Pravega scope. This is normal if the scope already exists: {:?}", error);
+                });
             }
 
             // Create data stream.
