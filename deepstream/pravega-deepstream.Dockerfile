@@ -21,6 +21,7 @@ RUN update-ca-certificates
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+        curl \
         less \
         nano \
         python3-dev \
