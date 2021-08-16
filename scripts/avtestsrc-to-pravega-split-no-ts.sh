@@ -37,7 +37,7 @@ videotestsrc is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$FPS)) \
 ! x264enc \
 ! "video/x-h264,stream-format=byte-stream,profile=main" \
 ! queue \
-! pravegasink stream=examples/${PRAVEGA_STREAM}-v sync=false \
+! pravegasink stream=examples/${PRAVEGA_STREAM}-v sync=false timestamp-mode=realtime-clock \
 audiotestsrc is-live=true do-timestamp=true \
              samplesperbuffer=$((44100/$FPS)) num-buffers=$(($SIZE_SEC*$FPS)) \
              wave=ticks volume=0.5 marker-tick-period=5 \

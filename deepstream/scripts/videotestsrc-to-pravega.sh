@@ -36,4 +36,4 @@ videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$F
 ! videoconvert \
 ! x264enc tune=zerolatency \
 ! mpegtsmux \
-! pravegasink stream=examples/${PRAVEGA_STREAM} controller=192.168.1.123:9090
+! pravegasink stream=examples/${PRAVEGA_STREAM} controller=192.168.1.123:9090 timestamp-mode=realtime-clock

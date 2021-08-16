@@ -36,7 +36,7 @@ t. ! queue \
    ! mpegtsmux \
    ! tee name=ts \
    ts. ! queue \
-       ! pravegasink stream=examples/${PRAVEGA_STREAM} sync=false \
+       ! pravegasink stream=examples/${PRAVEGA_STREAM} sync=false timestamp-mode=realtime-clock \
    ts. ! queue \
        ! tsdemux \
        ! h264parse \

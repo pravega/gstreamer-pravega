@@ -56,7 +56,7 @@ t. ! queue \
    ! tee name=ts \
    ts. ! queue \
        ! timestampadd \
-       ! pravegasink stream=examples/${PRAVEGA_STREAM} \
+       ! pravegasink stream=examples/${PRAVEGA_STREAM} timestamp-mode=realtime-clock \
    ts. ! queue \
        ! tsdemux \
        ! h264parse \
