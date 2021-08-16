@@ -219,7 +219,7 @@ impl RetentionMaintainer {
 }
 
 const DEFAULT_BUFFER_SIZE: usize = 128*1024;
-const DEFAULT_TIMESTAMP_MODE: TimestampMode = TimestampMode::RealtimeClock;
+const DEFAULT_TIMESTAMP_MODE: TimestampMode = TimestampMode::Tai;
 const DEFAULT_INDEX_MIN_SEC: f64 = 0.5;
 const DEFAULT_INDEX_MAX_SEC: f64 = 10.0;
 const DEFAULT_RETENTION_TYPE: RetentionType = RetentionType::None;
