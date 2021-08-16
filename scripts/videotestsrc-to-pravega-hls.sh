@@ -37,4 +37,4 @@ videotestsrc name=src is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$F
 ! x264enc key-int-max=${KEY_FRAME_INTERVAL} tune=zerolatency speed-preset=medium bitrate=500 \
 ! queue \
 ! mpegtsmux alignment=-1 \
-! pravegasink stream=examples/${PRAVEGA_STREAM} controller=127.0.0.1:9090 seal=false sync=false
+! pravegasink stream=examples/${PRAVEGA_STREAM} controller=127.0.0.1:9090 seal=false sync=false timestamp-mode=realtime-clock

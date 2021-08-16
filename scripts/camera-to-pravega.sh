@@ -31,4 +31,4 @@ v4l2src \
 ! timeoverlay valignment=bottom "font-desc=Sans 48px" shaded-background=true \
 ! x264enc tune=zerolatency key-int-max=${FPS} bitrate=1000 \
 ! mpegtsmux \
-! pravegasink stream=examples/${PRAVEGA_STREAM} sync=false
+! pravegasink stream=examples/${PRAVEGA_STREAM} sync=false timestamp-mode=realtime-clock

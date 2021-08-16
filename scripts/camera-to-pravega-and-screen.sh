@@ -34,7 +34,7 @@ v4l2src do-timestamp=TRUE \
 t. ! queue \
    ! x264enc tune=zerolatency key-int-max=${FPS} bitrate=1000 \
    ! mpegtsmux \
-   ! pravegasink stream=examples/${PRAVEGA_STREAM} sync=false \
+   ! pravegasink stream=examples/${PRAVEGA_STREAM} sync=false timestamp-mode=realtime-clock \
 t. ! queue \
    ! textoverlay text=LIVE valignment=baseline halignment=right "font-desc=Sans 24px" shaded-background=true \
    ! autovideosink sync=false

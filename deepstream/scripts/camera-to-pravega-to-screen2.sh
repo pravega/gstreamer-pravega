@@ -31,7 +31,7 @@ nvarguscamerasrc \
 ! nvv4l2h264enc maxperf-enable=1 preset-level=1 control-rate=0 bitrate=400000 \
 ! mpegtsmux \
 ! timestampadd \
-! pravegasink stream=examples/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} \
+! pravegasink stream=examples/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} timestamp-mode=realtime-clock \
 &
 
 gst-launch-1.0 \

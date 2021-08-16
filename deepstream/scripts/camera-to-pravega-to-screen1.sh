@@ -32,7 +32,7 @@ nvarguscamerasrc \
 ! nvvidconv flip-method=2 \
 ! nvv4l2h264enc maxperf-enable=1 preset-level=1 control-rate=1 \
 ! mpegtsmux \
-! pravegasink stream=examples/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} \
+! pravegasink stream=examples/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} timestamp-mode=realtime-clock \
 &
 
 # Pravega to Screen #1

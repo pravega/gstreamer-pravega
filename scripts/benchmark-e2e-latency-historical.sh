@@ -39,7 +39,7 @@ gst-launch-1.0 \
 ! x264enc tune=zerolatency \
 ! mpegtsmux alignment=0 \
 ! timestampadd \
-! pravegasink stream=examples/${PRAVEGA_STREAM}
+! pravegasink stream=examples/${PRAVEGA_STREAM} timestamp-mode=realtime-clock
 
 export GST_DEBUG="GST_TRACER:7,pravegasrc:4,timestampremove:5,pravegasink:5,mpegtsbase:4,mpegtspacketizer:4"
 export GST_DEBUG_FILE=trace.log

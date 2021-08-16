@@ -49,4 +49,5 @@ videotestsrc name=src is-live=false do-timestamp=true num-buffers=$(($SIZE_SEC*$
   keycloak-file=${KEYCLOAK_SERVICE_ACCOUNT_FILE} \
   seal=false \
   sync=false \
+  timestamp-mode=realtime-clock \
   allow-create-scope=${ALLOW_CREATE_SCOPE}

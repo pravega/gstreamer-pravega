@@ -42,4 +42,4 @@ audiotestsrc is-live=true do-timestamp=true \
 ! avenc_aac \
 ! queue ! mux. \
 mpegtsmux name=mux \
-! pravegasink stream=examples/${PRAVEGA_STREAM} sync=false
+! pravegasink stream=examples/${PRAVEGA_STREAM} sync=false timestamp-mode=realtime-clock

@@ -42,5 +42,5 @@ nvarguscamerasrc \
 ! "video/x-raw(memory:NVMM)" \
 ! nvv4l2h264enc maxperf-enable=1 preset-level=1 control-rate=1 bitrate=${BITRATE_BITS_PER_SEC} \
 ! mpegtsmux \
-! pravegasink stream=examples/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} \
+! pravegasink stream=examples/${PRAVEGA_STREAM} controller=${PRAVEGA_CONTROLLER_URI} timestamp-mode=realtime-clock \
 |& tee /tmp/camera-to-pravega-blur.log
