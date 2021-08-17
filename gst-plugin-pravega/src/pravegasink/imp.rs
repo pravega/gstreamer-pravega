@@ -1005,6 +1005,15 @@ impl BaseSinkImpl for PravegaSink {
                 })?;
             }
 
+            // In order to detect any stalls writing the index stream, flush the index stream.
+            // This will wait for all previous index records to be durably persisted.
+            if flush {
+                index_writer.flush().map_err(|error| {
+                    gst::element_error!(element, gst::CoreError::Failed, ["Failed to flush Pravega index stream: {}", error]);
+                    gst::FlowError::Error
+                })?;
+            }
+
             // Record a discontinuity if any of the following are true:
             //   1) upstream has indicated a discontinuity (or resync) in the buffer
             //   3) this will be the first buffer written to the data stream from this instance
