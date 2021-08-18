@@ -45,6 +45,7 @@ def main():
     parser.add_argument("--output-stream", required=True,
         help="Name of output stream.", metavar="SCOPE/STREAM")
     parser.add_argument("--recovery-table", metavar="SCOPE/TABLE")
+    parser.add_argument("--sleep-sec", type=float, default=0.0, help="Delay pipeline start by this many seconds")
     parser.add_argument("--start-mode", default="earliest")
     parser.add_argument("--start-utc")
     HealthCheckServer.add_arguments(parser)
@@ -121,6 +122,10 @@ def main():
     bus = pipeline.get_bus()
     bus.add_signal_watch()
     bus.connect("message", bus_call, loop)
+
+    if args.sleep_sec > 0.0:
+        logging.info("Sleeping for %f seconds" % args.sleep_sec)
+        time.sleep(args.sleep_sec)
 
     # Start pipelines.
     logging.info("Starting pipelines")
