@@ -24,7 +24,8 @@ import sys
 import time
 import traceback
 from threading import Thread
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from gstpravega import HealthCheckServer
+
 
 import gi
 gi.require_version("Gst", "1.0")
@@ -61,69 +62,6 @@ def str2bool(v):
     return bool(distutils.util.strtobool(v))
 
 
-def buffer_probe(pad, info, data):
-    gst_buffer = info.get_buffer()
-    if gst_buffer:
-        data.update()
-        logging.debug("buffer_timestamp_probe: %20s:%-8s: " % (
-            pad.get_parent_element().name,
-            pad.name) + data.to_string()
-        )
-    return Gst.PadProbeReturn.OK
-
-
-def start_http_server(hostname='0.0.0.0', port=8080):
-    httpd = HTTPServer((hostname, port), HealthCheckHttpHandler)
-    def serve_forever(httpd):
-        with httpd:  # to make sure httpd.server_close is called
-            httpd.serve_forever()
-
-    thread = Thread(target=serve_forever, args=(httpd, ))
-    # flag the http server thread as daemon thread so that it can be abruptly stopped at shutdown
-    thread.setDaemon(True)
-    thread.start()
-    logging.info('Health check server is listening on %s:%d' % (hostname, port))
-    return httpd
-
-
-class IdleDetector():
-    def __init__(self, tolerance):
-        self.update_at = time.monotonic() - tolerance
-        self.idle_time = 0
-        self.update_tolerance = tolerance
-
-    def update(self):
-        self.update_at = time.monotonic()
-    
-    def to_string(self):
-        return "last update at %u seconds of the monotonic clock" % (self.update_at)
-    
-    def is_healthy(self):
-        self.idle_time = time.monotonic() - self.update_at
-        return self.idle_time < self.update_tolerance
-
-
-class HealthCheckHttpHandler(BaseHTTPRequestHandler):
-    idle_detector = None
-    def send_code_msg(self, code, msg):
-        self.send_response(code)
-        self.send_header('Content-Type',
-                         'text/plain; charset=utf-8')
-        self.end_headers()
-        self.wfile.write(msg.encode('utf-8'))
-
-    # Any code greater than or equal to 200 and less than 400 indicates success. Any other code indicates failure
-    # https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
-    def do_GET(self):
-        if self.path == "/ishealthy":
-            if HealthCheckHttpHandler.idle_detector.is_healthy():
-                self.send_code_msg(200, "OK")
-            else:
-                self.send_code_msg(500, "Pipeline has been idle for %d seconds" % (HealthCheckHttpHandler.idle_detector.idle_time))
-        else:
-            self.send_code_msg(404, "Not Found")
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Capture from RTSP camera and write video to a Pravega stream",
@@ -146,8 +84,6 @@ def main():
     parser.add_argument("--fakesink", type=str2bool, default=False)
     parser.add_argument("--fakesource", type=str2bool, default=False)
     parser.add_argument("--fragment-duration-ms", type=int, default=1)
-    parser.add_argument("--health-check-enabled", type=str2bool, default=False)
-    parser.add_argument("--health-check-idle-seconds", type=float, default=120.0)
     parser.add_argument("--keycloak-service-account-file")
     parser.add_argument("--log-level", type=int, default=logging.INFO, help="10=DEBUG,20=INFO")
     parser.add_argument("--pravega-controller-uri", default="tcp://127.0.0.1:9090")
@@ -163,13 +99,11 @@ def main():
              "However for cameras that are unable to send RTSP Sender Reports or have unreliable clocks, " +
              "local-clock can be used, in which the time offset is calculated when the first frame is received. " +
              "This will result in timestamps being incorrect by up to a few seconds.")
+    HealthCheckServer.add_arguments(parser)
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
     logging.info("%s: BEGIN" % parser.prog)
-
-    if args.health_check_enabled:
-        start_http_server()
 
     # Set default GStreamer logging.
     if not "GST_DEBUG" in os.environ:
@@ -184,6 +118,8 @@ def main():
     for arg in vars(args):
         if 'password' not in arg:
             logging.info("argument: %s: %s" % (arg, getattr(args, arg)))
+
+    health_check_server = HealthCheckServer(**vars(args))
 
     # Build camera_uri from components.
     if args.camera_uri is None:
@@ -321,11 +257,7 @@ def main():
         # Required to use NTP timestamps in PTS
         if not args.fakesource:
             pravegasink.set_property("timestamp-mode", "tai")
-        if args.health_check_enabled:
-            idle_detector = IdleDetector(args.health_check_idle_seconds)
-            HealthCheckHttpHandler.idle_detector = idle_detector
-            pravegasinkpad = pravegasink.get_static_pad("sink")
-            pravegasinkpad.add_probe(Gst.PadProbeType.BUFFER, buffer_probe, idle_detector)
+        health_check_server.add_probe(pipeline, "pravegasink", "sink")
 
     # Create an event loop and feed GStreamer bus messages to it.
     loop = GObject.MainLoop()
