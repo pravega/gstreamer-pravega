@@ -94,6 +94,7 @@ def main():
     parser.add_argument("--pravega-retention-days", type=float, default=-1.0)
     parser.add_argument("--pravega-retention-bytes", type=int, default=-1)
     parser.add_argument("--pravega-retention-maintenance-interval-seconds", type=int, default=0)
+    parser.add_argument("--sleep-sec", type=float, default=0.0, help="Delay pipeline start by this many seconds")
     parser.add_argument("--timestamp-source", choices=["rtcp-sender-report", "local-clock"], default="local-clock",
         help="A value of rtcp-sender-report is the most accurate since the camera effectively timestamps each frame. " +
              "However for cameras that are unable to send RTSP Sender Reports or have unreliable clocks, " +
@@ -271,6 +272,10 @@ def main():
 
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)
+
+    if args.sleep_sec > 0.0:
+        logging.info("Sleeping for %f seconds" % args.sleep_sec)
+        time.sleep(args.sleep_sec)
 
     # Start play back and listen to events.
     logging.info("Starting pipeline")
