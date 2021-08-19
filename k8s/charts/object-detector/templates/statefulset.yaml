@@ -52,12 +52,7 @@ spec:
         image: {{ $.Values.image.repository | quote }}
         imagePullPolicy: {{ $.Values.image.pullPolicy | quote }}
         resources:
-{{ toYaml $.Values.resources | indent 10 }}  
-        startupProbe:
-          httpGet:
-            path: /ishealthy
-            port: 8080
-          periodSeconds: 3
+{{ toYaml $.Values.resources | indent 10 }}
         readinessProbe:
           httpGet:
             path: /ishealthy
@@ -109,6 +104,7 @@ spec:
   pullPolicy: {{ $.Values.image.pullPolicy | quote }}
   livenessProbe:
     enabled: {{ $.Values.healthCheck.enabled }}
+    failureThreshold: 40
   env:
   - name: INPUT_STREAM
     value: "{{ $.Values.global.pravega.stream }}{{ $streamSuffix }}"

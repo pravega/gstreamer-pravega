@@ -93,11 +93,6 @@ spec:
           value: {{ $value | quote }}
         {{- end }}
         {{- if $.Values.healthCheck.enabled }}
-        startupProbe:
-          httpGet:
-            path: /ishealthy
-            port: 8080
-          periodSeconds: 3
         readinessProbe:
           httpGet:
             path: /ishealthy
@@ -107,7 +102,7 @@ spec:
           httpGet:
             path: /ishealthy
             port: 8080
-          initialDelaySeconds: 30
+          initialDelaySeconds: 60
           periodSeconds: 3
         {{- end }}
         volumeMounts:
