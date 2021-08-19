@@ -104,7 +104,6 @@ spec:
   pullPolicy: {{ $.Values.image.pullPolicy | quote }}
   livenessProbe:
     enabled: {{ $.Values.healthCheck.enabled }}
-    failureThreshold: 40
   env:
   - name: INPUT_STREAM
     value: "{{ $.Values.global.pravega.stream }}{{ $streamSuffix }}"
