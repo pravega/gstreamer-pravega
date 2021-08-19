@@ -33,12 +33,12 @@ numNodes: 3
 numReadersPerStream: 1
 logPersistentVolumeClaimName: data-project
 resources:
-  limits:
-    cpu: "1000m"
-    memory: "3Gi"
   requests:
     cpu: "1000m"
     memory: "2Gi"
+  limits:
+    cpu: "1000m"
+    memory: "3Gi"
 useGStreamerOperator: false
 global:
   pravega:

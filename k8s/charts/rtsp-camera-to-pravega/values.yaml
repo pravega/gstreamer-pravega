@@ -18,12 +18,12 @@ logPersistentVolumeClaimName: data-project
 pravega:
   retentionPolicy: {}
 resources:
-  limits:
-    cpu: 200m
-    memory: 256Mi
   requests:
     cpu: 100m
     memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
 useGStreamerOperator: false
 global:
   camera:
