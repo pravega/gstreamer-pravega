@@ -47,5 +47,6 @@ gst-launch-1.0 \
   controller=${PRAVEGA_CONTROLLER_URI} \
   keycloak-file=\"${KEYCLOAK_SERVICE_ACCOUNT_FILE}\" \
   stream=${PRAVEGA_SCOPE}/${PRAVEGA_STREAM} \
+  timestamp-mode=realtime-clock \
   sync=false \
 |& tee ${LOG_FILE}

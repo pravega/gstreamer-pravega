@@ -12,6 +12,7 @@ global:
   camera:
     user: "admin"
     password: "password"
+    path: "/cam/realmonitor"
     rtspPort: "8554"
   pravega:
     stream: "sim1"
@@ -25,3 +26,6 @@ rtsp-camera-to-pravega:
 
 media-validator:
   alias: "validator"
+
+object-detector:
+  alias: "detector"

@@ -91,7 +91,7 @@ WORKDIR /usr/src/gstreamer-pravega
 # Install Cargo Chef build tool.
 FROM builder-base as chef-base
 ARG RUST_JOBS=1
-RUN cargo install cargo-chef --jobs ${RUST_JOBS}
+RUN cargo install cargo-chef --jobs ${RUST_JOBS} --version 0.1.22 --locked
 
 
 # Create Cargo Chef recipe.
@@ -163,6 +163,7 @@ ENV GST_PLUGIN_PATH /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 FROM prod-base as debug-prod
 COPY --from=debug-prod-compile /compiled-binaries /
 COPY --from=pravega-dev /usr/src/gstreamer-pravega/python_apps /usr/src/gstreamer-pravega/python_apps
+ENV PYTHONPATH=/usr/src/gstreamer-pravega/python_apps/lib
 ENV PATH=/usr/src/gstreamer-pravega/python_apps:$PATH
 COPY --from=pravega-dev /usr/lib/x86_64-linux-gnu/gstreamer-1.0/ /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 COPY --from=pravega-dev /usr/src/gstreamer-pravega/target/release/rtsp-camera-simulator /usr/local/bin/
@@ -182,6 +183,7 @@ RUN ["/compile"]
 FROM prod-base as prod
 COPY --from=prod-compile /compiled-binaries /
 COPY --from=pravega-dev /usr/src/gstreamer-pravega/python_apps /usr/src/gstreamer-pravega/python_apps
+ENV PYTHONPATH=/usr/src/gstreamer-pravega/python_apps/lib
 ENV PATH=/usr/src/gstreamer-pravega/python_apps:$PATH
 COPY --from=pravega-dev /usr/lib/x86_64-linux-gnu/gstreamer-1.0/ /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 COPY --from=pravega-dev /usr/src/gstreamer-pravega/target/release/rtsp-camera-simulator /usr/local/bin/

@@ -1,0 +1,46 @@
+#
+# Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+
+enabled: true
+image:
+  # Please change the value accordingly before deployment
+  repository: "pravega/deepstream:latest"
+  pullPolicy: "Always"
+appParameters:
+  ALLOW_CREATE_SCOPE: "false"
+  ADD_MESSAGE_WHEN_NO_OBJECTS_FOUND: "true"
+  ENTRYPOINT: "/usr/src/gstreamer-pravega/deepstream/python_apps/deepstream-pravega-demos/pravega-to-object-detection-to-pravega.py"
+  HEALTH_CHECK_ENABLED: "true"
+  HEALTH_CHECK_IDLE_SECONDS: "30"
+  GST_DEBUG: "FIXME,pravegasrc:LOG,pravegatc:LOG,pravegasink:LOG,fragmp4pay:LOG,qtdemux:INFO,h264parse:INFO,v4l2:FIXME"
+  LOG_LEVEL: "20"   # 10=DEBUG,20=INFO
+  PYTHONUNBUFFERED: "1"
+  RUST_LOG: "nvds_pravega_proto=trace,warn"
+  START_MODE: "latest"
+appParametersStatefulSet:
+  pravega_client_tls_cert_path: "/etc/ssl/certs/ca-certificates.crt"
+healthCheck:
+  enabled: true
+  idleSeconds: 30
+numNodes: 3
+numReadersPerStream: 1
+logPersistentVolumeClaimName: data-project
+resources:
+  requests:
+    cpu: "1000m"
+    memory: "2Gi"
+  limits:
+    cpu: "1000m"
+    memory: "3Gi"
+useGStreamerOperator: false
+global:
+  pravega:
+    stream: "camera1"
+    numStreams: 1

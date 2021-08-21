@@ -58,7 +58,7 @@ videotestsrc is-live=true do-timestamp=true num-buffers=$(($SIZE_SEC*$FPS)) patt
 ! x264enc tune=zerolatency key-int-max=${FPS} bitrate=200 \
 ! queue \
 ! mpegtsmux \
-! pravegasink stream=examples/${PRAVEGA_STREAM}-v2 sync=false \
+! pravegasink stream=examples/${PRAVEGA_STREAM}-v2 sync=false timestamp-mode=realtime-clock \
 >& /mnt/data/logs/videotestsrc-to-pravega-1x2-v2.log &
 
 wait

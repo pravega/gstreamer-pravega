@@ -9,26 +9,21 @@
 #
 
 {{- if $.Values.enabled }}
-{{- range $i := until (int $.Values.global.pravega.numStreams) }}
+{{- range $s := until (int $.Values.global.pravega.numStreams) }}
+{{- range $r := until (int $.Values.numReadersPerStream) }}
 
 {{- $alias := "" }}
 {{- if $.Values.alias }}
   {{- $alias = print "-" $.Values.alias }}
 {{- end }}
 
-{{- $suffix := "" }}
+{{- $streamSuffix := "" }}
 {{- if (gt (int $.Values.global.pravega.numStreams) 1) }}
-  {{- $suffix = print "-" $i }}
+  {{- $streamSuffix = print "-" $s }}
 {{- end }}
+{{- $suffix := print $streamSuffix "-" $r }}
 
 {{- $name := print $.Release.Name $alias $suffix }}
-
-{{- $cameraAddress := "" }}
-{{- if $.Values.global.camera.address }}
-  {{- $cameraAddress =  $.Values.global.camera.address }}
-{{- else }}
-  {{- $cameraAddress = print $.Release.Name "-simulator" }}
-{{- end }}
 
 {{- if not $.Values.useGStreamerOperator }}
 
@@ -49,50 +44,15 @@ spec:
         release: {{ $name }}
     spec:
       serviceAccount: {{ $.Release.Namespace }}-pravega
+      nodeSelector:
+        # Manually distribute across nodes to ensure equal GPU usage.
+        kubernetes.io/hostname: "node{{ add 1 (mod (add (mul $s $.Values.numReadersPerStream) $r) $.Values.numNodes) }}"
       containers:
       - name: gstreamer
         image: {{ $.Values.image.repository | quote }}
         imagePullPolicy: {{ $.Values.image.pullPolicy | quote }}
-        command: ["bash", "-c", "--"]
-        args:
-          - mkdir -p ${LOG_DIR} &&
-            rtsp-camera-to-pravega.py |& tee ${LOG_DIR}/${PRAVEGA_STREAM}_${HOSTNAME}.log
-        env:
-        - name: CAMERA_ADDRESS
-          value: {{ $cameraAddress | quote }}
-        - name: CAMERA_USER
-          valueFrom:
-            secretKeyRef:
-              key: "username"
-              name: {{ $.Release.Name | quote }}
-        - name: CAMERA_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: "password"
-              name: {{ $.Release.Name | quote }}
-        - name: CAMERA_PATH
-          value: {{ $.Values.global.camera.path | quote }}
-        - name: CAMERA_PORT
-          value: {{ $.Values.global.camera.rtspPort | quote }}
-        - name: PRAVEGA_STREAM
-          value: "{{ $.Values.global.pravega.stream }}{{ $suffix }}"
-        - name: LOG_DIR
-          value: "/mnt/logs/test-logs"
-        {{- if $.Values.healthCheck.enabled }}
-        - name: HEALTH_CHECK_ENABLED
-          value: "true"
-        - name: HEALTH_CHECK_IDLE_SECONDS
-          value: {{ $.Values.healthCheck.idleSeconds | quote }}
-        {{- end }}
-        {{- range $key, $value := $.Values.appParametersStatefulSet }}
-        - name: {{ $key | quote }}
-          value: {{ $value | quote }}
-        {{- end }}
-        {{- range $key, $value := $.Values.appParameters }}
-        - name: {{ $key | quote }}
-          value: {{ $value | quote }}
-        {{- end }}
-        {{- if $.Values.healthCheck.enabled }}
+        resources:
+{{ toYaml $.Values.resources | indent 10 }}
         readinessProbe:
           httpGet:
             path: /ishealthy
@@ -102,8 +62,27 @@ spec:
           httpGet:
             path: /ishealthy
             port: 8080
-          initialDelaySeconds: 60
+          initialDelaySeconds: 120
           periodSeconds: 3
+        workingDir: /usr/src/gstreamer-pravega
+        command: ["bash", "-c", "--"]
+        args:
+          - mkdir -p ${LOG_DIR} &&
+            ${ENTRYPOINT} |& tee ${LOG_DIR}/${INPUT_STREAM}_${HOSTNAME}.log
+        env:
+        - name: LOG_DIR
+          value: "/mnt/logs/test-logs"
+        - name: INPUT_STREAM
+          value: "{{ $.Values.global.pravega.stream }}{{ $streamSuffix }}"
+        - name: RECOVERY_TABLE
+          value: "{{ $name }}-recovery"
+        {{- range $key, $value := $.Values.appParametersStatefulSet }}
+        - name: {{ $key | quote }}
+          value: {{ $value | quote }}
+        {{- end }}
+        {{- range $key, $value := $.Values.appParameters }}
+        - name: {{ $key | quote }}
+          value: {{ $value | quote }}
         {{- end }}
         volumeMounts:
         - mountPath: /mnt/logs/
@@ -117,23 +96,22 @@ spec:
 {{- else }}
 
 apiVersion: gstreamer.dellemc.com/v1alpha1
-kind: CameraRecorderPipeline
+kind: GStreamerPipeline
 metadata:
   name: {{ $name }}
 spec:
   image: {{ $.Values.image.repository | quote }}
   pullPolicy: {{ $.Values.image.pullPolicy | quote }}
-  camera:
-    address: {{ $cameraAddress | quote }}
-    path: {{ $.Values.global.camera.path | quote }}
-    port: {{ $.Values.global.camera.rtspPort | quote }}
-    secret: {{ $.Release.Name | quote }}
-  pravega:
-    retentionPolicy:
-{{ toYaml $.Values.pravega.retentionPolicy | indent 6 }}  
-    stream: "{{ $.Values.global.pravega.stream }}{{ $suffix }}"
+  livenessProbe:
+    enabled: {{ $.Values.healthCheck.enabled }}
   env:
+  - name: INPUT_STREAM
+    value: "{{ $.Values.global.pravega.stream }}{{ $streamSuffix }}"
+  - name: RECOVERY_TABLE
+    value: "{{ $name }}-recovery"
   {{- if $.Values.healthCheck.enabled }}
+  - name: HEALTH_CHECK_ENABLED
+    value: "true"
   - name: HEALTH_CHECK_IDLE_SECONDS
     value: {{ $.Values.healthCheck.idleSeconds | quote }}
   {{- end }}
@@ -146,6 +124,7 @@ spec:
   state: Running
 ---
 
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

@@ -48,7 +48,7 @@ filesrc location=${TMPFILE} \
   split-on-rai=true \
   set-timestamps=true \
 ! queue \
-! pravegasink stream=examples/${PRAVEGA_STREAM} \
+! pravegasink stream=examples/${PRAVEGA_STREAM} timestamp-mode=realtime-clock \
   buffer-size=$(( 128 * 1024 )) \
   index-min-sec=600.0 \
   index-max-sec=600.0 \

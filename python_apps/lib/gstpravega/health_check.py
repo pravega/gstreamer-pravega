@@ -14,6 +14,7 @@ from threading import Thread
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from .util import str2bool
 import gi
+gi.require_version("Gst", "1.0")
 from gi.repository import GObject, Gst
 
 

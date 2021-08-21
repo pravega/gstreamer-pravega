@@ -8,5 +8,8 @@ dependencies:
 - name: media-validator
   repository: file://../media-validator
   version: 0.2.0
-digest: sha256:355f63274057098500da5a2c023771ed2bd4b0c21246ea7a3dad029b83d8f8ed
-generated: "2021-08-06T23:27:32.789450143Z"
+- name: object-detector
+  repository: file://../object-detector
+  version: 0.2.0
+digest: sha256:f33950d8ad34cbb5ff7fc74d0250f0fcd87c4bf7d128fc70fb7dbe2cfca35f4f
+generated: "2021-08-10T23:06:02.479562478Z"

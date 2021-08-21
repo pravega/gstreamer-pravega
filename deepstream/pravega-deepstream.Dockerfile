@@ -21,6 +21,7 @@ RUN update-ca-certificates
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+        curl \
         less \
         nano \
         python3-dev \
@@ -62,7 +63,7 @@ WORKDIR /usr/src/gstreamer-pravega
 # Install Cargo Chef build tool.
 FROM builder-base as chef-base
 ARG RUST_JOBS=1
-RUN cargo install cargo-chef --jobs ${RUST_JOBS}
+RUN cargo install cargo-chef --jobs ${RUST_JOBS} --version 0.1.22 --locked
 
 
 # Create Cargo Chef recipe.

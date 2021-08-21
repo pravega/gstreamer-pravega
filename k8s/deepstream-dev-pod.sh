@@ -25,7 +25,7 @@ fi
 if [[ "${INSTALL}" != "0" ]]; then
     helm upgrade --install --debug \
         ${RELEASE_NAME} \
-        ${ROOT_DIR}/k8s/charts/longevity-test \
+        ${ROOT_DIR}/k8s/charts/deepstream-dev-pod \
         --namespace ${NAMESPACE} \
         -f "${VALUES_FILE}" \
         $@

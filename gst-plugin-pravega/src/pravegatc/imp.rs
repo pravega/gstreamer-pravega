@@ -45,7 +45,6 @@ const PROPERTY_NAME_TABLE: &str = "table";
 const PROPERTY_NAME_CONTROLLER: &str = "controller";
 const PROPERTY_NAME_KEYCLOAK_FILE: &str = "keycloak-file";
 
-const DEFAULT_CONTROLLER: &str = "127.0.0.1:9090";
 const DEFAULT_RECORD_PERIOD_MSECOND: u64 = 1000;
 
 const PERSISTENT_STATE_TABLE_KEY: &str = "pravegatc.PersistentState";
@@ -70,8 +69,8 @@ impl Default for Settings {
         Settings {
             scope: None,
             table: None,
-            controller: Some(DEFAULT_CONTROLLER.to_owned()),
-            keycloak_file: None,
+            controller: utils::default_pravega_controller_uri(),
+            keycloak_file: utils::default_keycloak_file(),
             fault_injection_pts: ClockTime::none(),
             record_period: DEFAULT_RECORD_PERIOD_MSECOND * gst::MSECOND,
         }
@@ -441,14 +440,20 @@ impl ObjectImpl for PravegaTC {
             glib::ParamSpec::new_string(
                 PROPERTY_NAME_CONTROLLER,
                 "Controller",
-                "Pravega controller",
+                format!("Pravega controller. \
+                    If not specified, this will use the value of the environment variable {}. \
+                    If that is empty, it will use the default of {}.",
+                    utils::ENV_PRAVEGA_CONTROLLER_URI, utils::DEFAULT_PRAVEGA_CONTROLLER_URI).as_str(),
                 None,
                 glib::ParamFlags::WRITABLE,
             ),
             glib::ParamSpec::new_string(
                 PROPERTY_NAME_KEYCLOAK_FILE,
                 "Keycloak file",
-                "The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.",
+                format!("The filename containing the Keycloak credentials JSON. \
+                    If not specified, this will use the value of the environment variable {}. \
+                    If that is empty, authentication will be disabled.",
+                    utils::ENV_KEYCLOAK_SERVICE_ACCOUNT_FILE).as_str(),
                 None,
                 glib::ParamFlags::WRITABLE,
             ),
