@@ -38,6 +38,8 @@ services:
       BK_majorCompactionInterval: 3600
       BK_journalMaxSizeMB: 100
       BK_journalMaxBackups: 1
+      JAVA_OPTS: |
+        -Xmx1024m
     image: pravega/bookkeeper:0.9.0
     links:
       - zookeeper
