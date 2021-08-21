@@ -48,15 +48,16 @@ spec:
       labels:
         release: {{ $name }}
     spec:
-      serviceAccount: {{ $.Release.Namespace }}-pravega
+      # serviceAccount: {{ $.Release.Namespace }}-pravega
       containers:
       - name: gstreamer
         image: {{ $.Values.image.repository | quote }}
         imagePullPolicy: {{ $.Values.image.pullPolicy | quote }}
-        command: ["bash", "-c", "--"]
-        args:
-          - mkdir -p ${LOG_DIR} &&
-            rtsp-camera-to-pravega.py |& tee ${LOG_DIR}/${PRAVEGA_STREAM}_${HOSTNAME}.log
+        command: ["rtsp-camera-to-pravega.py"]
+        # command: ["bash", "-c", "--"]
+        # args:
+        #   - mkdir -p ${LOG_DIR} &&
+        #     rtsp-camera-to-pravega.py |& tee ${LOG_DIR}/${PRAVEGA_STREAM}_${HOSTNAME}.log
         env:
         - name: CAMERA_ADDRESS
           value: {{ $cameraAddress | quote }}
@@ -76,8 +77,8 @@ spec:
           value: {{ $.Values.global.camera.rtspPort | quote }}
         - name: PRAVEGA_STREAM
           value: "{{ $.Values.global.pravega.stream }}{{ $suffix }}"
-        - name: LOG_DIR
-          value: "/mnt/logs/test-logs"
+        # - name: LOG_DIR
+        #   value: "/mnt/logs/test-logs"
         {{- if $.Values.healthCheck.enabled }}
         - name: HEALTH_CHECK_ENABLED
           value: "true"
@@ -105,13 +106,13 @@ spec:
           initialDelaySeconds: 60
           periodSeconds: 3
         {{- end }}
-        volumeMounts:
-        - mountPath: /mnt/logs/
-          name: logs
-      volumes:
-      - name: logs
-        persistentVolumeClaim:
-          claimName: {{ $.Values.logPersistentVolumeClaimName }}
+      #   volumeMounts:
+      #   - mountPath: /mnt/logs/
+      #     name: logs
+      # volumes:
+      # - name: logs
+      #   persistentVolumeClaim:
+      #     claimName: {{ $.Values.logPersistentVolumeClaimName }}
 ---
 
 {{- else }}
