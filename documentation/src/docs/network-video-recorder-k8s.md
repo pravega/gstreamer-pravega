@@ -65,8 +65,8 @@ The following hardware is recommended to ensure sufficient performance for build
     git clone --recursive https://github.com/pravega/gstreamer-pravega
     cd gstreamer-pravega
     RUST_JOBS=4 BUILD_PROD=1 BUILD_DEV=0 docker/build-release.sh
-    docker tag pravega/gstreamer:pravega-dev localhost:32000/gstreamer:pravega-dev
-    docker push localhost:32000/gstreamer:pravega-dev
+    docker tag pravega/gstreamer:pravega-prod localhost:32000/gstreamer:pravega-prod
+    docker push localhost:32000/gstreamer:pravega-prod
     ```
 
 ### Start Pravega

@@ -1,0 +1,39 @@
+#
+# Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+
+{{- if $.Values.enabled }}
+
+{{- $alias := "" }}
+{{- if $.Values.alias }}
+  {{- $alias = print "-" $.Values.alias }}
+{{- end }}
+
+{{- $name := print $.Release.Name $alias }}
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  annotations:
+    {{- if $.Values.externalDnsHostnameSuffix }}
+    external-dns.alpha.kubernetes.io/hostname: {{ $name }}.{{ $.Release.Namespace }}{{ $.Values.externalDnsHostnameSuffix }}
+    {{- end }}
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 3030
+    nodePort: 30010
+    protocol: TCP
+  selector:
+    release: {{ $name }}
+  type: NodePort
+
+{{- end }}

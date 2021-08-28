@@ -1,0 +1,51 @@
+#
+# Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+
+{{- if $.Values.enabled }}
+
+{{- $alias := "" }}
+{{- if $.Values.alias }}
+  {{- $alias = print "-" $.Values.alias }}
+{{- end }}
+
+{{- $name := print $.Release.Name $alias }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels: 
+    release: {{ $name }}
+spec:
+  replicas: {{ $.Values.replicas }}
+  selector:
+    matchLabels:
+      release: {{ $name }}
+  template:
+    metadata:
+      labels:
+        release: {{ $name }}
+    spec:
+      containers:
+      - name: video-server
+        image: {{ $.Values.image.repository | quote }}
+        imagePullPolicy: {{ $.Values.image.pullPolicy | quote }}
+        command: ["pravega-video-server"]
+        ports:
+        - containerPort: 3030
+          name: http
+          protocol: TCP
+        env:
+        {{- range $key, $value := $.Values.appParameters }}
+        - name: {{ $key | quote }}
+          value: {{ $value | quote }}
+        {{- end }}
+
+{{- end }}
