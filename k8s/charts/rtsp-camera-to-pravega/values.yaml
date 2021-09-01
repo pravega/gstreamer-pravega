@@ -6,7 +6,7 @@ image:
 appParameters:
   # See available application parameters in https://github.com/pravega/gstreamer-pravega/blob/master/python_apps/rtsp-camera-to-pravega.py
   BUFFER_SIZE_MB: "10.0"
-  GST_DEBUG: "WARNING,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO,h264parse:WARN,pravegasink:DEBUG"
+  GST_DEBUG: "WARNING,rtspsrc:INFO,rtpbin:INFO,rtpsession:INFO,rtpjitterbuffer:INFO,h264parse:WARN,qtmux:FIXME,fragmp4pay:INFO,timestampcvt:DEBUG,pravegasink:DEBUG"
 appParametersStatefulSet:
   ALLOW_CREATE_SCOPE: "false"
   CAMERA_PROTOCOLS: "tcp"
