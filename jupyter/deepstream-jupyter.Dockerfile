@@ -13,11 +13,15 @@
 
 ARG FROM_IMAGE=nvcr.io/nvidia/deepstream:5.1-21.02-devel
 
+FROM deepstream-dev-pod:faheyc AS builder
+
 FROM ${FROM_IMAGE}
 
 ARG NB_USER="jovyan"
 ARG NB_UID="1000"
 ARG NB_GID="100"
+# pyds requires Python 3.6
+ARG PYTHON_VERSION=3.6
 
 COPY docker/ca-certificates /usr/local/share/ca-certificates/
 RUN update-ca-certificates
@@ -57,13 +61,32 @@ ENV CONDA_DIR=/opt/conda \
     NB_GID=${NB_GID} \
     LC_ALL=en_US.UTF-8 \
     LANG=en_US.UTF-8 \
-    LANGUAGE=en_US.UTF-8
-ENV PATH="${CONDA_DIR}/bin:${PATH}" \
-    HOME="/home/${NB_USER}"
+    LANGUAGE=en_US.UTF-8 \
+    REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
-ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+# Install Rust compiler.
+# Based on:
+#   - https://github.com/rust-lang/docker-rust-nightly/blob/master/buster/Dockerfile
+#   - https://hub.docker.com/layers/rust/library/rust/1.49.0/images/sha256-71e239392f5a70bc034522a089175bd36d1344205625047ed42722a205b683b2?context=explore
 
-# # Copy a script that we will use to correct permissions after running certain commands
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH \
+    RUST_VERSION=1.54.0
+
+RUN set -eux; \
+    rustArch="x86_64-unknown-linux-gnu"; \
+    url="https://static.rust-lang.org/rustup/archive/1.23.1/${rustArch}/rustup-init"; \
+    wget --quiet "$url"; \
+    chmod +x rustup-init; \
+    ./rustup-init -y --no-modify-path --default-toolchain $RUST_VERSION --default-host ${rustArch}; \
+    rm rustup-init; \
+    chmod -R a+w $RUSTUP_HOME $CARGO_HOME; \
+    rustup --version; \
+    cargo --version; \
+    rustc --version;
+
+# Copy a script that we will use to correct permissions after running certain commands
 COPY jupyter/fix-permissions /usr/local/bin/fix-permissions
 RUN chmod a+rx /usr/local/bin/fix-permissions
 
@@ -85,8 +108,18 @@ RUN echo "auth requisite pam_deny.so" >> /etc/pam.d/su && \
     fix-permissions "${HOME}" && \
     fix-permissions "${CONDA_DIR}"
 
+# Allow notebook user to update DeepStream and GStreamer libraries.
+RUN chown -R ${NB_USER} \
+    /opt/nvidia/deepstream \
+    /usr/lib/x86_64-linux-gnu/gstreamer-1.0
+
+# Allow normal user to execute sudo.
+RUN echo "${NB_USER} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
 USER ${NB_UID}
-ARG PYTHON_VERSION=default
+
+ENV PATH="${CONDA_DIR}/bin:${PATH}" \
+    HOME="/home/${NB_USER}"
 
 # Setup work directory for backward-compatibility
 RUN mkdir "/home/${NB_USER}/work" && \
@@ -158,90 +191,54 @@ RUN sed -re "s/c.NotebookApp/c.ServerApp/g" \
     /etc/jupyter/jupyter_notebook_config.py > /etc/jupyter/jupyter_server_config.py && \
     fix-permissions /etc/jupyter/
 
-RUN mkdir -p /opt/nvidia/deepstream/deepstream/lib/build && \
-    chown ${NB_USER} /opt/nvidia/deepstream/deepstream/lib/build
+USER ${NB_UID}
 
-# # # Install Python Bindings for DeepStream.
-# # RUN apt-get install -y --no-install-recommends \
-# #         gir1.2-gst-rtsp-server-1.0 \
-# #         gobject-introspection \
-# #         gstreamer1.0-rtsp \
-# #         libgirepository1.0-dev \
-# #         libgstrtspserver-1.0-0 \
-# #         python3-configargparse \
-# #         python3-dev \
-# #         python3-gi \
-# #         python3-gst-1.0 \
-# #         python3-numpy \
-# #         python3-opencv \
-# #         python3-pip
-        
+# Install Python Bindings for DeepStream.
+RUN mamba install --yes \
+        configargparse \
+        gst-python \
+        gobject-introspection \
+        pygobject
+
 RUN cd /opt/nvidia/deepstream/deepstream/lib && \
     python3 setup.py install && \
     cd /opt/nvidia/deepstream/deepstream/sources && \
     git clone https://github.com/NVIDIA-AI-IOT/deepstream_python_apps
 
-# # # Install Rust compiler.
-# # # Based on:
-# # #   - https://github.com/rust-lang/docker-rust-nightly/blob/master/buster/Dockerfile
-# # #   - https://hub.docker.com/layers/rust/library/rust/1.49.0/images/sha256-71e239392f5a70bc034522a089175bd36d1344205625047ed42722a205b683b2?context=explore
+ARG RUST_JOBS=4
 
-# # ENV RUSTUP_HOME=/usr/local/rustup \
-# #     CARGO_HOME=/usr/local/cargo \
-# #     PATH=/usr/local/cargo/bin:$PATH \
-# #     RUST_VERSION=1.54.0
+WORKDIR "${HOME}"
 
-# # RUN set -eux; \
-# #     rustArch="x86_64-unknown-linux-gnu"; \
-# #     url="https://static.rust-lang.org/rustup/archive/1.23.1/${rustArch}/rustup-init"; \
-# #     wget --quiet "$url"; \
-# #     chmod +x rustup-init; \
-# #     ./rustup-init -y --no-modify-path --default-toolchain $RUST_VERSION --default-host ${rustArch}; \
-# #     rm rustup-init; \
-# #     chmod -R a+w $RUSTUP_HOME $CARGO_HOME; \
-# #     rustup --version; \
-# #     cargo --version; \
-# #     rustc --version;
+# Build gstreamer-pravega components.
+# We'll start with a clone of the Github repo to allow developers to push changes.
 
-# # Switch to non-root user.
-# # USER ubuntu
+# RUN git clone --recursive https://github.com/pravega/gstreamer-pravega
+# WORKDIR ${HOME}/gstreamer-pravega
+# RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
+# RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
 
-# # ARG RUST_JOBS=4
+# # Copy any changes and rebuild. This should be fast because only updated files will be compiled.
+# COPY Cargo.toml .
+# COPY Cargo.lock .
+# COPY apps apps
+# COPY deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
+# COPY gst-plugin-pravega gst-plugin-pravega
+# COPY integration-test integration-test
+# COPY pravega-video pravega-video
+# COPY pravega-video-server pravega-video-server
+# RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
+# RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
 
-# # WORKDIR /home/ubuntu
+# # Install compiled gstreamer-pravega libraries.
+# RUN mv -v target/release/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+# RUN mv -v target/release/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/
 
-# # # Build gstreamer-pravega components.
-# # # We'll start with a clone of the Github repo to allow developers to push changes.
-
-# # RUN git clone --recursive https://github.com/pravega/gstreamer-pravega
-# # WORKDIR /home/ubuntu/gstreamer-pravega
-# # RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
-# # RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
-
-# # # Copy any changes and rebuild. This should be fast because only updated files will be compiled.
-# # COPY Cargo.toml .
-# # COPY Cargo.lock .
-# # COPY apps apps
-# # COPY deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
-# # COPY gst-plugin-pravega gst-plugin-pravega
-# # COPY integration-test integration-test
-# # COPY pravega-video pravega-video
-# # COPY pravega-video-server pravega-video-server
-# # RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
-# # RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
-
-# # # Install compiled gstreamer-pravega libraries.
-# # USER 0
-# # RUN mv -v target/release/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
-# # RUN mv -v target/release/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/
-# # USER ubuntu
-
-# # Entrypoint will start sshd.
-# # COPY docker/devpod-entrypoint.sh /entrypoint.sh
-# # COPY --chown=ubuntu:root docker/sshd_config /home/ubuntu/.ssh/sshd_config
-# # CMD ["/entrypoint.sh"]
-
-# # WORKDIR /home/ubuntu
+COPY --from=builder --chown=${NB_USER}:root /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstpravega.so
+COPY --from=builder --chown=${NB_USER}:root /opt/nvidia/deepstream/deepstream/lib/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/libnvds_pravega_proto.so
+USER root
+# RUN chown
+# RUN ldconfig
+USER ${NB_UID}
 
 # Switch back to jovyan to avoid accidental container runs as root
 USER ${NB_UID}
