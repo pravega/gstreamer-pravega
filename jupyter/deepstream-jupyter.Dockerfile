@@ -8,20 +8,15 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
-# Add JupyterHub to DeepStream.
-# Based on https://github.com/jupyter/docker-stacks/blob/master/base-notebook/Dockerfile
+# Add JupyterHub and Pravega to DeepStream.
+# Based on 
+#   - https://github.com/jupyter/docker-stacks/blob/master/base-notebook/Dockerfile
+#   - https://github.com/rust-lang/docker-rust-nightly/blob/master/buster/Dockerfile
+#   - https://hub.docker.com/layers/rust/library/rust/1.49.0/images/sha256-71e239392f5a70bc034522a089175bd36d1344205625047ed42722a205b683b2?context=explore
 
 ARG FROM_IMAGE=nvcr.io/nvidia/deepstream:5.1-21.02-devel
 
-FROM deepstream-dev-pod:faheyc AS builder
-
 FROM ${FROM_IMAGE}
-
-ARG NB_USER="jovyan"
-ARG NB_UID="1000"
-ARG NB_GID="100"
-# pyds requires Python 3.6
-ARG PYTHON_VERSION=3.6
 
 COPY docker/ca-certificates /usr/local/share/ca-certificates/
 RUN update-ca-certificates
@@ -31,7 +26,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 USER root
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update --yes && \
     apt-get install --yes --no-install-recommends \
         ca-certificates \
@@ -59,6 +54,7 @@ RUN apt-get update --yes && \
 RUN cd /opt/nvidia/deepstream/deepstream/lib && \
     python3 setup.py install
 
+# Must upgrade pip for jupyterhub.
 RUN pip3 install --upgrade pip
 
 # Install dependencies for applications.
@@ -68,13 +64,17 @@ RUN python3 -m pip install \
         jupyterlab \
         notebook
 
-# RUN cd /opt/nvidia/deepstream/deepstream/sources && \
-#     git clone https://github.com/NVIDIA-AI-IOT/deepstream_python_apps
+# Install DeepStream sample apps.
+RUN cd /opt/nvidia/deepstream/deepstream/sources && \
+    git clone https://github.com/NVIDIA-AI-IOT/deepstream_python_apps
 
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen
 
-# Configure environment
+# Configure environment for Jupyter.
+ARG NB_USER="jovyan"
+ARG NB_UID="1000"
+ARG NB_GID="100"
 ENV SHELL=/bin/bash \
     NB_USER="${NB_USER}" \
     NB_UID=${NB_UID} \
@@ -85,26 +85,21 @@ ENV SHELL=/bin/bash \
     REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
 # Install Rust compiler.
-# Based on:
-#   - https://github.com/rust-lang/docker-rust-nightly/blob/master/buster/Dockerfile
-#   - https://hub.docker.com/layers/rust/library/rust/1.49.0/images/sha256-71e239392f5a70bc034522a089175bd36d1344205625047ed42722a205b683b2?context=explore
-
-# ENV RUSTUP_HOME=/usr/local/rustup \
-#     CARGO_HOME=/usr/local/cargo \
-#     PATH=/usr/local/cargo/bin:$PATH \
-#     RUST_VERSION=1.54.0
-
-# RUN set -eux; \
-#     rustArch="x86_64-unknown-linux-gnu"; \
-#     url="https://static.rust-lang.org/rustup/archive/1.23.1/${rustArch}/rustup-init"; \
-#     wget --quiet "$url"; \
-#     chmod +x rustup-init; \
-#     ./rustup-init -y --no-modify-path --default-toolchain $RUST_VERSION --default-host ${rustArch}; \
-#     rm rustup-init; \
-#     chmod -R a+w $RUSTUP_HOME $CARGO_HOME; \
-#     rustup --version; \
-#     cargo --version; \
-#     rustc --version;
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH \
+    RUST_VERSION=1.54.0
+RUN set -eux; \
+    rustArch="x86_64-unknown-linux-gnu"; \
+    url="https://static.rust-lang.org/rustup/archive/1.23.1/${rustArch}/rustup-init"; \
+    wget --quiet "$url"; \
+    chmod +x rustup-init; \
+    ./rustup-init -y --no-modify-path --default-toolchain $RUST_VERSION --default-host ${rustArch}; \
+    rm rustup-init; \
+    chmod -R a+w $RUSTUP_HOME $CARGO_HOME; \
+    rustup --version; \
+    cargo --version; \
+    rustc --version;
 
 # Copy a script that we will use to correct permissions after running certain commands
 COPY jupyter/fix-permissions /usr/local/bin/fix-permissions
@@ -123,12 +118,7 @@ RUN echo "auth requisite pam_deny.so" >> /etc/pam.d/su && \
     chmod g+w /etc/passwd && \
     fix-permissions "${HOME}"
 
-# Allow notebook user to update DeepStream and GStreamer libraries.
-# RUN chown -R ${NB_USER} \
-#     /opt/nvidia/deepstream \
-#     /usr/lib/x86_64-linux-gnu/gstreamer-1.0
-
-# Allow normal user to execute sudo.
+# Allow jovyan to execute sudo for reconfiguration from Jupyter.
 RUN echo "${NB_USER} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 USER ${NB_UID}
@@ -156,8 +146,8 @@ RUN jupyter notebook --generate-config && \
 
 EXPOSE 8888
 
-# # # Configure container startup
-# # ENTRYPOINT ["tini", "-g", "--"]
+# Configure container startup
+# ENTRYPOINT ["tini", "-g", "--"]
 CMD ["start-notebook.sh"]
 
 # Copy local files as late as possible to avoid cache busting
@@ -175,8 +165,6 @@ RUN sed -re "s/c.NotebookApp/c.ServerApp/g" \
 
 USER ${NB_UID}
 
-# ARG RUST_JOBS=4
-
 WORKDIR "${HOME}"
 
 # Build gstreamer-pravega components.
@@ -184,8 +172,9 @@ WORKDIR "${HOME}"
 
 RUN git clone --recursive https://github.com/pravega/gstreamer-pravega
 WORKDIR ${HOME}/gstreamer-pravega
-# # RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
-# # RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
+ARG RUST_JOBS=4
+RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
+RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
 
 # Copy any changes and rebuild. This should be fast because only updated files will be compiled.
 COPY Cargo.toml .
@@ -196,25 +185,20 @@ COPY gst-plugin-pravega gst-plugin-pravega
 COPY integration-test integration-test
 COPY pravega-video pravega-video
 COPY pravega-video-server pravega-video-server
-# # RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
-# # RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
+RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
+RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
 
-# # # Install compiled gstreamer-pravega libraries.
-# # RUN mv -v target/release/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
-# # RUN mv -v target/release/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/
-
-# # COPY --from=builder --chown=${NB_USER}:root /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstpravega.so
-# # COPY --from=builder --chown=${NB_USER}:root /opt/nvidia/deepstream/deepstream/lib/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/libnvds_pravega_proto.so
-COPY --from=builder /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstpravega.so
-COPY --from=builder /opt/nvidia/deepstream/deepstream/lib/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/libnvds_pravega_proto.so
-# RUN gst-inspect-1.0 pravega
-
-# Copy applications.
+# Copy gstreamer-pravega libraries and applications.
 COPY deepstream deepstream
 COPY python_apps python_apps
 ENV PYTHONPATH=${HOME}/gstreamer-pravega/python_apps/lib
 
-# Switch back to jovyan to avoid accidental container runs as root
+# Install compiled gstreamer-pravega libraries.
+USER root
+RUN mv -v target/release/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+RUN mv -v target/release/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/
+
+# Switch back to jovyan to avoid accidental container runs as root.
 USER ${NB_UID}
 
 WORKDIR "${HOME}"
