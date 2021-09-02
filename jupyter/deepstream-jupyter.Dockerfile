@@ -191,14 +191,21 @@ RUN sed -re "s/c.NotebookApp/c.ServerApp/g" \
     /etc/jupyter/jupyter_notebook_config.py > /etc/jupyter/jupyter_server_config.py && \
     fix-permissions /etc/jupyter/
 
+
 USER ${NB_UID}
 
 # Install Python Bindings for DeepStream.
 RUN mamba install --yes \
         configargparse \
-        gst-python \
         gobject-introspection \
         pygobject
+
+# RUN mamba install --yes \
+#         configargparse \
+#         gstreamer \
+#         gobject-introspection \
+#         pygobject && \
+#     rm -f /opt/conda/bin/gst-*
 
 RUN cd /opt/nvidia/deepstream/deepstream/lib && \
     python3 setup.py install && \
@@ -212,7 +219,7 @@ WORKDIR "${HOME}"
 # Build gstreamer-pravega components.
 # We'll start with a clone of the Github repo to allow developers to push changes.
 
-# RUN git clone --recursive https://github.com/pravega/gstreamer-pravega
+RUN git clone --recursive https://github.com/pravega/gstreamer-pravega
 # WORKDIR ${HOME}/gstreamer-pravega
 # RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
 # RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
@@ -233,12 +240,17 @@ WORKDIR "${HOME}"
 # RUN mv -v target/release/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 # RUN mv -v target/release/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/
 
-COPY --from=builder --chown=${NB_USER}:root /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstpravega.so
-COPY --from=builder --chown=${NB_USER}:root /opt/nvidia/deepstream/deepstream/lib/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/libnvds_pravega_proto.so
-USER root
+# COPY --from=builder --chown=${NB_USER}:root /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstpravega.so
+# COPY --from=builder --chown=${NB_USER}:root /opt/nvidia/deepstream/deepstream/lib/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/libnvds_pravega_proto.so
+COPY --from=builder /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstpravega.so
+COPY --from=builder /opt/nvidia/deepstream/deepstream/lib/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/libnvds_pravega_proto.so
+#RUN which gst-inspect-1.0
+RUN gst-inspect-1.0 pravega
+
+# USER root
 # RUN chown
 # RUN ldconfig
-USER ${NB_UID}
+# USER ${NB_UID}
 
 # Switch back to jovyan to avoid accidental container runs as root
 USER ${NB_UID}
