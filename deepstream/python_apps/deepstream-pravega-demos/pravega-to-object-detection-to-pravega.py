@@ -46,7 +46,7 @@ def show_metadata_probe(pad, info, user_data):
     """Buffer probe to show metadata in a buffer"""
     gst_buffer = info.get_buffer()
     if gst_buffer:
-        logging.info("show_metadata_probe: %20s:%-8s: pts=%23s, dts=%23s, duration=%23s, size=%8d" % (
+        logging.debug("show_metadata_probe: %20s:%-8s: pts=%23s, dts=%23s, duration=%23s, size=%8d" % (
             pad.get_parent_element().name,
             pad.name,
             format_clock_time(gst_buffer.pts),
@@ -57,19 +57,19 @@ def show_metadata_probe(pad, info, user_data):
         if batch_meta:
             for frame_meta_raw in glist_iterator(batch_meta.frame_meta_list):
                 frame_meta = pyds.NvDsFrameMeta.cast(frame_meta_raw)
-                logging.info("show_metadata_probe: %20s:%-8s: buf_pts=%s, ntp_timestamp=%s" % (
+                logging.debug("show_metadata_probe: %20s:%-8s: buf_pts=%s, ntp_timestamp=%s" % (
                     pad.get_parent_element().name,
                     pad.name,
                     format_clock_time(frame_meta.buf_pts),
                     str(frame_meta.ntp_timestamp)))
                 for obj_meta_raw in glist_iterator(frame_meta.obj_meta_list):
                     obj_meta = pyds.NvDsObjectMeta.cast(obj_meta_raw)
-                    logging.info("show_metadata_probe: obj_meta.class_id=%d" % (obj_meta.class_id,))
+                    logging.debug("show_metadata_probe: obj_meta.class_id=%d" % (obj_meta.class_id,))
                 for user_meta_raw in glist_iterator(frame_meta.frame_user_meta_list):
                     user_meta = pyds.NvDsUserMeta.cast(user_meta_raw)
-                    logging.info("show_metadata_probe: user_meta=%s" % (str(user_meta),))
+                    logging.debug("show_metadata_probe: user_meta=%s" % (str(user_meta),))
     else:
-        logging.info("show_metadata_probe: %20s:%-8s: no buffer")
+        logging.debug("show_metadata_probe: %20s:%-8s: no buffer")
     return Gst.PadProbeReturn.OK
 
 
@@ -197,7 +197,7 @@ def create_pyds_string(s):
 
 
 def generate_event_msg_meta(data, class_id, pravega_timestamp):
-    logging.info("generate_event_msg_meta: BEGIN")
+    logging.debug("generate_event_msg_meta: BEGIN")
     meta = pyds.NvDsEventMsgMeta.cast(data)
     meta.sensorId = 0
     meta.placeId = 0
@@ -237,7 +237,7 @@ def generate_event_msg_meta(data, class_id, pravega_timestamp):
 
 
 def set_event_message_meta_probe(pad, info, u_data):
-    logging.info("set_event_message_meta_probe: BEGIN")
+    logging.debug("set_event_message_meta_probe: BEGIN")
     global app_args
     gst_buffer = info.get_buffer()
     if gst_buffer:
@@ -245,7 +245,7 @@ def set_event_message_meta_probe(pad, info, u_data):
         if batch_meta:
             for frame_meta_raw in glist_iterator(batch_meta.frame_meta_list):
                 frame_meta = pyds.NvDsFrameMeta.cast(frame_meta_raw)
-                logging.info("set_event_message_meta_probe: %20s:%-8s: pts=%23s, dts=%23s, duration=%23s, size=%8d" % (
+                logging.debug("set_event_message_meta_probe: %20s:%-8s: pts=%23s, dts=%23s, duration=%23s, size=%8d" % (
                     pad.get_parent_element().name,
                     pad.name,
                     format_clock_time(gst_buffer.pts),
@@ -253,19 +253,19 @@ def set_event_message_meta_probe(pad, info, u_data):
                     format_clock_time(gst_buffer.duration),
                     gst_buffer.get_size()))
                 pravega_timestamp = PravegaTimestamp.from_nanoseconds(frame_meta.buf_pts)
-                logging.info("set_event_message_meta_probe: %20s:%-8s: buf_pts=%s, pravega_timestamp=%s, ntp_timestamp=%s" % (
+                logging.debug("set_event_message_meta_probe: %20s:%-8s: buf_pts=%s, pravega_timestamp=%s, ntp_timestamp=%s" % (
                     pad.get_parent_element().name,
                     pad.name,
                     format_clock_time(frame_meta.buf_pts),
                     pravega_timestamp,
                     str(frame_meta.ntp_timestamp)))
                 if not pravega_timestamp.is_valid():
-                    logging.info("set_event_message_meta_probe: Timestamp %s is invalid." % pravega_timestamp)
+                    logging.debug("set_event_message_meta_probe: Timestamp %s is invalid." % pravega_timestamp)
                 else:
                     added_message = False
                     for obj_meta_raw in glist_iterator(frame_meta.obj_meta_list):
                         obj_meta = pyds.NvDsObjectMeta.cast(obj_meta_raw)
-                        logging.info("set_event_message_meta_probe: obj_meta.class_id=%d" % (obj_meta.class_id,))
+                        logging.debug("set_event_message_meta_probe: obj_meta.class_id=%d" % (obj_meta.class_id,))
                         # We can only identify a single object in an NvDsEventMsgMeta.
                         # For now, we identify the first object in the frame.
                         # TODO: Create multiple NvDsEventMsgMeta instances per frame or use a custom user metadata class to identify multiple objects.
@@ -309,7 +309,7 @@ def set_event_message_meta_probe(pad, info, u_data):
                         pyds.nvds_add_user_meta_to_frame(frame_meta, user_event_meta)
                         added_message = True
 
-    logging.info("set_event_message_meta_probe: END")
+    logging.debug("set_event_message_meta_probe: END")
     return Gst.PadProbeReturn.OK
 
 
@@ -336,14 +336,14 @@ def main():
     parser.add_argument("--input-stream", required=True, metavar="SCOPE/STREAM")
     parser.add_argument("--fragment-duration-ms", type=int, default=1)
     parser.add_argument("--gst-debug",
-        default="WARNING,pravegasrc:LOG,h264parse:LOG,nvv4l2decoder:LOG,timestampcvt:LOG,nvmsgconv:INFO,pravegatc:LOG")
+        default="WARNING,pravegasrc:INFO,h264parse:WARNING,nvv4l2decoder:WARNING,timestampcvt:INFO,nvmsgconv:WARNING,pravegatc:INFO")
     parser.add_argument("--height", type=int, default=480)
     parser.add_argument("--pravega-controller-uri", default="tcp://127.0.0.1:9090")
     parser.add_argument("--pravega-scope")
     parser.add_argument("--keycloak-service-account-file")
     parser.add_argument("--log-level", type=int, default=logging.INFO, help="10=DEBUG,20=INFO")
     parser.add_argument("--rust-log",
-        default="nvds_pravega_proto=trace,warn")
+        default="nvds_pravega_proto=warn,warn")
     parser.add_argument("--msgapi-config-file")
     parser.add_argument("--msgconv-config-file",
         default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "msgconv_config.txt"))
