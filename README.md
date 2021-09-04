@@ -406,8 +406,7 @@ This timestamp reflects the sampling instant of the first octet in the payload, 
 For video frames, the timestamp will reflect when the image was captured by the camera.
 This allows different streams to be correlated precisely.
 
-Typically, the payload will be a single 188-byte frame of an MPEG transport stream
-or a single fragment of a fragmented MP4 (fMP4).
+Typically, the payload will be a single fragment of a fragmented MP4 (fMP4).
 An fMP4 fragment can be as small as a single video frame.
 For most use cases, fMP4 is recommended.
 fMP4 will store the PTS (presentaton timestamp) and DTS (decode timestamp) values with sufficient resolution
