@@ -125,14 +125,6 @@ USER ${NB_UID}
 
 ENV HOME="/home/${NB_USER}"
 
-# Setup work directory for backward-compatibility
-RUN mkdir "/home/${NB_USER}/work" && \
-    fix-permissions "/home/${NB_USER}"
-
-RUN set -x && \
-    rm -rf "/home/${NB_USER}/.cache/yarn" && \
-    fix-permissions "/home/${NB_USER}"
-
 # Install Jupyter Notebook, Lab, and Hub
 # Generate a notebook server config
 # Cleanup temporary files
@@ -151,9 +143,9 @@ EXPOSE 8888
 CMD ["start-notebook.sh"]
 
 # Copy local files as late as possible to avoid cache busting
-COPY jupyter/start.sh jupyter/start-notebook.sh jupyter/start-singleuser.sh /usr/local/bin/
+COPY --chown=$NB_UID:$NB_GID jupyter/start.sh jupyter/start-notebook.sh jupyter/start-singleuser.sh /usr/local/bin/
 # Currently need to have both jupyter_notebook_config and jupyter_server_config to support classic and lab
-COPY jupyter/jupyter_notebook_config.py /etc/jupyter/
+COPY --chown=$NB_UID:$NB_GID jupyter/jupyter_notebook_config.py /etc/jupyter/
 
 # Fix permissions on /etc/jupyter as root
 USER root
@@ -177,20 +169,20 @@ RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JO
 RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
 
 # Copy any changes and rebuild. This should be fast because only updated files will be compiled.
-COPY Cargo.toml .
-COPY Cargo.lock .
-COPY apps apps
-COPY deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
-COPY gst-plugin-pravega gst-plugin-pravega
-COPY integration-test integration-test
-COPY pravega-video pravega-video
-COPY pravega-video-server pravega-video-server
+COPY --chown=$NB_UID:$NB_GID Cargo.toml .
+COPY --chown=$NB_UID:$NB_GID Cargo.lock .
+COPY --chown=$NB_UID:$NB_GID apps apps
+COPY --chown=$NB_UID:$NB_GID deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
+COPY --chown=$NB_UID:$NB_GID gst-plugin-pravega gst-plugin-pravega
+COPY --chown=$NB_UID:$NB_GID integration-test integration-test
+COPY --chown=$NB_UID:$NB_GID pravega-video pravega-video
+COPY --chown=$NB_UID:$NB_GID pravega-video-server pravega-video-server
 RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
 RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
 
 # Copy gstreamer-pravega libraries and applications.
-COPY deepstream deepstream
-COPY python_apps python_apps
+COPY --chown=$NB_UID:$NB_GID deepstream deepstream
+COPY --chown=$NB_UID:$NB_GID python_apps python_apps
 ENV PYTHONPATH=${HOME}/gstreamer-pravega/python_apps/lib
 
 # Install compiled gstreamer-pravega libraries.
