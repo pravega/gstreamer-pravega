@@ -14,6 +14,9 @@
 #   - https://github.com/rust-lang/docker-rust-nightly/blob/master/buster/Dockerfile
 #   - https://hub.docker.com/layers/rust/library/rust/1.49.0/images/sha256-71e239392f5a70bc034522a089175bd36d1344205625047ed42722a205b683b2?context=explore
 
+# JupyterHub will use Python 3.9 in Conda.
+# OS Python 3.6 will be an available kernel for notebooks that require DeepStream.
+
 ARG FROM_IMAGE=nvcr.io/nvidia/deepstream:5.1-21.02-devel
 
 FROM ${FROM_IMAGE}
@@ -54,15 +57,15 @@ RUN apt-get update --yes && \
 RUN cd /opt/nvidia/deepstream/deepstream/lib && \
     python3 setup.py install
 
-# Must upgrade pip for jupyterhub.
+# Must upgrade OS pip for jupyterhub.
 RUN pip3 install --upgrade pip
 
 # Install dependencies for applications.
 RUN python3 -m pip install \
         configargparse \
-        jupyterhub \
-        jupyterlab \
-        notebook
+        ipykernel
+
+RUN python3 -m ipykernel install --user --name deepstream --display-name DeepStream
 
 # Install DeepStream sample apps.
 RUN cd /opt/nvidia/deepstream/deepstream/sources && \
@@ -72,10 +75,12 @@ RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen
 
 # Configure environment for Jupyter.
+ARG PYTHON_VERSION=3.9
 ARG NB_USER="jovyan"
 ARG NB_UID="1000"
 ARG NB_GID="100"
-ENV SHELL=/bin/bash \
+ENV CONDA_DIR=/opt/conda \
+    SHELL=/bin/bash \
     NB_USER="${NB_USER}" \
     NB_UID=${NB_UID} \
     NB_GID=${NB_GID} \
@@ -84,22 +89,22 @@ ENV SHELL=/bin/bash \
     LANGUAGE=en_US.UTF-8 \
     REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
-# Install Rust compiler.
-ENV RUSTUP_HOME=/usr/local/rustup \
-    CARGO_HOME=/usr/local/cargo \
-    PATH=/usr/local/cargo/bin:$PATH \
-    RUST_VERSION=1.54.0
-RUN set -eux; \
-    rustArch="x86_64-unknown-linux-gnu"; \
-    url="https://static.rust-lang.org/rustup/archive/1.23.1/${rustArch}/rustup-init"; \
-    wget --quiet "$url"; \
-    chmod +x rustup-init; \
-    ./rustup-init -y --no-modify-path --default-toolchain $RUST_VERSION --default-host ${rustArch}; \
-    rm rustup-init; \
-    chmod -R a+w $RUSTUP_HOME $CARGO_HOME; \
-    rustup --version; \
-    cargo --version; \
-    rustc --version;
+# # Install Rust compiler.
+# ENV RUSTUP_HOME=/usr/local/rustup \
+#     CARGO_HOME=/usr/local/cargo \
+#     PATH=/usr/local/cargo/bin:$PATH \
+#     RUST_VERSION=1.54.0
+# RUN set -eux; \
+#     rustArch="x86_64-unknown-linux-gnu"; \
+#     url="https://static.rust-lang.org/rustup/archive/1.23.1/${rustArch}/rustup-init"; \
+#     wget --quiet "$url"; \
+#     chmod +x rustup-init; \
+#     ./rustup-init -y --no-modify-path --default-toolchain $RUST_VERSION --default-host ${rustArch}; \
+#     rm rustup-init; \
+#     chmod -R a+w $RUSTUP_HOME $CARGO_HOME; \
+#     rustup --version; \
+#     cargo --version; \
+#     rustc --version;
 
 # Copy a script that we will use to correct permissions after running certain commands
 COPY jupyter/fix-permissions /usr/local/bin/fix-permissions
@@ -115,15 +120,48 @@ RUN echo "auth requisite pam_deny.so" >> /etc/pam.d/su && \
     sed -i.bak -e 's/^%admin/#%admin/' /etc/sudoers && \
     sed -i.bak -e 's/^%sudo/#%sudo/' /etc/sudoers && \
     useradd -l -m -s /bin/bash -N -u "${NB_UID}" "${NB_USER}" && \
+    mkdir -p "${CONDA_DIR}" && \
+    chown "${NB_USER}:${NB_GID}" "${CONDA_DIR}" && \
     chmod g+w /etc/passwd && \
-    fix-permissions "${HOME}"
+    fix-permissions "${HOME}" && \
+    fix-permissions "${CONDA_DIR}"
 
 # Allow jovyan to execute sudo for reconfiguration from Jupyter.
 RUN echo "${NB_USER} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 USER ${NB_UID}
 
-ENV HOME="/home/${NB_USER}"
+ENV HOME="/home/${NB_USER}" \
+    PATH="${CONDA_DIR}/bin:${PATH}"
+
+# Install conda as jovyan and check the sha256 sum provided on the download site
+WORKDIR /tmp
+
+# ---- Miniforge installer ----
+# Check https://github.com/conda-forge/miniforge/releases
+# Package Manager and Python implementation to use (https://github.com/conda-forge/miniforge)
+# We're using Mambaforge installer, possible options:
+# - conda only: either Miniforge3 to use Python or Miniforge-pypy3 to use PyPy
+# - conda + mamba: either Mambaforge to use Python or Mambaforge-pypy3 to use PyPy
+# Installation: conda, mamba, pip
+RUN set -x && \
+    # Miniforge installer
+    miniforge_arch=$(uname -m) && \
+    miniforge_installer="Mambaforge-Linux-${miniforge_arch}.sh" && \
+    wget --quiet "https://github.com/conda-forge/miniforge/releases/latest/download/${miniforge_installer}" && \
+    /bin/bash "${miniforge_installer}" -f -b -p "${CONDA_DIR}" && \
+    rm "${miniforge_installer}" && \
+    # Conda configuration see https://conda.io/projects/conda/en/latest/configuration.html
+    conda config --system --set auto_update_conda false && \
+    conda config --system --set show_channel_urls true && \
+    if [[ "${PYTHON_VERSION}" != "default" ]]; then mamba install --quiet --yes python="${PYTHON_VERSION}"; fi && \
+    mamba list python | grep '^python ' | tr -s ' ' | cut -d ' ' -f 1,2 >> "${CONDA_DIR}/conda-meta/pinned" && \
+    # Using conda to update all packages: https://github.com/mamba-org/mamba/issues/1092
+    conda update --all --quiet --yes && \
+    conda clean --all -f -y && \
+    rm -rf "/home/${NB_USER}/.cache/yarn" && \
+    fix-permissions "${CONDA_DIR}" && \
+    fix-permissions "/home/${NB_USER}"
 
 # Install Jupyter Notebook, Lab, and Hub
 # Generate a notebook server config
@@ -131,10 +169,28 @@ ENV HOME="/home/${NB_USER}"
 # Correct permissions
 # Do all this in a single RUN command to avoid duplicating all of the
 # files across image layers when the permissions change
-RUN jupyter notebook --generate-config && \
+RUN mamba install --quiet --yes \
+    'notebook' \
+    'jupyterhub' \
+    'jupyterlab' && \
+    mamba clean --all -f -y && \
+    npm cache clean --force && \
+    jupyter notebook --generate-config && \
     jupyter lab clean && \
     rm -rf "/home/${NB_USER}/.cache/yarn" && \
+    fix-permissions "${CONDA_DIR}" && \
     fix-permissions "/home/${NB_USER}"
+
+# Install Jupyter Notebook, Lab, and Hub
+# Generate a notebook server config
+# Cleanup temporary files
+# Correct permissions
+# Do all this in a single RUN command to avoid duplicating all of the
+# files across image layers when the permissions change
+# RUN jupyter notebook --generate-config && \
+#     jupyter lab clean && \
+#     rm -rf "/home/${NB_USER}/.cache/yarn" && \
+#     fix-permissions "/home/${NB_USER}"
 
 EXPOSE 8888
 
@@ -159,36 +215,36 @@ USER ${NB_UID}
 
 WORKDIR "${HOME}"
 
-# Build gstreamer-pravega components.
-# We'll start with a clone of the Github repo to allow developers to push changes.
+# # Build gstreamer-pravega components.
+# # We'll start with a clone of the Github repo to allow developers to push changes.
 
-RUN git clone --recursive https://github.com/pravega/gstreamer-pravega
-WORKDIR ${HOME}/gstreamer-pravega
-ARG RUST_JOBS=4
-RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
-RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
+# RUN git clone --recursive https://github.com/pravega/gstreamer-pravega
+# WORKDIR ${HOME}/gstreamer-pravega
+# ARG RUST_JOBS=4
+# RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
+# RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
 
-# Copy any changes and rebuild. This should be fast because only updated files will be compiled.
-COPY --chown=$NB_UID:$NB_GID Cargo.toml .
-COPY --chown=$NB_UID:$NB_GID Cargo.lock .
-COPY --chown=$NB_UID:$NB_GID apps apps
-COPY --chown=$NB_UID:$NB_GID deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
-COPY --chown=$NB_UID:$NB_GID gst-plugin-pravega gst-plugin-pravega
-COPY --chown=$NB_UID:$NB_GID integration-test integration-test
-COPY --chown=$NB_UID:$NB_GID pravega-video pravega-video
-COPY --chown=$NB_UID:$NB_GID pravega-video-server pravega-video-server
-RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
-RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
+# # Copy any changes and rebuild. This should be fast because only updated files will be compiled.
+# COPY --chown=$NB_UID:$NB_GID Cargo.toml .
+# COPY --chown=$NB_UID:$NB_GID Cargo.lock .
+# COPY --chown=$NB_UID:$NB_GID apps apps
+# COPY --chown=$NB_UID:$NB_GID deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
+# COPY --chown=$NB_UID:$NB_GID gst-plugin-pravega gst-plugin-pravega
+# COPY --chown=$NB_UID:$NB_GID integration-test integration-test
+# COPY --chown=$NB_UID:$NB_GID pravega-video pravega-video
+# COPY --chown=$NB_UID:$NB_GID pravega-video-server pravega-video-server
+# RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
+# RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
 
-# Copy gstreamer-pravega libraries and applications.
-COPY --chown=$NB_UID:$NB_GID deepstream deepstream
-COPY --chown=$NB_UID:$NB_GID python_apps python_apps
-ENV PYTHONPATH=${HOME}/gstreamer-pravega/python_apps/lib
+# # Copy gstreamer-pravega libraries and applications.
+# COPY --chown=$NB_UID:$NB_GID deepstream deepstream
+# COPY --chown=$NB_UID:$NB_GID python_apps python_apps
+# ENV PYTHONPATH=${HOME}/gstreamer-pravega/python_apps/lib
 
-# Install compiled gstreamer-pravega libraries.
-USER root
-RUN mv -v target/release/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
-RUN mv -v target/release/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/
+# # Install compiled gstreamer-pravega libraries.
+# USER root
+# RUN mv -v target/release/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+# RUN mv -v target/release/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/
 
 # Switch back to jovyan to avoid accidental container runs as root.
 USER ${NB_UID}
