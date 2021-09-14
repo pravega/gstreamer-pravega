@@ -53,19 +53,17 @@ RUN apt-get update --yes && \
         openjdk-11-jdk \
         wget
 
+# Upgrade pip.
+RUN pip3 install --upgrade pip
+
 # Install Python Bindings for DeepStream.
 RUN cd /opt/nvidia/deepstream/deepstream/lib && \
     python3 setup.py install
-
-# Must upgrade OS pip for jupyterhub.
-RUN pip3 install --upgrade pip
 
 # Install dependencies for applications.
 RUN python3 -m pip install \
         configargparse \
         ipykernel
-
-RUN python3 -m ipykernel install --user --name deepstream --display-name DeepStream
 
 # Install DeepStream sample apps.
 RUN cd /opt/nvidia/deepstream/deepstream/sources && \
@@ -88,23 +86,6 @@ ENV CONDA_DIR=/opt/conda \
     LANG=en_US.UTF-8 \
     LANGUAGE=en_US.UTF-8 \
     REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
-
-# # Install Rust compiler.
-# ENV RUSTUP_HOME=/usr/local/rustup \
-#     CARGO_HOME=/usr/local/cargo \
-#     PATH=/usr/local/cargo/bin:$PATH \
-#     RUST_VERSION=1.54.0
-# RUN set -eux; \
-#     rustArch="x86_64-unknown-linux-gnu"; \
-#     url="https://static.rust-lang.org/rustup/archive/1.23.1/${rustArch}/rustup-init"; \
-#     wget --quiet "$url"; \
-#     chmod +x rustup-init; \
-#     ./rustup-init -y --no-modify-path --default-toolchain $RUST_VERSION --default-host ${rustArch}; \
-#     rm rustup-init; \
-#     chmod -R a+w $RUSTUP_HOME $CARGO_HOME; \
-#     rustup --version; \
-#     cargo --version; \
-#     rustc --version;
 
 # Copy a script that we will use to correct permissions after running certain commands
 COPY jupyter/fix-permissions /usr/local/bin/fix-permissions
@@ -181,26 +162,17 @@ RUN mamba install --quiet --yes \
     fix-permissions "${CONDA_DIR}" && \
     fix-permissions "/home/${NB_USER}"
 
-# Install Jupyter Notebook, Lab, and Hub
-# Generate a notebook server config
-# Cleanup temporary files
-# Correct permissions
-# Do all this in a single RUN command to avoid duplicating all of the
-# files across image layers when the permissions change
-# RUN jupyter notebook --generate-config && \
-#     jupyter lab clean && \
-#     rm -rf "/home/${NB_USER}/.cache/yarn" && \
-#     fix-permissions "/home/${NB_USER}"
+# Add OS python as an available IPython kernel.
+RUN python3 -m ipykernel install --user --name deepstream --display-name DeepStream
 
 EXPOSE 8888
 
-# Configure container startup
-# ENTRYPOINT ["tini", "-g", "--"]
+# Configure container startup.
 CMD ["start-notebook.sh"]
 
-# Copy local files as late as possible to avoid cache busting
+# Copy local files as late as possible to avoid cache busting.
 COPY --chown=$NB_UID:$NB_GID jupyter/start.sh jupyter/start-notebook.sh jupyter/start-singleuser.sh /usr/local/bin/
-# Currently need to have both jupyter_notebook_config and jupyter_server_config to support classic and lab
+# Currently need to have both jupyter_notebook_config and jupyter_server_config to support classic and lab.
 COPY --chown=$NB_UID:$NB_GID jupyter/jupyter_notebook_config.py /etc/jupyter/
 
 # Fix permissions on /etc/jupyter as root
@@ -215,38 +187,31 @@ USER ${NB_UID}
 
 WORKDIR "${HOME}"
 
-# # Build gstreamer-pravega components.
-# # We'll start with a clone of the Github repo to allow developers to push changes.
+########################################################################################
+# Install Rust compiler.
+########################################################################################
 
-# RUN git clone --recursive https://github.com/pravega/gstreamer-pravega
-# WORKDIR ${HOME}/gstreamer-pravega
-# ARG RUST_JOBS=4
-# RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
-# RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
+USER root
 
-# # Copy any changes and rebuild. This should be fast because only updated files will be compiled.
-# COPY --chown=$NB_UID:$NB_GID Cargo.toml .
-# COPY --chown=$NB_UID:$NB_GID Cargo.lock .
-# COPY --chown=$NB_UID:$NB_GID apps apps
-# COPY --chown=$NB_UID:$NB_GID deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
-# COPY --chown=$NB_UID:$NB_GID gst-plugin-pravega gst-plugin-pravega
-# COPY --chown=$NB_UID:$NB_GID integration-test integration-test
-# COPY --chown=$NB_UID:$NB_GID pravega-video pravega-video
-# COPY --chown=$NB_UID:$NB_GID pravega-video-server pravega-video-server
-# RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
-# RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
+WORKDIR /tmp
 
-# # Copy gstreamer-pravega libraries and applications.
-# COPY --chown=$NB_UID:$NB_GID deepstream deepstream
-# COPY --chown=$NB_UID:$NB_GID python_apps python_apps
-# ENV PYTHONPATH=${HOME}/gstreamer-pravega/python_apps/lib
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH \
+    RUST_VERSION=1.54.0
 
-# # Install compiled gstreamer-pravega libraries.
-# USER root
-# RUN mv -v target/release/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
-# RUN mv -v target/release/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/
+RUN set -eux; \
+    rustArch="x86_64-unknown-linux-gnu"; \
+    url="https://static.rust-lang.org/rustup/archive/1.23.1/${rustArch}/rustup-init"; \
+    wget --quiet "$url"; \
+    chmod +x rustup-init; \
+    ./rustup-init -y --no-modify-path --default-toolchain $RUST_VERSION --default-host ${rustArch}; \
+    rm rustup-init; \
+    chmod -R a+w $RUSTUP_HOME $CARGO_HOME; \
+    rustup --version; \
+    cargo --version; \
+    rustc --version;
 
-# Switch back to jovyan to avoid accidental container runs as root.
 USER ${NB_UID}
 
 WORKDIR "${HOME}"
@@ -366,11 +331,49 @@ RUN cp -p "${SPARK_HOME}/conf/spark-defaults.conf.template" "${SPARK_HOME}/conf/
 
 USER ${NB_UID}
 
-# Install pyarrow
 RUN mamba install --quiet --yes \
+    'findspark' \
     'pyarrow' && \
     mamba clean --all -f -y && \
     fix-permissions "${CONDA_DIR}" && \
     fix-permissions "/home/${NB_USER}"
+
+WORKDIR "${HOME}"
+
+########################################################################################
+# Build gstreamer-pravega components.
+########################################################################################
+
+# We'll start with a clone of the Github repo to allow developers to push changes.
+
+RUN git clone --recursive https://github.com/pravega/gstreamer-pravega
+WORKDIR ${HOME}/gstreamer-pravega
+ARG RUST_JOBS=4
+RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
+RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
+
+# Copy any changes and rebuild. This should be fast because only updated files will be compiled.
+COPY --chown=$NB_UID:$NB_GID Cargo.toml .
+COPY --chown=$NB_UID:$NB_GID Cargo.lock .
+COPY --chown=$NB_UID:$NB_GID apps apps
+COPY --chown=$NB_UID:$NB_GID deepstream/pravega_protocol_adapter deepstream/pravega_protocol_adapter
+COPY --chown=$NB_UID:$NB_GID gst-plugin-pravega gst-plugin-pravega
+COPY --chown=$NB_UID:$NB_GID integration-test integration-test
+COPY --chown=$NB_UID:$NB_GID pravega-video pravega-video
+COPY --chown=$NB_UID:$NB_GID pravega-video-server pravega-video-server
+RUN cargo build --package gst-plugin-pravega --locked --release --jobs ${RUST_JOBS}
+RUN cargo build --package pravega_protocol_adapter --locked --release --jobs ${RUST_JOBS}
+
+# Copy gstreamer-pravega libraries and applications.
+COPY --chown=$NB_UID:$NB_GID deepstream deepstream
+COPY --chown=$NB_UID:$NB_GID python_apps python_apps
+ENV PYTHONPATH=${HOME}/gstreamer-pravega/python_apps/lib
+
+# Install compiled gstreamer-pravega libraries.
+USER root
+RUN mv -v target/release/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+RUN mv -v target/release/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/
+
+USER ${NB_UID}
 
 WORKDIR "${HOME}"
