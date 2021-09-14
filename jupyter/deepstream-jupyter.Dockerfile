@@ -8,7 +8,7 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
-# Add JupyterHub and Pravega to DeepStream.
+# Add JupyterHub, GStreamer Pravega, Spark to DeepStream.
 # Based on 
 #   - https://github.com/jupyter/docker-stacks/blob/master/base-notebook/Dockerfile
 #   - https://github.com/rust-lang/docker-rust-nightly/blob/master/buster/Dockerfile
@@ -18,6 +18,22 @@
 # OS Python 3.6 will be an available kernel for notebooks that require DeepStream.
 
 ARG FROM_IMAGE=nvcr.io/nvidia/deepstream:5.1-21.02-devel
+
+########################################################################################
+# Build Pravega Spark Connectors.
+########################################################################################
+
+FROM gradle:jre11 as spark-connectors-builder
+
+RUN git clone --recursive https://github.com/pravega/spark-connectors && \
+    cd spark-connectors && \
+    ./gradlew shadowJar
+
+RUN pwd && ls -lhR /home/gradle/spark-connectors/build/libs/
+
+########################################################################################
+# Build deepstream-jupyter.
+########################################################################################
 
 FROM ${FROM_IMAGE}
 
@@ -373,6 +389,29 @@ ENV PYTHONPATH=${HOME}/gstreamer-pravega/python_apps/lib
 USER root
 RUN mv -v target/release/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 RUN mv -v target/release/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/
+
+########################################################################################
+# Install Pravega Spark Connectors.
+########################################################################################
+
+USER root
+
+COPY --from=spark-connectors-builder /home/gradle/spark-connectors/build/libs/* ${SPARK_HOME}/jars/
+
+RUN wget -O "${SPARK_HOME}/jars/pravega-keycloak-client-0.9.0.jar" "https://repo1.maven.org/maven2/io/pravega/pravega-keycloak-client/0.9.0/pravega-keycloak-client-0.9.0.jar"
+
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+
+# Remove Java trust store to allow it to be replaced by the SDP Operator.
+RUN rm ${JAVA_HOME}/lib/security/cacerts
+
+########################################################################################
+# Install Pravega Python Client.
+########################################################################################
+
+USER ${NB_UID}
+
+RUN pip3 install pravega
 
 USER ${NB_UID}
 
