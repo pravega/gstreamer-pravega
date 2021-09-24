@@ -129,6 +129,7 @@ RUN echo "${NB_USER} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 USER ${NB_UID}
 
 ENV HOME="/home/${NB_USER}" \
+    PATH_BEFORE_CONDA="${PATH}" \
     PATH="${CONDA_DIR}/bin:${PATH}"
 
 # Install conda as jovyan and check the sha256 sum provided on the download site
@@ -179,7 +180,8 @@ RUN mamba install --quiet --yes \
     fix-permissions "/home/${NB_USER}"
 
 # Add OS python as an available IPython kernel.
-RUN python3 -m ipykernel install --user --name deepstream --display-name DeepStream
+RUN PATH=${PATH_BEFORE_CONDA} python3 -m ipykernel install --user --name deepstream --display-name DeepStream \
+    --env PATH "${PATH_BEFORE_CONDA}"
 
 EXPOSE 8888
 
@@ -412,6 +414,20 @@ RUN rm ${JAVA_HOME}/lib/security/cacerts
 USER ${NB_UID}
 
 RUN pip3 install pravega
+
+########################################################################################
+# Install useful Python packages.
+########################################################################################
+
+RUN mamba install --quiet --yes \
+    'configargparse' && \
+    mamba clean --all -f -y && \
+    fix-permissions "${CONDA_DIR}" && \
+    fix-permissions "/home/${NB_USER}"
+
+########################################################################################
+# Done.
+########################################################################################
 
 USER ${NB_UID}
 
