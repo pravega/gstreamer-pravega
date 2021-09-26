@@ -36,7 +36,9 @@ A pipeline that includes these elements can be restarted after a failure and the
 resume from where it left off. \
 The current implementation is best-effort which means that some buffers may be processed more than once or never at all. \
 The pravegatc element periodically writes the PTS of the current buffer to a Pravega table. \
-When the pravegatc element starts, if it finds a PTS in this Pravega table, it sets the start-timestamp property of the pravegasrc element.\
+When the pravegatc element starts, if it finds a PTS in this Pravega table, it sets the start-timestamp property of the pravegasrc element. \
+If pipeline recovery is attempted more than once from the same PTS, it is assumed that the input stream is defective, and subsequent recovery attempts \
+will skip over increasing amounts of data.\
 ";
 const ELEMENT_AUTHOR: &str = "Claudio Fahey <claudio.fahey@dell.com>";
 const DEBUG_CATEGORY: &str = ELEMENT_NAME;
@@ -220,17 +222,17 @@ impl PravegaTC {
                     })?;
                     
                     // If resume count indicates multiple failures at the same point, then skip ahead.
-                    // Skip ahead time delta will start at 2 seconds and double until ~1 year.
+                    // resume_time_delta will start at 2 seconds and double until 1 year.
                     let original_resume_at_pts = PravegaTimestamp::from_nanoseconds(Some(persistent_state.resume_at_pts));
                     let resume_count = persistent_state.resume_count;
                     let max_exact_resume_count = 1;
                     let initial_skip_time_delta = 2 * SECOND;
-                    let resume_time_delta = if resume_count >= max_exact_resume_count + 1 {
+                    let (resume_time_delta, start_mode) = if resume_count >= max_exact_resume_count + 1 {
                         let resume_time_delta = u64::pow(2, u32::min(24, (resume_count - max_exact_resume_count - 1) as u32)) * initial_skip_time_delta;
                         gst_warning!(CAT, obj: element, "start: Skipping {:?} due to {} resume attempts", resume_time_delta, resume_count);
-                        resume_time_delta
+                        (resume_time_delta, "timestamp")
                     } else {
-                        0 * SECOND
+                        (0 * SECOND, "timestamp-exact")
                     };
                     let resume_at_pts: PravegaTimestamp = original_resume_at_pts + resume_time_delta;
                     
@@ -244,7 +246,7 @@ impl PravegaTC {
                         let child_type_name = child.type_().name();
                         if child_type_name == "PravegaSrc" {
                             gst_debug!(CAT, obj: element, "start: Setting start-timestamp of element {:?}", child.name());
-                            child.set_property_from_str("start-mode", "timestamp");
+                            child.set_property_from_str("start-mode", start_mode);
                             child.set_property("start-timestamp", &resume_at_pts.nanoseconds().unwrap()).unwrap();
                             elements_found = true;
                         }
