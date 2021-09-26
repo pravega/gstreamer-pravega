@@ -107,7 +107,7 @@ mod test {
         let resume_from_pts: PravegaTimestamp = first_pts_full + 30510 * MSECOND;
         let pipeline_description = format!("\
             pravegasrc {pravega_plugin_properties} \
-              start-mode=timestamp \
+              start-mode=timestamp-exact \
               start-timestamp={resume_from_pts} \
             ! identity name=before_decode silent=false \
             ! decodebin \
