@@ -15,6 +15,7 @@
 *.log
 *.mp4
 *.nfs*
+*.pem
 *.tgz
 *.ts
 !/pravega-video-server/resources/static/*.ts

@@ -75,10 +75,20 @@ pub enum StartMode {
     Latest = 2,
     #[genum(
         name = "Start at the random-access point on or immediately before \
-                the specified start-timestamp or start-utc.",
+                the specified start-timestamp or start-utc. \
+                The segment will start at the random-access point.",
         nick = "timestamp"
     )]
     Timestamp = 3,
+    #[genum(
+        name = "Start at the random-access point on or immediately before \
+                the specified start-timestamp or start-utc. \
+                The segment will start at the specified timestamp. \
+                Buffers between the random-access point and the specified timestamp are expected to be dropped by decoders. \
+                Use this for resuming a pipeline at a precise time.",
+        nick = "timestamp-exact"
+    )]
+    TimestampExact = 4,
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy, glib::GEnum)]
@@ -713,7 +723,7 @@ impl BaseSrcImpl for PravegaSrc {
                         // When starting at Latest, the index will be used to find the last random-access point.
                         PravegaTimestamp::MAX
                     },
-                    StartMode::Timestamp => {
+                    StartMode::Timestamp | StartMode::TimestampExact => {
                         // The index will be used to find a last random-access point before or on the specified timestamp.
                         PravegaTimestamp::from_nanoseconds(Some(settings.start_timestamp))
                     },
@@ -763,14 +773,15 @@ impl BaseSrcImpl for PravegaSrc {
                 gst_info!(CAT, obj: src, "do_seek: index_record={:?}", index_record);
                 match index_record {
                     Ok(index_record) => {
-                        let segment_start_timestamp = if requested_seek_timestamp < index_record.timestamp || requested_seek_timestamp == PravegaTimestamp::MAX {
-                            // First indexed record is after requested timestamp OR we are starting at the latest timestamp.
-                            // The segment will start at the indexed time.
-                            index_record.timestamp
-                        } else {
-                            // First indexed record is on or before the requested timestamp.
-                            // The segment will start at the requested timestamp.
-                            requested_seek_timestamp
+                        let segment_start_timestamp = match start_mode {
+                            StartMode::TimestampExact => {
+                                // The segment will start at the requested timestamp.
+                                requested_seek_timestamp
+                            },
+                            _ => {
+                                // The segment will start at the indexed time.
+                                index_record.timestamp
+                            },                                
                         };
                         gst_info!(CAT, obj: src, "do_seek: segment will start at {:?}", segment_start_timestamp);
                         segment.set_start(ClockTime(segment_start_timestamp.nanoseconds()));
