@@ -18,7 +18,7 @@ use once_cell::sync::Lazy;
 use pravega_client::client_factory::ClientFactory;
 use pravega_client::sync::table::{Table, TableError, Version};
 use pravega_client_shared::Scope;
-use pravega_video::timestamp::{PravegaTimestamp, NSECOND};
+use pravega_video::timestamp::{PravegaTimestamp, NSECOND, SECOND};
 use pravega_video::utils;
 use crate::utils::clocktime_to_pravega;
 use serde::{Deserialize, Serialize};
@@ -52,6 +52,8 @@ const PERSISTENT_STATE_TABLE_KEY: &str = "pravegatc.PersistentState";
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq)]
 struct PersistentState {
     resume_at_pts: u64,
+    // Set to 0 when resume_at_pts is set. Incremented when resuming.
+    resume_count: u64,
 }
 
 #[derive(Debug)]
@@ -193,7 +195,7 @@ impl PravegaTC {
             let config = utils::create_client_config(controller, keycloak_file).map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega client config: {}", error])
             })?;
-            gst_debug!(CAT, obj: element, "start: config={:?}", config);
+            gst_trace!(CAT, obj: element, "start: config={:?}", config);
             gst_info!(CAT, obj: element, "start: controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
             gst_info!(CAT, obj: element, "start: is_tls_enabled={}", config.is_tls_enabled);
             gst_info!(CAT, obj: element, "start: is_auth_enabled={}", config.is_auth_enabled);
@@ -209,8 +211,29 @@ impl PravegaTC {
             gst_debug!(CAT, obj: element, "start: persistent_state={:?}", persistent_state);
             let persistent_state = persistent_state.unwrap();
             match persistent_state {
-                Some((persistent_state, _)) => {
-                    let resume_at_pts = PravegaTimestamp::from_nanoseconds(Some(persistent_state.resume_at_pts));
+                Some((mut persistent_state, version)) => {                    
+                    // Increment resume_count every time we attempt to resume.
+                    persistent_state.resume_count += 1;
+                    gst_log!(CAT, obj: element, "start: writing persistent state {:?}", persistent_state);
+                    runtime.block_on(table.insert_conditionally(&PERSISTENT_STATE_TABLE_KEY.to_string(), &persistent_state, version, -1)).map_err(|error| {
+                        gst::error_msg!(gst::CoreError::Failed, ["Failed to write to Pravega table: {}", error])
+                    })?;
+                    
+                    // If resume count indicates multiple failures at the same point, then skip ahead.
+                    // Skip ahead time delta will start at 2 seconds and double until ~1 year.
+                    let original_resume_at_pts = PravegaTimestamp::from_nanoseconds(Some(persistent_state.resume_at_pts));
+                    let resume_count = persistent_state.resume_count;
+                    let max_exact_resume_count = 1;
+                    let initial_skip_time_delta = 2 * SECOND;
+                    let resume_time_delta = if resume_count >= max_exact_resume_count + 1 {
+                        let resume_time_delta = u64::pow(2, u32::min(24, (resume_count - max_exact_resume_count - 1) as u32)) * initial_skip_time_delta;
+                        gst_warning!(CAT, obj: element, "start: Skipping {:?} due to {} resume attempts", resume_time_delta, resume_count);
+                        resume_time_delta
+                    } else {
+                        0 * SECOND
+                    };
+                    let resume_at_pts: PravegaTimestamp = original_resume_at_pts + resume_time_delta;
+                    
                     gst_info!(CAT, obj: element, "start: Resuming at PTS {:?}", resume_at_pts);
                     let pipeline = element.parent().unwrap().downcast::<gst::Pipeline>().unwrap();
                     let children = pipeline.children();
@@ -298,6 +321,7 @@ impl PravegaTC {
                 let table = state.table.lock().unwrap();
                 let persistent_state = PersistentState {
                     resume_at_pts: resume_at_pts.nanoseconds().unwrap(),
+                    resume_count: 0,
                 };
                 gst_log!(CAT, obj: element, "sink_chain: writing persistent state {:?}", persistent_state);
                 runtime.block_on(table.insert(&PERSISTENT_STATE_TABLE_KEY.to_string(), &persistent_state, -1)).map_err(|error| {
@@ -347,6 +371,7 @@ impl PravegaTC {
                 let table = state.table.lock().unwrap();
                 let persistent_state = PersistentState {
                     resume_at_pts: state.final_resume_at_pts.nanoseconds().unwrap(),
+                    resume_count: 0,
                 };
                 runtime.block_on(table.insert(&PERSISTENT_STATE_TABLE_KEY.to_string(), &persistent_state, -1)).map_err(|error| {
                     gst::error_msg!(gst::ResourceError::Write, ["Failed to write to Pravega table: {}", error])
