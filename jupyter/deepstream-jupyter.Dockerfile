@@ -8,14 +8,21 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
-# Add JupyterHub, GStreamer Pravega, Spark to DeepStream.
-# Based on 
+# This image contains the following:
+#   - DeepStream
+#   - GStreamer Plugins for Pravega 
+#   - JupyterHub
+#   - Spark
+#   - Pravega Spark Connectors
+#   - Pravega Python Client
+#
+# JupyterHub will use Python 3.9 in Conda.
+# OS Python 3.6 will be an available kernel for notebooks that require DeepStream.
+#
+# Based on:
 #   - https://github.com/jupyter/docker-stacks/blob/master/base-notebook/Dockerfile
 #   - https://github.com/rust-lang/docker-rust-nightly/blob/master/buster/Dockerfile
 #   - https://hub.docker.com/layers/rust/library/rust/1.49.0/images/sha256-71e239392f5a70bc034522a089175bd36d1344205625047ed42722a205b683b2?context=explore
-
-# JupyterHub will use Python 3.9 in Conda.
-# OS Python 3.6 will be an available kernel for notebooks that require DeepStream.
 
 ARG FROM_IMAGE=nvcr.io/nvidia/deepstream:5.1-21.02-devel
 
@@ -25,11 +32,9 @@ ARG FROM_IMAGE=nvcr.io/nvidia/deepstream:5.1-21.02-devel
 
 FROM gradle:jre11 as spark-connectors-builder
 
-RUN git clone --recursive https://github.com/pravega/spark-connectors && \
+RUN git clone --branch pravega-0-10-1 --recursive https://github.com/claudiofahey/spark-connectors && \
     cd spark-connectors && \
     ./gradlew shadowJar
-
-RUN pwd && ls -lhR /home/gradle/spark-connectors/build/libs/
 
 ########################################################################################
 # Build deepstream-jupyter.
@@ -393,27 +398,22 @@ RUN mv -v target/release/libgstpravega.so /usr/lib/x86_64-linux-gnu/gstreamer-1.
 RUN mv -v target/release/libnvds_pravega_proto.so /opt/nvidia/deepstream/deepstream/lib/
 
 ########################################################################################
-# Install Pravega Spark Connectors.
-########################################################################################
-
-USER root
-
-COPY --from=spark-connectors-builder /home/gradle/spark-connectors/build/libs/* ${SPARK_HOME}/jars/
-
-RUN wget -O "${SPARK_HOME}/jars/pravega-keycloak-client-0.9.0.jar" "https://repo1.maven.org/maven2/io/pravega/pravega-keycloak-client/0.9.0/pravega-keycloak-client-0.9.0.jar"
-
-ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
-
-# Remove Java trust store to allow it to be replaced by the SDP Operator.
-RUN rm ${JAVA_HOME}/lib/security/cacerts
-
-########################################################################################
-# Install Pravega Python Client.
+# Build and install Pravega Python Client from source.
+# This is installed in Python 3.6 and Python 3.9.
 ########################################################################################
 
 USER ${NB_UID}
 
-RUN pip3 install pravega
+WORKDIR "${HOME}"
+
+RUN pip3 install maturin
+
+RUN git clone --branch pyo3-async-upgrade --recursive https://github.com/pravega/pravega-client-rust && \
+    cd pravega-client-rust/python_binding && \
+    maturin build --release --no-sdist --strip --manylinux off
+
+RUN pip3 install pravega-client-rust/target/wheels/pravega-*-cp39*.whl
+RUN python3.6 -m pip install asyncio pravega-client-rust/target/wheels/pravega-*-cp36*.whl
 
 ########################################################################################
 # Install useful Python packages.
@@ -424,6 +424,21 @@ RUN mamba install --quiet --yes \
     mamba clean --all -f -y && \
     fix-permissions "${CONDA_DIR}" && \
     fix-permissions "/home/${NB_USER}"
+
+########################################################################################
+# Install Pravega Spark Connectors.
+########################################################################################
+
+USER root
+
+RUN wget -O "${SPARK_HOME}/jars/pravega-keycloak-client-0.9.0.jar" "https://repo1.maven.org/maven2/io/pravega/pravega-keycloak-client/0.9.0/pravega-keycloak-client-0.9.0.jar"
+
+COPY --from=spark-connectors-builder /home/gradle/spark-connectors/build/libs/* ${SPARK_HOME}/jars/
+
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+
+# Remove Java trust store to allow it to be replaced by the SDP Operator.
+RUN rm ${JAVA_HOME}/lib/security/cacerts
 
 ########################################################################################
 # Done.

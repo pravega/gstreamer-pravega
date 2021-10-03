@@ -17,7 +17,7 @@ FROM_IMAGE_NAME=nvcr.io/nvidia/deepstream
 FROM_TAG=${FROM_TAG:-5.1-21.02-devel}
 FROM_IMAGE=${FROM_IMAGE_NAME}:${FROM_TAG}
 TO_IMAGE_NAME=devops-repo.isus.emc.com:8116/nautilus/deepstream-jupyter
-TO_TAG=0.0.2
+TO_TAG=0.0.3
 TO_IMAGE=${TO_IMAGE_NAME}:${TO_TAG}
 RUST_JOBS=${RUST_JOBS:-4}
 
