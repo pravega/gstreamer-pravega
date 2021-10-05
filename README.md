@@ -89,21 +89,17 @@ Arbitrary GStreamer buffers can be stored and transported using Pravega by utili
 
 ## Getting Started with Ubuntu
 
-GStreamer 1.18.0 and 1.18.4 have been tested and are recommended. Version 1.18.0 comes standard with Ubuntu version 20.10.
+This section assumes that you are using Ubuntu Desktop version 21.04.
+This comes with GStreamer 1.18.4 and is recommended.
 
-### Clone this Repository
-
-```bash
-git clone --recursive https://github.com/pravega/gstreamer-pravega
-cd gstreamer-pravega
-git submodule update --recursive --init
-```
-
-### Install GStreamer
+### Install GStreamer and Dependencies
 
 ```bash
 sudo apt-get install \
-    gstreamer1.0-tools \
+    curl \
+    docker.io \
+    docker-compose \
+    git \
     gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-bad \
@@ -122,12 +118,28 @@ sudo apt-get install \
     libssl-dev
 ```
 
+Run the following GStreamer command to confirm basic functionality.
+You should see a window open that shows color bars and snow.
+
+```bash
+gst-launch-1.0 videotestsrc ! autovideosink
+```
+
+### Clone this Repository
+
+```bash
+git clone --recursive https://github.com/pravega/gstreamer-pravega
+cd gstreamer-pravega
+git submodule update --recursive --init
+```
+
 For more details, refer to https://github.com/sdroege/gstreamer-rs.
 
 ### Install Rust
 
 ```bash
 curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
+source $HOME/.cargo/env
 rustup update
 ```
 
@@ -135,6 +147,8 @@ Add to ~/.bashrc:
 ```
 export PATH="$HOME/.cargo/bin:$PATH"
 ```
+
+### Install IDE (Optional)
 
 For development, it is recommended to install [Visual Studio Code](https://code.visualstudio.com/docs/setup/setup-overview)
 and the following extensions:
@@ -167,46 +181,105 @@ Note that the default *standalone* Pravega often used for development is likely 
 it stores all data in memory and quickly runs out of memory.
 
 In the command below, replace x.x.x.x with the IP address of a local network interface.
-You can use the `ifconfig` command to find the IP address of the eth0 or ensXX interface.
+You can use the `ip address` command to find the IP address of the eth0 or ensXX interface.
 
 ```bash
 cd pravega-docker
 export HOST_IP=x.x.x.x
 export PRAVEGA_LTS_PATH=/tmp/pravega-lts
-docker-compose down && \
+sudo -E docker-compose down && \
 sudo rm -rf ${PRAVEGA_LTS_PATH} && \
-docker-compose up -d
+sudo -E docker-compose up -d
 cd ..
 ```
 
 You must also create the Pravega scope. This can be performed using the REST API.
-```
+```bash
 curl -X POST -H "Content-Type: application/json" -d '{"scopeName":"examples"}' http://localhost:10080/v1/scopes
 ```
 
-You can view the Pravega logs with `docker-compose logs --follow`.
+You can view the Pravega logs with `sudo -E docker-compose logs --follow` in the pravega-docker directory.
 
 You can view the stream files stored on long-term storage (LTS) with `ls -h -R ${PRAVEGA_LTS_PATH}`.
 
-## Docker Containers
+## Build and Install GStreamer Plugins for Pravega
 
-Docker containers can be built with and without NVIDIA DeepStream.
-The containers without DeepStream are based on a newer version of GStreamer.
+Use Cargo to build the GStreamer Plugins for Pravega.
+If this is the first time, this may take 30 to 60 minutes.
 
-- [Standard Docker Containers](docker/README.md)
-- [Docker Containers with NVIDIA DeepStream](deepstream/README.md)
+```bash
+cargo build --package gst-plugin-pravega --locked --release
+```
+
+Install the plugin.
+
+```bash
+sudo cp target/release/*.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+```
+
+Confirm that the plugin is available.
+
+```bash
+gst-inspect-1.0 pravega
+```
+
+You should see:
+
+```
+Plugin Details:
+  Name                     pravega
+  Description              GStreamer Plugin for Pravega
+...
+```
 
 ## Examples
 
-When you run any of these examples for the first time, the Rust build system, Cargo, will download and build all dependencies.
+### Synthetic Video to Pravega
 
-### Synthetic video to Pravega
-
-Generate synthetic video data, compress it using H.264, wrap it in an MPEG Transport Stream, and write to a Pravega stream.
+Generate synthetic video data, compress it using H.264, wrap it in an MP4, and write to a Pravega stream.
 
 ```bash
-PRAVEGA_STREAM=mystream1 scripts/videotestsrc-to-pravega.sh
+export GST_DEBUG=pravegasink:DEBUG
+NANOS_SINCE_EPOCH_TAI=$(( $(date +%s%N) + 37000000000 ))
+gst-launch-1.0 -v \
+  videotestsrc name=src timestamp-offset=${NANOS_SINCE_EPOCH_TAI} \
+! "video/x-raw,format=YUY2,width=640,height=480,framerate=30/1" \
+! videoconvert \
+! clockoverlay "font-desc=Sans 48px" "time-format=%F %T" shaded-background=true \
+! timeoverlay valignment=bottom "font-desc=Sans 48px" shaded-background=true \
+! videoconvert \
+! queue \
+! x264enc tune=zerolatency key-int-max=30 \
+! mp4mux streamable=true fragment-duration=1 \
+! fragmp4pay \
+! queue \
+! pravegasink \
+  stream=examples/my-stream \
+  buffer-size=1024 \
+  sync=true \
+  ts-offset=-${NANOS_SINCE_EPOCH_TAI}
 ```
+
+### Play Video from Pravega
+
+This plays video from a Pravega stream using the basic `autovideosink` element.
+Run this concurrently with the previous example to view "live" video.
+You can control where to start with the `start-mode` and `start-utc` properties.
+The property `sync=false` causes each frame to be displayed as soon as it is decoded, without regard to the timestamp.
+This example does not provide any buffering, so playback may not be smooth.
+
+```bash
+export GST_DEBUG=pravegasrc:INFO
+gst-launch-1.0 -v \
+  pravegasrc \
+  stream=examples/my-stream \
+  start-mode=latest \
+! decodebin \
+! videoconvert \
+! autovideosink sync=false
+```
+
+Now try different properties. Use `gst-inspect-1.0 pravegasink` to list the available properties.
 
 ### USB Camera to Pravega
 
@@ -307,6 +380,14 @@ You can then use an RTSP player such as VLC to play the URL
 You'll find a variety of other examples in [apps/src/bin](apps/src/bin) and
 [scripts](scripts).
 
+## Docker Containers
+
+Docker containers can be built with and without NVIDIA DeepStream.
+The containers without DeepStream are based on a newer version of GStreamer.
+
+- [Standard Docker Containers](docker/README.md)
+- [Docker Containers with NVIDIA DeepStream](deepstream/README.md)
+
 ## Truncating Streams
 
 Truncating a stream deletes all data in the stream prior to a specified byte offset.
@@ -332,7 +413,7 @@ Data truncated at offset 192809376
 # (Optional) Build GStreamer from Source
 
 Use this procedure to build GStreamer from source.
-If you are using Ubuntu 20.10 or Docker, this is not required nor recommended.
+This is not required nor recommended.
 
 ```bash
 sudo apt install \
