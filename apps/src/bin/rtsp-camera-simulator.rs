@@ -22,12 +22,14 @@ use gst::prelude::*;
 use gst_rtsp_server::prelude::*;
 use gst_rtsp_server::{RTSPAuth, RTSPToken};
 use gst_rtsp_server::subclass::prelude::*;
+use gst_rtsp_server::gio::{TlsCertificate};
 use std::ptr;
 use std::collections::HashMap;
 #[allow(unused_imports)]
 use tracing::{error, warn, info, debug, trace, event, Level, span};
 use tracing_subscriber::fmt::format::FmtSpan;
 use url::Url;
+use std::path::Path;
 
 /// Default logging configuration for GStreamer and GStreamer plugins.
 /// Valid levels are: none, ERROR, WARNING, FIXME, INFO, DEBUG, LOG, TRACE, MEMDUMP
@@ -56,6 +58,12 @@ struct Opts {
     /// Password for basic authentication. Authentication will be disabled if not specified.
     #[clap(long, env = "CAMERA_PASSWORD")]
     password: Option<String>,
+    /// Tls cert file for secure connection. Tls will be disabled if not specified.
+    #[clap(long, env = "TLS_CERT_FILE")]
+    tls_cert_file: Option<String>,
+    /// Tls key file for secure connection. Tls will be disabled if not specified.
+    #[clap(long, env = "TLS_KEY_FILE")]
+    tls_key_file: Option<String>,
     /// Default width
     #[clap(long, env = "CAMERA_WIDTH", default_value = "320")]
     width: u32,
@@ -148,6 +156,14 @@ fn run() -> Result<(), Error>  {
                 ptr::null_mut::<u8>(),
             );
         }
+
+        if let (Some(cert_file), Some(key_file)) = (opts.tls_cert_file, opts.tls_key_file) {
+            let cert_path = Path::new(&cert_file);
+            let key_path = Path::new(&key_file);
+            let server_cert = TlsCertificate::from_files(cert_path, key_path)?;
+            auth.set_tls_certificate(Some(&server_cert));
+        }
+        
         auth.add_basic(basic.as_str(), &token);
         server.set_auth(Some(&auth));
     }
