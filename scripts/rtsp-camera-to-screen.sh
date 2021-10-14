@@ -14,10 +14,10 @@ set -ex
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
 LOCATION=${LOCATION:-rtsp://127.0.0.1:554}
 # log level can be INFO or LOG (verbose)
-# export GST_DEBUG="x264enc:INFO"
-export RUST_LOG=debug
-export RUST_BACKTRACE=1
-export TLS_CA_FILE=/home/luis/cert/registry/ISRG_Root_X1.pem
+# export GST_DEBUG="LOG"
+# export RUST_LOG=debug
+# export RUST_BACKTRACE=1
+# export TLS_CA_FILE=/home/luis/cert/kubespray/sdp.pem
 export TZ=UTC
 pushd ${ROOT_DIR}/apps
 cargo run --bin rtsp-camera-to-screen -- \

@@ -46,7 +46,6 @@ fn main() {
                                                 // Packets will be kept in the buffer for at most this time.
         + "   ntp-sync=true"                    // Required to get NTP timestamps as PTS
         + "   ntp-time-source=running-time"     // Required to get NTP timestamps as PTS
-        //+ "   tls-validation-flags=generic-error"
         + " ! rtph264depay"                     // Extract H264 elementary stream
         + " ! h264parse"                        // Parse H264
         + " ! video/x-h264,alignment=au"        // Must align on Access Units for mpegtsmux

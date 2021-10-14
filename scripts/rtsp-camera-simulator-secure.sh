@@ -16,10 +16,10 @@ ROOT_DIR=$(readlink -f $(dirname $0)/..)
 # export GST_DEBUG="INFO"
 # export RUST_LOG=debug
 # export RUST_BACKTRACE=1
-export CAMERA_USER=luis
-export CAMERA_PASSWORD=password
-export TLS_CERT_FILE=/home/luis/cert/registry/fullchain.pem
-export TLS_KEY_FILE=/home/luis/cert/registry/privkey.pem
+# export CAMERA_USER=admin
+# export CAMERA_PASSWORD=password
+# export TLS_CERT_FILE=/home/luis/cert/kubespray/cert.pem
+# export TLS_KEY_FILE=/home/luis/cert/kubespray/key.pem
 export TZ=UTC
 pushd ${ROOT_DIR}/apps
 cargo run --bin rtsp-camera-simulator -- $* \

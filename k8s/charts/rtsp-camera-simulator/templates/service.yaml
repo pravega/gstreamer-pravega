@@ -23,7 +23,7 @@ metadata:
   name: {{ $name }}
   annotations:
     {{- if $.Values.externalDnsHostnameSuffix }}
-    external-dns.alpha.kubernetes.io/hostname: {{ $name }}.{{ $.Release.Namespace }}{{ $.Values.externalDnsHostnameSuffix }}
+    external-dns.alpha.kubernetes.io/hostname: {{ $name }}-{{ $.Release.Namespace }}{{ $.Values.externalDnsHostnameSuffix }}
     {{- end }}
 spec:
   ports:
