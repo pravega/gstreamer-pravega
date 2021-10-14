@@ -21,7 +21,8 @@ import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('GLib', '2.0')
 gi.require_version('GObject', '2.0')
-from gi.repository import GLib, GObject, Gst
+gi.require_version('Gio', '2.0')
+from gi.repository import GLib, GObject, Gst,  Gio
 
 
 def bus_call(bus, message, loop):
@@ -42,6 +43,7 @@ def bus_call(bus, message, loop):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--source-uri', required=True)
+    parser.add_argument('--tls-ca-file')
     parser.add_argument('--log-level', type=int, default=logging.INFO, help='10=DEBUG,20=INFO')
     args = parser.parse_args()
 
@@ -64,6 +66,9 @@ def main():
 
     pravegasrc = pipeline.get_by_name('src')
     pravegasrc.set_property('location', args.source_uri)
+    if args.tls_ca_file:
+        tls_ca_database = Gio.TlsFileDatabase.new(args.tls_ca_file)
+        pravegasrc.set_property('tls-database', tls_ca_database)
 
     # Create an event loop and feed GStreamer bus messages to it.
     loop = GLib.MainLoop()
