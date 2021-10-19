@@ -156,6 +156,8 @@ ENV PATH=/usr/src/gstreamer-pravega/python_apps:$PATH
 FROM "${DOCKER_REPOSITORY}${FROM_IMAGE}" as prod-base
 COPY docker/install-prod-dependencies /
 RUN ["/install-prod-dependencies"]
+RUN useradd -ms /bin/bash gstreamer-pravega
+USER gstreamer-pravega
 ENV GST_PLUGIN_PATH /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 
 
