@@ -25,3 +25,4 @@ replicas: 1
 global:
   camera:
     rtspPort: 8554
+    tlsEnabled: false

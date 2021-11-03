@@ -1,0 +1,109 @@
+-----BEGIN CERTIFICATE-----
+MIIEtDCCApwCFFyKIXiLtAdyVTKlutdZ6ki55k54MA0GCSqGSIb3DQEBCwUAMBkx
+FzAVBgNVBAMMDkRFVkVMT1BNRU5ULWNhMB4XDTIxMTEwMzE3MzkzM1oXDTMxMTEw
+MTE3MzkzM1owFDESMBAGA1UEAwwJbG9jYWxob3N0MIICIjANBgkqhkiG9w0BAQEF
+AAOCAg8AMIICCgKCAgEAuZbF20HjJvyFrNUgXsVa3i58Bng1eTXFdqxw+zG+/ARc
+dvLMP7n/1ICJEZN+mO1f1roKWwbR1amVTED7fzx+AUo8nEYpGv7JrsRWBeuPZB2C
+sBN7MZSXGriviBp6RWihcauhwvzUSkIfM2kK5i0FxfFjUpyaP/VGqH95bU/zFEID
+/Pa9Zf4yUoqD6uYP7iDmizEu5Fqq7Iv5vBdwRPxitWWFFNhJEBR7QxyGrf5wUAZS
+sdlpouojyyiVJJEm4Qx/qcb0IAHK2piz8+lGoNyPIuaeOCsX6W2FpKoVZLFOdTrc
+5qnHCGia2/YBOAK6mW7K+/uBmntT8KHdtEq5YLMRg6MKr78ENfwvJzpkaMFShTYU
+0UNc/DctlfToDW7RdIAo0T0CTfpTFKyqmZhpiLbtqGR2tQ0uFyi1KtnQt/WpYPWG
+S/44TN/ID0pl1JHcmBZZoIhf2fmPMp3x3lipJ81OU/ArN4b3SsgMOE2RujXNCsiP
+MRWA+3Th22uheiXV1NUB6FbWOl112qHW+g+srJQDpgZnpIxO3Y6jxop9Lkt+Xveu
+aeMfR7rWI/i5iVrQ7LWt5RUfUFqJq2kGlswgEyiUM8EIB8hvbCmSP199jwSR2vbF
+rb0KkYJOWjD9pp9f17furaVC2UNSVqLmvoJzJfNy00BduuBzTDOdow6hkraGS3cC
+AwEAATANBgkqhkiG9w0BAQsFAAOCAgEAd6N4AxHGcQgeHnefNUv86GUmEwxQyFJx
+usUOH5RUn0p0RTgVjrSOd+4pZmoHFvY2g7cXrsR8e+15i7ihfU70V5J0HxZ0Empx
+pU6EN55dbn74+5WJ7Ih/Y8SIl37nPIaHImMGEbfgQ2eLLy7BBt40UGaO4w1Xhwn5
+rdjl+Bgv22RR+tH/e5rwZh/GDivBkUdJ3SDQMczF/o0Ia1W8Pn1LeZ+/xQKfgLHv
+Aa6F3LPwXBg4WRLc0GwJENWG2FDbnS2VYUEX6pTbDWv3ebxqII0IXk1t5tk1XPg0
+eVCdMsYfXgmLJMXT2Q0IjR1F68OSCeCBOVep8ORpbU2UkFlp+FtfLZ+RWbSOpXZt
+rgGCCjBNDQ9IU1/ur0OjDS4ztYyD5khscbQHoelmXBvsgP5WYsKaJUaQgpaIZJeo
+etng1a/rPuzrzyXmNxGYlYUOwsanDeyr54/Z01tOYJgG2WqwSolKKPN5Pq0aP5vI
+XCXfnVQXJ3JuBmZGmk+NSfVGDysWnPvEC9JPc0E9lpoLAZL8aBxWJT1wT9XH59E9
+Yzs0eAFyT25dwOVCUOxp92ZOsy61UzVRULsEEsQDhuh0JQ+9aE+1i1AaomGqXv1d
+RYkc0uCNBz9jQzldUhDOOp2xwtpfZLkD6sncZPArOFBgzdHLj+kqGCJuz8dlotwc
+R2EjR/jO7tQ=
+-----END CERTIFICATE-----
+Certificate:
+    Data:
+        Version: 1 (0x0)
+        Serial Number:
+            5c:8a:21:78:8b:b4:07:72:55:32:a5:ba:d7:59:ea:48:b9:e6:4e:78
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: CN = DEVELOPMENT-ca
+        Validity
+            Not Before: Nov  3 17:39:33 2021 GMT
+            Not After : Nov  1 17:39:33 2031 GMT
+        Subject: CN = localhost
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                RSA Public-Key: (4096 bit)
+                Modulus:
+                    00:b9:96:c5:db:41:e3:26:fc:85:ac:d5:20:5e:c5:
+                    5a:de:2e:7c:06:78:35:79:35:c5:76:ac:70:fb:31:
+                    be:fc:04:5c:76:f2:cc:3f:b9:ff:d4:80:89:11:93:
+                    7e:98:ed:5f:d6:ba:0a:5b:06:d1:d5:a9:95:4c:40:
+                    fb:7f:3c:7e:01:4a:3c:9c:46:29:1a:fe:c9:ae:c4:
+                    56:05:eb:8f:64:1d:82:b0:13:7b:31:94:97:1a:b8:
+                    af:88:1a:7a:45:68:a1:71:ab:a1:c2:fc:d4:4a:42:
+                    1f:33:69:0a:e6:2d:05:c5:f1:63:52:9c:9a:3f:f5:
+                    46:a8:7f:79:6d:4f:f3:14:42:03:fc:f6:bd:65:fe:
+                    32:52:8a:83:ea:e6:0f:ee:20:e6:8b:31:2e:e4:5a:
+                    aa:ec:8b:f9:bc:17:70:44:fc:62:b5:65:85:14:d8:
+                    49:10:14:7b:43:1c:86:ad:fe:70:50:06:52:b1:d9:
+                    69:a2:ea:23:cb:28:95:24:91:26:e1:0c:7f:a9:c6:
+                    f4:20:01:ca:da:98:b3:f3:e9:46:a0:dc:8f:22:e6:
+                    9e:38:2b:17:e9:6d:85:a4:aa:15:64:b1:4e:75:3a:
+                    dc:e6:a9:c7:08:68:9a:db:f6:01:38:02:ba:99:6e:
+                    ca:fb:fb:81:9a:7b:53:f0:a1:dd:b4:4a:b9:60:b3:
+                    11:83:a3:0a:af:bf:04:35:fc:2f:27:3a:64:68:c1:
+                    52:85:36:14:d1:43:5c:fc:37:2d:95:f4:e8:0d:6e:
+                    d1:74:80:28:d1:3d:02:4d:fa:53:14:ac:aa:99:98:
+                    69:88:b6:ed:a8:64:76:b5:0d:2e:17:28:b5:2a:d9:
+                    d0:b7:f5:a9:60:f5:86:4b:fe:38:4c:df:c8:0f:4a:
+                    65:d4:91:dc:98:16:59:a0:88:5f:d9:f9:8f:32:9d:
+                    f1:de:58:a9:27:cd:4e:53:f0:2b:37:86:f7:4a:c8:
+                    0c:38:4d:91:ba:35:cd:0a:c8:8f:31:15:80:fb:74:
+                    e1:db:6b:a1:7a:25:d5:d4:d5:01:e8:56:d6:3a:5d:
+                    75:da:a1:d6:fa:0f:ac:ac:94:03:a6:06:67:a4:8c:
+                    4e:dd:8e:a3:c6:8a:7d:2e:4b:7e:5e:f7:ae:69:e3:
+                    1f:47:ba:d6:23:f8:b9:89:5a:d0:ec:b5:ad:e5:15:
+                    1f:50:5a:89:ab:69:06:96:cc:20:13:28:94:33:c1:
+                    08:07:c8:6f:6c:29:92:3f:5f:7d:8f:04:91:da:f6:
+                    c5:ad:bd:0a:91:82:4e:5a:30:fd:a6:9f:5f:d7:b7:
+                    ee:ad:a5:42:d9:43:52:56:a2:e6:be:82:73:25:f3:
+                    72:d3:40:5d:ba:e0:73:4c:33:9d:a3:0e:a1:92:b6:
+                    86:4b:77
+                Exponent: 65537 (0x10001)
+    Signature Algorithm: sha256WithRSAEncryption
+         77:a3:78:03:11:c6:71:08:1e:1e:77:9f:35:4b:fc:e8:65:26:
+         13:0c:50:c8:52:71:ba:c5:0e:1f:94:54:9f:4a:74:45:38:15:
+         8e:b4:8e:77:ee:29:66:6a:07:16:f6:36:83:b7:17:ae:c4:7c:
+         7b:ed:79:8b:b8:a1:7d:4e:f4:57:92:74:1f:16:74:12:6a:71:
+         a5:4e:84:37:9e:5d:6e:7e:f8:fb:95:89:ec:88:7f:63:c4:88:
+         97:7e:e7:3c:86:87:22:63:06:11:b7:e0:43:67:8b:2f:2e:c1:
+         06:de:34:50:66:8e:e3:0d:57:87:09:f9:ad:d8:e5:f8:18:2f:
+         db:64:51:fa:d1:ff:7b:9a:f0:66:1f:c6:0e:2b:c1:91:47:49:
+         dd:20:d0:31:cc:c5:fe:8d:08:6b:55:bc:3e:7d:4b:79:9f:bf:
+         c5:02:9f:80:b1:ef:01:ae:85:dc:b3:f0:5c:18:38:59:12:dc:
+         d0:6c:09:10:d5:86:d8:50:db:9d:2d:95:61:41:17:ea:94:db:
+         0d:6b:f7:79:bc:6a:20:8d:08:5e:4d:6d:e6:d9:35:5c:f8:34:
+         79:50:9d:32:c6:1f:5e:09:8b:24:c5:d3:d9:0d:08:8d:1d:45:
+         eb:c3:92:09:e0:81:39:57:a9:f0:e4:69:6d:4d:94:90:59:69:
+         f8:5b:5f:2d:9f:91:59:b4:8e:a5:76:6d:ae:01:82:0a:30:4d:
+         0d:0f:48:53:5f:ee:af:43:a3:0d:2e:33:b5:8c:83:e6:48:6c:
+         71:b4:07:a1:e9:66:5c:1b:ec:80:fe:56:62:c2:9a:25:46:90:
+         82:96:88:64:97:a8:7a:d9:e0:d5:af:eb:3e:ec:eb:cf:25:e6:
+         37:11:98:95:85:0e:c2:c6:a7:0d:ec:ab:e7:8f:d9:d3:5b:4e:
+         60:98:06:d9:6a:b0:4a:89:4a:28:f3:79:3e:ad:1a:3f:9b:c8:
+         5c:25:df:9d:54:17:27:72:6e:06:66:46:9a:4f:8d:49:f5:46:
+         0f:2b:16:9c:fb:c4:0b:d2:4f:73:41:3d:96:9a:0b:01:92:fc:
+         68:1c:56:25:3d:70:4f:d5:c7:e7:d1:3d:63:3b:34:78:01:72:
+         4f:6e:5d:c0:e5:42:50:ec:69:f7:66:4e:b3:2e:b5:53:35:51:
+         50:bb:04:12:c4:03:86:e8:74:25:0f:bd:68:4f:b5:8b:50:1a:
+         a2:61:aa:5e:fd:5d:45:89:1c:d2:e0:8d:07:3f:63:43:39:5d:
+         52:10:ce:3a:9d:b1:c2:da:5f:64:b9:03:ea:c9:dc:64:f0:2b:
+         38:50:60:cd:d1:cb:8f:e9:2a:18:22:6e:cf:c7:65:a2:dc:1c:
+         47:61:23:47:f8:ce:ee:d4

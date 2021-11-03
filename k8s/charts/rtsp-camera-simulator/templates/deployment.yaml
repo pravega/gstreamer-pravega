@@ -53,5 +53,18 @@ spec:
         - name: {{ $key | quote }}
           value: {{ $value | quote }}
         {{- end }}
-
+      {{- if $.Values.global.camera.tlsEnabled }}
+        - name: TLS_CERT_FILE
+          value: "/etc/secret-volume/tls.crt"
+        - name: TLS_KEY_FILE
+          value: "/etc/secret-volume/tls.key"
+        volumeMounts:
+        - mountPath: "/etc/secret-volume"
+          name: tls-secret
+      volumes:
+      - name: tls-secret
+        secret:
+          defaultMode: 420
+          secretName: "{{ .Release.Namespace }}-tls"
+      {{- end }}
 {{- end }}
