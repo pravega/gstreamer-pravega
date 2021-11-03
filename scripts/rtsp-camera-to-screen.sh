@@ -12,12 +12,12 @@
 
 set -ex
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
-LOCATION=${LOCATION:-rtsp://127.0.0.1:554}
+LOCATION=${LOCATION:-rtsps://admin:password@localhost:8554/cam/realmonitor}
 # log level can be INFO or LOG (verbose)
-# export GST_DEBUG="LOG"
-# export RUST_LOG=debug
-# export RUST_BACKTRACE=1
-# export TLS_CA_FILE=/home/luis/cert/kubespray/sdp.pem
+export GST_DEBUG="FIXME"
+export RUST_LOG=debug
+export RUST_BACKTRACE=1
+export TLS_CA_FILE=${ROOT_DIR}/tls/ca.crt
 export TZ=UTC
 pushd ${ROOT_DIR}/apps
 cargo run --bin rtsp-camera-to-screen -- \
