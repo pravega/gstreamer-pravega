@@ -31,3 +31,6 @@ pravega-*.tgz
 
 #Junit reports
 junit.xml
+
+
+!tls/*
