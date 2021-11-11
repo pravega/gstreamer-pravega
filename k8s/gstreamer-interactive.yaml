@@ -1,0 +1,56 @@
+#
+# Copyright (c) Dell Inc., or its subsidiaries. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+
+# The Interactive Shell with GStreamer is a Kuberenetes pod that provides a Bash prompt.
+# Users can run a variety of GStreamer applications for inspecting, copying, exporting, and importing Pravega video streams.
+# Use the template below, being sure to substitute your environment-specific settings in the sections noted with "CHANGE REQUIRED".
+#
+# Install with: kubectl apply -n ${NAMESPACE} -f gstreamer-interactive.yaml
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: gstreamer-interactive
+spec:
+  serviceName: gstreamer-interactive
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gstreamer-interactive
+  template:
+    metadata:
+      labels:
+        app: gstreamer-interactive
+    spec:
+      # CHANGE REQUIRED:
+      # Change serviceAccount to the format NAMESPACE-pravega, where NAMESPACE is the Kubernetes namespace
+      # where this pod will be deployed. This is the same as the SDP Analytics Project name.
+      serviceAccount: examples-pravega
+      containers:
+      - name: gstreamer
+        image: "{runtime: gstreamer-1.18.5}"
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "1Gi"
+        command: ["bash", "-c", "--", "sleep infinity"]
+        env:
+        - name: pravega_client_tls_cert_path
+          value: "/etc/ssl/certs/ca-certificates.crt"
+        # If using NFS, this will mount your project volume in the pod for convenient file import and export.
+        # Otherwise, remove the volumeMounts and volumes sections.
+        volumeMounts:
+        - name: data-project
+          mountPath: /mnt/data-project
+      volumes:
+      - name: data-project
+        persistentVolumeClaim:
+          claimName: data-project
