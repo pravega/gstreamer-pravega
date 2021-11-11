@@ -78,7 +78,6 @@ def main():
     logging.info(Gst.version_string())
 
     # Create Pipeline element that will form a connection of other elements.
-    # pipeline_description = "videotestsrc name=src ! videoconvert ! autovideosink name=sink"
     pipeline_description = (
         "rtspsrc name=src\n" +
         "   ! rtph264depay\n" +
