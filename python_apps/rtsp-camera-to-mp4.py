@@ -62,6 +62,8 @@ def main():
              "Refer to https://github.com/GStreamer/gst-plugins-base/blob/1.18.5/gst-libs/gst/rtsp/gstrtspurl.c.")
     parser.add_argument("--tls-ca-file",
         help="If using TLS, specify the path to the CA certificates in PEM format")
+    parser.add_argument("--tls-validation-flags", default="validate-all",
+        help="0 to disable TLS validation. Run 'gst-inspect-1.0 rtspsrc' for other options.")
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log_level)
@@ -98,6 +100,9 @@ def main():
     if args.tls_ca_file:
         tls_ca_database = Gio.TlsFileDatabase.new(args.tls_ca_file)
         src.set_property("tls-database", tls_ca_database)
+    if args.tls_validation_flags:
+        tls_validation_flags = int(args.tls_validation_flags) if args.tls_validation_flags.isdigit() else args.tls_validation_flags
+        src.set_property("tls-validation-flags", tls_validation_flags)
     sink = pipeline.get_by_name("sink")
     sink.set_property("location", args.file)
 
