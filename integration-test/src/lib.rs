@@ -12,6 +12,7 @@
 
 mod extreme_tests;
 mod failure_recovery_tests;
+mod file_import_tests;
 mod hls_tests;
 mod pravegasrc_seek_tests;
 mod pravegasrc_tests;
