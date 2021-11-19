@@ -76,7 +76,7 @@ fn test_timestampcvt_start_at_zero() {
     println!("test_timestampcvt_start_at_zero: BEGIN");
     init();
     let filter = gst::ElementFactory::make("timestampcvt", None).unwrap();
-    filter.set_property_from_str("input-timestamp-mode", "relative");
+    filter.set_property_from_str("input-timestamp-mode", "start-at-current-time");
     let mut h = gst_check::Harness::with_element(&filter, Some("sink"), Some("src"));
     h.set_src_caps_str("data");
     h.set_sink_caps_str("data");

@@ -61,7 +61,7 @@ pub enum TimestampMode {
     #[genum(
         name = "(DEPRECATED) Pipeline uses the realtime clock which provides nanoseconds \
                 since the Unix epoch 1970-01-01 00:00:00 UTC, not including leap seconds. \
-                This mode is deprecated. Instead, use the timestampcvt element with input-timestamp-mode=relative.",
+                This mode is deprecated. Instead, use the timestampcvt element with input-timestamp-mode=start-at-current-time.",
         nick = "realtime-clock"
     )]
     RealtimeClock = 0,

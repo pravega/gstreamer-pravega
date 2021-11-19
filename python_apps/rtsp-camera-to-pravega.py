@@ -237,7 +237,7 @@ def main():
         if args.timestamp_source == "rtcp-sender-report":
             timestampcvt.set_property("input-timestamp-mode", "ntp")
         else:
-            timestampcvt.set_property("input-timestamp-mode", "relative")
+            timestampcvt.set_property("input-timestamp-mode", "start-at-current-time")
     pravegasink = pipeline.get_by_name("pravegasink")
     if pravegasink:
         pravegasink.set_property("allow-create-scope", args.allow_create_scope)
