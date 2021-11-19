@@ -28,6 +28,7 @@ mod test {
         #[case] container_format: ContainerFormat) {
         let test_config = get_test_config();
         info!("test_config={:?}", test_config);
+        info!("description={:?}", description);
         let mp4_filename = "/tmp/timestampcvt_test1.mp4";
         let start_utc = "2001-02-03T04:00:00.000Z".to_owned();
         gst_init();
