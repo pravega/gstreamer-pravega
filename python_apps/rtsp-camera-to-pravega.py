@@ -29,7 +29,8 @@ from gstpravega import HealthCheckServer
 
 import gi
 gi.require_version("Gst", "1.0")
-from gi.repository import GObject, Gst
+gi.require_version("Gio", "2.0")
+from gi.repository import GObject, Gst, Gio
 
 
 def bus_call(bus, message, loop):
@@ -74,8 +75,11 @@ def main():
     parser.add_argument("--camera-password")
     parser.add_argument("--camera-path", default="/")
     parser.add_argument("--camera-port", type=int, default=554)
-    parser.add_argument("--camera-protocols")
+    parser.add_argument("--camera-protocols",
+        help="Allowed lower transport protocols. Can be 'tcp', 'udp-mcast', 'udp', 'http', 'tls'. " +
+             "Multiple protocols can be specified by separating them with a '+'.")
     parser.add_argument("--camera-rate-KB-per-sec", type=float, default=25.0, help="rate in KB/sec")
+    parser.add_argument("--camera-scheme", default="rtsp", help="rtsp or rtsps")
     parser.add_argument("--camera-uri")
     parser.add_argument("--camera-user")
     parser.add_argument("--camera-width", type=int, default=320)
@@ -100,6 +104,10 @@ def main():
              "However for cameras that are unable to send RTSP Sender Reports or have unreliable clocks, " +
              "local-clock can be used, in which the time offset is calculated when the first frame is received. " +
              "This will result in timestamps being incorrect by up to a few seconds.")
+    parser.add_argument("--tls-ca-file",
+        help="If using TLS, specify the path to the CA certificates in PEM format")
+    parser.add_argument("--tls-validation-flags", default="validate-all",
+        help="0 to disable TLS validation. Run 'gst-inspect-1.0 rtspsrc' for other options.")
     HealthCheckServer.add_arguments(parser)
     args = parser.parse_args()
 
@@ -126,7 +134,7 @@ def main():
     if args.camera_uri is None:
         if args.camera_address is None:
             raise Exception("If camera-uri is empty, then camera-address is required.")
-        args.camera_uri = "rtsp://%s:%d%s" % (args.camera_address, args.camera_port, args.camera_path)
+        args.camera_uri = "%s://%s:%d%s" % (args.camera_scheme, args.camera_address, args.camera_port, args.camera_path)
     logging.info("camera_uri=%s" % args.camera_uri)
 
     # Standard GStreamer initialization.
@@ -204,6 +212,12 @@ def main():
             source.set_property("ntp-sync", True)
             # Required to get NTP timestamps as PTS.
             source.set_property("ntp-time-source", "running-time")
+        if args.tls_ca_file:
+            tls_ca_database = Gio.TlsFileDatabase.new(args.tls_ca_file)
+            source.set_property("tls-database", tls_ca_database)
+        if args.tls_validation_flags:
+            tls_validation_flags = int(args.tls_validation_flags) if args.tls_validation_flags.isdigit() else args.tls_validation_flags
+            source.set_property("tls-validation-flags", tls_validation_flags)
         # Drop oldest buffers when the queue is completely filled
         source.set_property("drop-on-latency", True)
         # Set the maximum latency of the jitterbuffer (milliseconds).
