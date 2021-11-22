@@ -106,8 +106,8 @@ def main():
              "This will result in timestamps being incorrect by up to a few seconds.")
     parser.add_argument("--tls-ca-file",
         help="If using TLS, specify the path to the CA certificates in PEM format")
-    parser.add_argument("--tls-validation-flags", default="validate-all",
-        help="0 to disable TLS validation. Run 'gst-inspect-1.0 rtspsrc' for other options.")
+    parser.add_argument("--tls-validation-flags",
+        help="0 to disable TLS validation. It is validate-all by default, Run 'gst-inspect-1.0 rtspsrc' for other options.")
     HealthCheckServer.add_arguments(parser)
     args = parser.parse_args()
 
