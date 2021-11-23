@@ -744,7 +744,7 @@ impl BaseSinkImpl for PravegaSink {
             let config = utils::create_client_config(controller, keycloak_file).map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega client config: {}", error])
             })?;
-            gst_debug!(CAT, obj: element, "start: config={:?}", config);
+            gst_trace!(CAT, obj: element, "start: config={:?}", config);
             gst_info!(CAT, obj: element, "start: controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
             gst_info!(CAT, obj: element, "start: is_tls_enabled={}", config.is_tls_enabled);
             gst_info!(CAT, obj: element, "start: is_auth_enabled={}", config.is_auth_enabled);
