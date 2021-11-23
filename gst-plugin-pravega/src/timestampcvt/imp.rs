@@ -252,10 +252,10 @@ impl TimestampCvt {
                 // Segments from a file will have a start and end timestamp which will prevent
                 // playback after adjusting the PTS.
                 // To avoid this, we replace the segment with an empty one.
-                gst_info!(CAT, obj: pad, "sink_event: segment={:?}", segment);
+                gst_debug!(CAT, obj: pad, "sink_event: segment={:?}", segment);
                 let new_segment = gst::FormattedSegment::<gst::ClockTime>::new();
                 let new_event = gst::event::Segment::new(new_segment.as_ref());
-                gst_info!(CAT, obj: pad, "sink_event: new_segment={:?}", new_segment);
+                gst_debug!(CAT, obj: pad, "sink_event: new_segment={:?}", new_segment);
                 self.srcpad.push_event(new_event)
             }
             _ => self.srcpad.push_event(event)
@@ -263,17 +263,17 @@ impl TimestampCvt {
     }
 
     fn sink_query(&self, pad: &gst::Pad, _element: &super::TimestampCvt, query: &mut gst::QueryRef) -> bool {
-        gst_info!(CAT, obj: pad, "sink_query={:?}", query);
+        gst_debug!(CAT, obj: pad, "sink_query={:?}", query);
         self.srcpad.peer_query(query)
     }
 
     fn src_event(&self, pad: &gst::Pad, _element: &super::TimestampCvt, event: gst::Event) -> bool {
-        gst_info!(CAT, obj: pad, "src_event={:?}", event);
+        gst_debug!(CAT, obj: pad, "src_event={:?}", event);
         self.sinkpad.push_event(event)
     }
 
     fn src_query(&self, pad: &gst::Pad, _element: &super::TimestampCvt, query: &mut gst::QueryRef) -> bool {
-        gst_info!(CAT, obj: pad, "src_query={:?}", query);
+        gst_debug!(CAT, obj: pad, "src_query={:?}", query);
         self.sinkpad.peer_query(query)
     }
 }
