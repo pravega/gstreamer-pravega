@@ -246,7 +246,7 @@ impl TimestampCvt {
     }
 
     fn sink_event(&self, pad: &gst::Pad, _element: &super::TimestampCvt, event: gst::Event) -> bool {
-        gst_info!(CAT, obj: pad, "sink_event: event={:?}", event);
+        gst_debug!(CAT, obj: pad, "sink_event: event={:?}", event);
         match event.view() {
             gst::EventView::Segment(segment) => {
                 // Segments from a file will have a start and end timestamp which will prevent
@@ -262,15 +262,15 @@ impl TimestampCvt {
         }        
     }
 
-    fn sink_query(&self, pad: &gst::Pad, _element: &super::TimestampCvt, query: &mut gst::QueryRef) -> bool {
+    fn sink_query(&self, _pad: &gst::Pad, _element: &super::TimestampCvt, query: &mut gst::QueryRef) -> bool {
         self.srcpad.peer_query(query)
     }
 
-    fn src_event(&self, pad: &gst::Pad, _element: &super::TimestampCvt, event: gst::Event) -> bool {
+    fn src_event(&self, _pad: &gst::Pad, _element: &super::TimestampCvt, event: gst::Event) -> bool {
         self.sinkpad.push_event(event)
     }
 
-    fn src_query(&self, pad: &gst::Pad, _element: &super::TimestampCvt, query: &mut gst::QueryRef) -> bool {
+    fn src_query(&self, _pad: &gst::Pad, _element: &super::TimestampCvt, query: &mut gst::QueryRef) -> bool {
         self.sinkpad.peer_query(query)
     }
 }
