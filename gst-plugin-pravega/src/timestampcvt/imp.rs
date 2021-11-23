@@ -263,17 +263,14 @@ impl TimestampCvt {
     }
 
     fn sink_query(&self, pad: &gst::Pad, _element: &super::TimestampCvt, query: &mut gst::QueryRef) -> bool {
-        gst_debug!(CAT, obj: pad, "sink_query={:?}", query);
         self.srcpad.peer_query(query)
     }
 
     fn src_event(&self, pad: &gst::Pad, _element: &super::TimestampCvt, event: gst::Event) -> bool {
-        gst_debug!(CAT, obj: pad, "src_event={:?}", event);
         self.sinkpad.push_event(event)
     }
 
     fn src_query(&self, pad: &gst::Pad, _element: &super::TimestampCvt, query: &mut gst::QueryRef) -> bool {
-        gst_debug!(CAT, obj: pad, "src_query={:?}", query);
         self.sinkpad.peer_query(query)
     }
 }
