@@ -32,6 +32,10 @@ gi.require_version("Gst", "1.0")
 from gi.repository import GObject, Gst
 
 
+def str2bool(v):
+    return bool(distutils.util.strtobool(v))
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Import a video file to a Pravega stream. This transcodes the video to an appropriate format.",
@@ -41,10 +45,10 @@ def main():
     parser.add_argument("--fragment-duration-ms", type=int, default=1)
     parser.add_argument("--keycloak-service-account-file")
     parser.add_argument("--log-level", type=int, default=logging.INFO, help="10=DEBUG,20=INFO")
+    parser.add_argument("--nvvideoconvert", type=str2bool, default=False)
     parser.add_argument("--pravega-controller-uri", default="tcp://127.0.0.1:9090")
     parser.add_argument("--pravega-scope", required=True)
     parser.add_argument("--pravega-stream", required=True)
-    parser.add_argument("--pravega-buffer-size", type=int, default=1024, help="Pravega writer buffer size in bytes")
     parser.add_argument("--source-uri", required=True,
                         help="URI of the file to import")
     parser.add_argument("--start-utc", required=True,
@@ -73,12 +77,19 @@ def main():
 
     # Create GStreamer pipeline.
 
+    pipelines = []
+
+    if args.nvvideoconvert:
+        nvvideoconvert_pipeline = f"   ! nvvideoconvert\n"
+    else:
+        nvvideoconvert_pipeline = ""
+
     pipeline_description = (
         f"uridecodebin name=src\n" +
         f"   ! queue\n" +
         f"   ! timestampcvt name=timestampcvt\n" +
         f"   ! videoconvert\n" +
-        f"   ! nvvideoconvert\n" +
+        nvvideoconvert_pipeline +
         f"   ! queue\n" +
         f"   ! x264enc name=x264enc\n"
         f"   ! queue\n" +
@@ -118,7 +129,6 @@ def main():
         pravegasink.set_property("stream", "%s/%s" % (args.pravega_scope, args.pravega_stream))
         # Always write to Pravega immediately regardless of PTS
         pravegasink.set_property("sync", False)
-        pravegasink.set_property("buffer-size", args.pravega_buffer_size)
         pravegasink.set_property("timestamp-mode", "tai")
 
     # Create an event loop and feed GStreamer bus messages to it.
