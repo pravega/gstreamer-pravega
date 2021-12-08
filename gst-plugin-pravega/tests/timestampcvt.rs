@@ -12,6 +12,7 @@ use gst::ClockTime;
 use gst::prelude::*;
 use gstpravega::utils::{pravega_to_clocktime, now_ntp_clocktime};
 use pravega_video::timestamp::PravegaTimestamp;
+use std::convert::TryFrom;
 
 fn init() {
     use std::sync::Once;
@@ -76,7 +77,7 @@ fn test_timestampcvt_start_at_zero() {
     println!("test_timestampcvt_start_at_zero: BEGIN");
     init();
     let filter = gst::ElementFactory::make("timestampcvt", None).unwrap();
-    filter.set_property_from_str("input-timestamp-mode", "relative");
+    filter.set_property_from_str("input-timestamp-mode", "start-at-current-time");
     let mut h = gst_check::Harness::with_element(&filter, Some("sink"), Some("src"));
     h.set_src_caps_str("data");
     h.set_sink_caps_str("data");
@@ -91,6 +92,27 @@ fn test_timestampcvt_start_at_zero() {
     push_and_validate(&mut h, 2000 * gst::MSECOND, Some(t0 + 2000 * gst::MSECOND));
 
     println!("test_timestampcvt_start_at_zero: END");
+}
+
+#[test]
+fn test_timestampcvt_start_fixed_time() {
+    println!("test_timestampcvt_start_fixed_time: BEGIN");
+    init();
+    let start_utc = "2001-02-03T04:00:00.000Z".to_owned();
+    let start_timestamp = PravegaTimestamp::try_from(Some(start_utc.clone())).unwrap();
+    let filter = gst::ElementFactory::make("timestampcvt", None).unwrap();
+    filter.set_property_from_str("input-timestamp-mode", "start-at-fixed-time");
+    filter.set_property_from_str("start-utc", &start_utc[..]);
+    let mut h = gst_check::Harness::with_element(&filter, Some("sink"), Some("src"));
+    h.set_src_caps_str("data");
+    h.set_sink_caps_str("data");
+    h.play();
+
+    let expected_t0 = pravega_to_clocktime(start_timestamp);
+    push_and_validate(&mut h, 10000 * gst::MSECOND, Some(expected_t0));
+    push_and_validate(&mut h, 10100 * gst::MSECOND, Some(expected_t0 + 100 * gst::MSECOND));
+
+    println!("test_timestampcvt_start_fixed_time: END");
 }
 
 fn push_and_validate(harness: &mut gst_check::Harness, input_pts: ClockTime, expected_output_pts: Option<ClockTime>) {

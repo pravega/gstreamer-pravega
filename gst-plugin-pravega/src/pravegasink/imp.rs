@@ -61,7 +61,7 @@ pub enum TimestampMode {
     #[genum(
         name = "(DEPRECATED) Pipeline uses the realtime clock which provides nanoseconds \
                 since the Unix epoch 1970-01-01 00:00:00 UTC, not including leap seconds. \
-                This mode is deprecated. Instead, use the timestampcvt element with input-timestamp-mode=relative.",
+                This mode is deprecated. Instead, use the timestampcvt element with input-timestamp-mode=start-at-current-time.",
         nick = "realtime-clock"
     )]
     RealtimeClock = 0,
@@ -744,7 +744,7 @@ impl BaseSinkImpl for PravegaSink {
             let config = utils::create_client_config(controller, keycloak_file).map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega client config: {}", error])
             })?;
-            gst_debug!(CAT, obj: element, "start: config={:?}", config);
+            gst_trace!(CAT, obj: element, "start: config={:?}", config);
             gst_info!(CAT, obj: element, "start: controller_uri={}:{}", config.controller_uri.domain_name(), config.controller_uri.port());
             gst_info!(CAT, obj: element, "start: is_tls_enabled={}", config.is_tls_enabled);
             gst_info!(CAT, obj: element, "start: is_auth_enabled={}", config.is_auth_enabled);
