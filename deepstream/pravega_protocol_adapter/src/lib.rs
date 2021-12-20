@@ -21,6 +21,7 @@ use std::fmt;
 use std::os::raw::c_char;
 use std::ptr;
 use std::sync::{Arc, Once};
+use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info, trace};
 use tracing_subscriber::fmt::format::FmtSpan;
@@ -134,7 +135,7 @@ impl fmt::Debug for EventWriterPool {
 }
 
 pub struct NvDsPravegaClientHandle {
-    pub client_factory: ClientFactory,
+    pub runtime_handle: Handle,
     pub writer_pool: EventWriterPool,
     pub routing_key_method: RoutingKeyMethod,
 }
@@ -142,8 +143,8 @@ pub struct NvDsPravegaClientHandle {
 impl NvDsPravegaClientHandle {
     pub fn new(client_factory: ClientFactory, routing_key_method: RoutingKeyMethod) -> Self {
         NvDsPravegaClientHandle {
-            client_factory: client_factory.clone(),
-            writer_pool: EventWriterPool::new(client_factory.clone()),
+            runtime_handle: client_factory.runtime_handle(),
+            writer_pool: EventWriterPool::new(client_factory),
             routing_key_method,
         }
     }
@@ -255,13 +256,12 @@ pub extern "C" fn nvds_msgapi_send(h_ptr: *mut NvDsPravegaClientHandle, topic: *
     let payload_string = String::from_utf8_lossy(payload);
     trace!("nvds_msgapi_send: payload_string={}", payload_string);
     let scoped_stream = client_handle.resolve_topic(topic).unwrap();
-    let runtime = client_handle.client_factory.runtime();
     let routing_key_method = client_handle.routing_key_method.clone();
     let routing_key = match routing_key_method {
         RoutingKeyMethod::Fixed { routing_key } => routing_key,
     };
     debug!("nvds_msgapi_send: routing_key={:?}", routing_key);
-    let result = runtime.block_on(async {
+    let result = client_handle.runtime_handle.block_on(async {
         // Get a reference to the writer for this topic from the writer pool.
         let writer = client_handle.writer_pool.get_or_create(scoped_stream).await;
         // Get the mutex for this writer so we can use it.
@@ -312,7 +312,6 @@ pub extern "C" fn nvds_msgapi_send_async(
     // Convert unsafe payload to a vector. This also copies the payload which is critical to avoid memory corruption.
     let event = payload.to_vec();
     let scoped_stream = client_handle.resolve_topic(topic).unwrap();
-    let runtime = client_handle.client_factory.runtime();
     let routing_key_method = client_handle.routing_key_method.clone();
     let routing_key = match routing_key_method {
         RoutingKeyMethod::Fixed { routing_key } => routing_key,
@@ -320,7 +319,7 @@ pub extern "C" fn nvds_msgapi_send_async(
     debug!("nvds_msgapi_send_async: routing_key={:?}", routing_key);
     // Spawn a task in the Tokio runtime that will write the event, wait for it to be durably persisted,
     // and then call the callback function.
-    runtime.spawn(async move {
+    client_handle.runtime_handle.spawn(async move {
         // Get a reference to the writer for this topic from the writer pool.
         let writer = client_handle.writer_pool.get_or_create(scoped_stream).await;
         // Get the mutex for this writer so we can use it.

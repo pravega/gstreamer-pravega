@@ -9,10 +9,10 @@
 //
 
 use clap::Clap;
-use pravega_client::client_factory::ClientFactory;
+use pravega_client::client_factory::ClientFactoryAsync;
 use pravega_video::utils;
 use std::path::Path;
-
+use tokio::runtime::Runtime;
 use tracing_subscriber::fmt::format::FmtSpan;
 #[allow(unused_imports)]
 use tracing::{error, info, info_span, warn, trace, event, Level, span};
@@ -48,12 +48,11 @@ fn main() {
     let static_dir_name = format!("{}/static", opts.resource_dir);
     ensure_extra_files(opts.resource_dir.clone());
 
-    // Let Pravega ClientFactory create the Tokio runtime. It will also be used by Warp.
-
+    // Use the Tokio runtime. It will also be used by Warp.
+    let runtime  = Runtime::new().unwrap();
     let config = utils::create_client_config(opts.pravega_controller_uri, Some(opts.keycloak_service_account_file)).expect("creating config");
-    let client_factory = ClientFactory::new(config);
+    let client_factory = ClientFactoryAsync::new(config, runtime.handle().to_owned());
     let client_factory_db = client_factory.clone();
-    let runtime = client_factory.runtime();
 
     runtime.block_on(async {
         let db = models::new(client_factory_db);
@@ -233,12 +232,13 @@ mod models {
     use chrono::{DateTime, Utc};
     use futures::{StreamExt, future};
     use hyper::body::{Body, Bytes};
-    use pravega_client::client_factory::ClientFactory;
+    use pravega_client::client_factory::ClientFactoryAsync;
     use pravega_client_shared::{Scope, ScopedStream, Stream};
     use pravega_controller_client::paginator::{list_streams_for_tag, list_scopes};
     use pravega_video::{event_serde::{EventReader}, index::IndexSearcher};
     use pravega_video::index::{IndexRecord, IndexRecordReader, SearchMethod, get_index_stream_name};
     use pravega_video::timestamp::PravegaTimestamp;
+    use pravega_video::utils::SyncByteReader;
     use serde_derive::{Deserialize, Serialize};
     use std::convert::Infallible;
     use std::io::{ErrorKind, Read, Seek, SeekFrom};
@@ -246,10 +246,10 @@ mod models {
 
     #[derive(Clone)]
     pub struct Db {
-        pub client_factory: ClientFactory,
+        pub client_factory: ClientFactoryAsync,
     }
 
-    pub fn new(client_factory: ClientFactory) -> Db {
+    pub fn new(client_factory: ClientFactoryAsync) -> Db {
         Db { client_factory }
     }
 
@@ -309,7 +309,7 @@ mod models {
             // Use spawn_blocking to allow Pravega non-async methods to block this thread.
             // See https://stackoverflow.com/a/65452213/5890553.
 
-            let chunks = tokio::task::spawn_blocking(move || {
+            let chunks = self.client_factory.runtime_handle().spawn_blocking(move || {
                 let span = span!(Level::INFO, "get_media_segment: SPAWNED THREAD");
                 span.in_scope(|| {
                     info!("BEGIN");
@@ -318,7 +318,8 @@ mod models {
                         scope: Scope::from(scope_name),
                         stream: Stream::from(stream_name),
                     };
-                    let mut reader = client_factory.create_byte_reader(scoped_stream);
+                    let reader = client_factory.runtime_handle().block_on(client_factory.create_byte_reader(scoped_stream));
+                    let mut reader = SyncByteReader::new(reader, client_factory.runtime_handle());
                     info!("Opened Pravega reader");
 
                     reader.seek(SeekFrom::Start(opts.begin)).unwrap();
@@ -396,7 +397,8 @@ mod models {
                         scope: Scope::from(scope_name),
                         stream: Stream::from(index_stream_name),
                     };
-                    let index_reader = client_factory.create_byte_reader(scoped_stream);
+                    let index_reader = client_factory.runtime_handle().block_on(client_factory.create_byte_reader(scoped_stream));
+                    let index_reader = SyncByteReader::new(index_reader, client_factory.runtime_handle());
                     info!("Opened Pravega reader");
 
                     let mut index_searcher = IndexSearcher::new(index_reader);

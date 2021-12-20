@@ -17,8 +17,8 @@ use pravega_client::client_factory::ClientFactory;
 use pravega_client_config::ClientConfigBuilder;
 use pravega_client_shared::{Scope, Stream, ScopedStream};
 use pravega_video::index::{IndexSearcher, SearchMethod, get_index_stream_name};
-use pravega_video::utils::parse_controller_uri;
 use pravega_video::timestamp::PravegaTimestamp;
+use pravega_video::utils::{parse_controller_uri, SyncByteReader};
 
 /// Tools to manage Pravega streams.
 #[derive(Clap)]
@@ -80,14 +80,14 @@ fn truncate_stream(controller: String, scope_name: String, stream_name: String, 
         scope: scope.clone(),
         stream: stream.clone(),
     };
-    let writer = client_factory.create_byte_writer(scoped_stream);
+    let writer = runtime.block_on(client_factory.create_byte_writer(scoped_stream));
     let index_scoped_stream = ScopedStream {
         scope: scope.clone(),
         stream: index_stream.clone(),
     };
-    let index_writer = client_factory.create_byte_writer(index_scoped_stream.clone());
-    let index_reader = client_factory.create_byte_reader(index_scoped_stream.clone());
-    let mut index_searcher = IndexSearcher::new(index_reader);
+    let index_writer = runtime.block_on(client_factory.create_byte_writer(index_scoped_stream.clone()));
+    let index_reader = runtime.block_on(client_factory.create_byte_reader(index_scoped_stream.clone()));
+    let mut index_searcher = IndexSearcher::new(SyncByteReader::new(index_reader, client_factory.runtime_handle()));
     let index_record = index_searcher.search_timestamp_and_return_index_offset(
         truncate_at_timestamp, SearchMethod::Before).unwrap();
     println!("Truncating prior to {:?}", index_record);

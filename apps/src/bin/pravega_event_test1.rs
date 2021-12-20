@@ -12,7 +12,6 @@ use clap::Clap;
 use log::info;
 
 use std::convert::TryInto;
-use std::io::{Write};
 use uuid::Uuid;
 
 use pravega_client::client_factory::ClientFactory;
@@ -79,10 +78,9 @@ fn main() {
         let num_events: u64 = 3;
 
         if opts.use_byte_stream_writer {
-            let client_factory = client_factory.clone();
             let scoped_stream = scoped_stream.clone();
-            runtime.spawn_blocking(move || {
-                let mut writer = client_factory.create_byte_writer(scoped_stream);
+            let mut writer = client_factory.create_byte_writer(scoped_stream).await;
+            runtime.spawn(async move{
                 for i in 0..num_events {
                     let payload = format!("event {}", i).into_bytes();
                     let payload_length = payload.len();
@@ -92,7 +90,7 @@ fn main() {
                     bytes_to_write[4..8].copy_from_slice(&event_length.to_be_bytes()[..]);
                     bytes_to_write[8..8+payload_length].copy_from_slice(&payload[..]);
                     info!("bytes_to_write={:?}", bytes_to_write);
-                    writer.write_all(&bytes_to_write).unwrap();
+                    writer.write(&bytes_to_write).await.unwrap();
                 }
             });
         } else {
@@ -108,11 +106,11 @@ fn main() {
 
         // create event stream reader
         let reader_group_name = format!("rg{}", uuid::Uuid::new_v4()).to_string();
-        let rg = client_factory.create_reader_group(scope, reader_group_name, scoped_stream).await;
+        let rg = client_factory.create_reader_group(reader_group_name, scoped_stream).await;
         let mut reader = rg.create_reader("r1".to_string()).await;
 
         // read from segment
-        let mut slice = reader.acquire_segment().await.expect("acquire segment");
+        let mut slice = reader.acquire_segment().await.expect("acquire segment").unwrap();
         for i in 0..num_events {
             let read_event = slice.next();
             info!("read_event={:?}", read_event);

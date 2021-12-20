@@ -15,8 +15,9 @@ use std::{thread, time};
 use pravega_client::client_factory::ClientFactory;
 use pravega_client_shared::{Scope, Stream, ScopedStream};
 
+use pravega_video::index::IndexSearcher;
 use pravega_video::utils;
-use pravega_video::index::{IndexSearcher};
+use pravega_video::utils::SyncByteReader;
 
 #[derive(Clap)]
 struct Opts {
@@ -56,8 +57,9 @@ fn main() {
         scope: scope,
         stream: stream,
     };
-    let index_reader = client_factory.create_byte_reader(index_scoped_stream);
-    let mut index_searcher = IndexSearcher::new(index_reader);
+    let runtime = client_factory.runtime();
+    let index_reader = runtime.block_on(client_factory.create_byte_reader(index_scoped_stream));
+    let mut index_searcher = IndexSearcher::new(SyncByteReader::new(index_reader, client_factory.runtime_handle()));
     let check_period = time::Duration::from_secs(opts.check_period);
 
     info!("Checking period is {} seconds",  opts.check_period);
