@@ -163,6 +163,7 @@ enum State {
     Started {
         reader: Arc<Mutex<CountingReader<BufReader<SeekableTake<SyncByteReader>>>>>,
         index_searcher: Arc<Mutex<IndexSearcher<SyncByteReader>>>,
+        // save client facotry to keep the tokio runtime
         client_factory: ClientFactory,
     },
 }
@@ -680,7 +681,6 @@ impl BaseSrcImpl for PravegaSrc {
             *state = State::Started {
                 reader: Arc::new(Mutex::new(counting_reader)),
                 index_searcher: Arc::new(Mutex::new(index_searcher)),
-                // save client facotry to keep the tokio runtime
                 client_factory,
             };
             gst_info!(CAT, obj: element, "start: Started");
