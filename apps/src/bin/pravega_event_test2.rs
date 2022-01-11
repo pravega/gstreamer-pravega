@@ -33,7 +33,7 @@ struct Opts {
     stream: String,
 }
 
-/// Demonstrate ability to write using the byte stream writer and read using the event reader.
+/// Demonstrate ability to write using the event stream writer and read using the event reader.
 fn main() {
     env_logger::init();
     let opts: Opts = Opts::parse();
@@ -96,11 +96,11 @@ fn main() {
     runtime.block_on(async {
         // create event stream reader
         let reader_group_name = format!("rg{}", uuid::Uuid::new_v4()).to_string();
-        let rg = client_factory.create_reader_group(scope, reader_group_name, scoped_stream).await;
+        let rg = client_factory.create_reader_group(reader_group_name, scoped_stream).await;
         let mut reader = rg.create_reader("r1".to_string()).await;
 
         // read from segment
-        let mut slice = reader.acquire_segment().await.expect("acquire segment");
+        let mut slice = reader.acquire_segment().await.expect("acquire segment").unwrap();
         for _ in 0..num_events {
             let read_event = slice.next();
             info!("read_event={:?}", read_event);

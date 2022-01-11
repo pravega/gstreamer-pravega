@@ -28,12 +28,12 @@ use std::u8;
 use once_cell::sync::Lazy;
 
 use pravega_client::client_factory::ClientFactory;
-use pravega_client::byte::ByteReader;
 use pravega_client_shared::{Scope, Stream, StreamConfiguration, ScopedStream, Scaling, ScaleType};
 use pravega_video::event_serde::EventReader;
 use pravega_video::index::{IndexSearcher, get_index_stream_name};
 use pravega_video::timestamp::PravegaTimestamp;
 use pravega_video::utils;
+use pravega_video::utils::{CurrentHead, SyncByteReader};
 use crate::counting_reader::CountingReader;
 use crate::seekable_take::SeekableTake;
 use crate::utils::{clocktime_to_pravega, pravega_to_clocktime};
@@ -161,8 +161,10 @@ impl Default for Settings {
 enum State {
     Stopped,
     Started {
-        reader: Arc<Mutex<CountingReader<BufReader<SeekableTake<ByteReader>>>>>,
-        index_searcher: Arc<Mutex<IndexSearcher<ByteReader>>>,
+        reader: Arc<Mutex<CountingReader<BufReader<SeekableTake<SyncByteReader>>>>>,
+        index_searcher: Arc<Mutex<IndexSearcher<SyncByteReader>>>,
+        // save client facotry to keep the tokio runtime
+        client_factory: ClientFactory,
     },
 }
 
@@ -632,17 +634,18 @@ impl BaseSrcImpl for PravegaSrc {
                 scope: scope.clone(),
                 stream: stream.clone(),
             };
-            let mut reader = client_factory.create_byte_reader(scoped_stream);
+            let reader = runtime.block_on(client_factory.create_byte_reader(scoped_stream));
+            let mut reader = SyncByteReader::new(reader, client_factory.runtime_handle());
             gst_info!(CAT, obj: element, "start: Opened Pravega reader for data");
 
             let index_scoped_stream = ScopedStream {
                 scope: scope.clone(),
                 stream: index_stream.clone(),
             };
-            let index_reader = client_factory.create_byte_reader(index_scoped_stream);
+            let index_reader = runtime.block_on(client_factory.create_byte_reader(index_scoped_stream));
             gst_info!(CAT, obj: element, "start: Opened Pravega reader for index");
 
-            let mut index_searcher = IndexSearcher::new(index_reader);
+            let mut index_searcher = IndexSearcher::new(SyncByteReader::new(index_reader, client_factory.runtime_handle()));
 
             // TODO: Run below based on CAT threshold.
             // gst_debug!(CAT, obj: element, "index_records={:?}", index_searcher.get_index_records());
@@ -678,6 +681,7 @@ impl BaseSrcImpl for PravegaSrc {
             *state = State::Started {
                 reader: Arc::new(Mutex::new(counting_reader)),
                 index_searcher: Arc::new(Mutex::new(index_searcher)),
+                client_factory,
             };
             gst_info!(CAT, obj: element, "start: Started");
             Ok(())

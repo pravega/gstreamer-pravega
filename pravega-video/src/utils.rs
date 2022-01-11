@@ -12,14 +12,43 @@
 
 use std::net::{SocketAddr, AddrParseError};
 use std::time::{Duration, UNIX_EPOCH};
+use std::io::{Read, Seek, SeekFrom};
 
 use pravega_client::byte::ByteReader;
 use pravega_client_config::{ClientConfig, ClientConfigBuilder};
 use pravega_client_config::credentials::Credentials;
 
+use tokio::runtime::Handle;
+
 pub const DEFAULT_PRAVEGA_CONTROLLER_URI: &str = "tcp://127.0.0.1:9090";
 pub const ENV_PRAVEGA_CONTROLLER_URI: &str = "PRAVEGA_CONTROLLER_URI";
 pub const ENV_KEYCLOAK_SERVICE_ACCOUNT_FILE: &str = "KEYCLOAK_SERVICE_ACCOUNT_FILE";
+
+pub struct SyncByteReader {
+    byte_reader: ByteReader,
+    runtime_handle: Handle,
+}
+
+impl SyncByteReader {
+    pub fn new(byte_reader: ByteReader, runtime_handle: Handle) -> Self {
+        Self {
+            byte_reader,
+            runtime_handle,
+        }
+    }
+}
+
+impl Read for SyncByteReader {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.runtime_handle.block_on(self.byte_reader.read(buf))
+    }
+}
+
+impl Seek for SyncByteReader {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        self.runtime_handle.block_on(self.byte_reader.seek(pos))
+    }
+}
 
 /// A trait that allows retrieval of the current head of a Pravega byte stream.
 /// The default implementation returns 0 to indicate that no data has been truncated.
@@ -29,9 +58,9 @@ pub trait CurrentHead {
     }
 }
 
-impl CurrentHead for ByteReader {
+impl CurrentHead for SyncByteReader {
     fn current_head(&self) -> std::io::Result<u64> {
-        self.current_head()
+        self.runtime_handle.block_on(self.byte_reader.current_head())
     }
 }
 

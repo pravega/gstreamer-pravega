@@ -21,13 +21,13 @@ anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = "3.0.0-beta.2"
 futures = "0.3"
-futures-util = "0.3"
+futures-util = "0.3.18"
 handlebars = "3"
 hyper = "0.14"
-pravega-client = { git = "https://github.com/pravega/pravega-client-rust", rev = "08338688fbea790f9bc947cd8cfb9a90f13b6498" }
-pravega-client-config = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-config", rev = "08338688fbea790f9bc947cd8cfb9a90f13b6498" }
-pravega-client-shared = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-shared", rev = "08338688fbea790f9bc947cd8cfb9a90f13b6498" }
-pravega-controller-client = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-controller-client", rev = "08338688fbea790f9bc947cd8cfb9a90f13b6498" }
+pravega-client = { git = "https://github.com/pravega/pravega-client-rust", rev = "17deb48bbdb9b0180e93942d5e0e9218b553f77b" }
+pravega-client-config = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-config", rev = "17deb48bbdb9b0180e93942d5e0e9218b553f77b" }
+pravega-client-shared = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-client-shared", rev = "17deb48bbdb9b0180e93942d5e0e9218b553f77b" }
+pravega-controller-client = { git = "https://github.com/pravega/pravega-client-rust", package = "pravega-controller-client", rev = "17deb48bbdb9b0180e93942d5e0e9218b553f77b" }
 pravega-video = { path = "../pravega-video" }
 serde = "1"
 serde_derive = "1"

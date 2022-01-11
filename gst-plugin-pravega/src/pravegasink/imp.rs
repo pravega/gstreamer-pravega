@@ -28,13 +28,16 @@ use std::sync::mpsc::{self, Sender, Receiver, RecvTimeoutError};
 
 use once_cell::sync::Lazy;
 
-use pravega_client::client_factory::ClientFactory;
-use pravega_client::byte::{ByteWriter, ByteReader};
+use pravega_client::client_factory::ClientFactoryAsync;
+use pravega_client::byte::ByteWriter;
 use pravega_client_shared::{Scope, Stream, StreamConfiguration, ScopedStream, Scaling, ScaleType};
 use pravega_video::event_serde::{EventWithHeader, EventWriter};
 use pravega_video::index::{IndexRecord, IndexRecordWriter, IndexSearcher, SearchMethod, get_index_stream_name};
 use pravega_video::timestamp::{PravegaTimestamp, SECOND};
 use pravega_video::utils;
+use pravega_video::utils::SyncByteReader;
+
+use tokio::runtime::Runtime;
 
 use crate::counting_writer::CountingWriter;
 use crate::numeric::u64_to_i64_saturating_sub;
@@ -134,18 +137,18 @@ struct RetentionMaintainer {
     element: super::PravegaSink,
     interval_seconds: u64,
     retention_policy: RetentionPolicy,
-    factory: ClientFactory,
-    index_searcher: IndexSearcher<ByteReader>,
+    factory: ClientFactoryAsync,
+    index_searcher: IndexSearcher<SyncByteReader>,
     index_writer: ByteWriter,
     data_writer: ByteWriter,
 }
 
 impl RetentionMaintainer {
-    fn new(element: super::PravegaSink, interval_seconds: u64, retention_policy: RetentionPolicy, factory: ClientFactory, index_scoped_stream: ScopedStream, data_scoped_stream: ScopedStream) -> Self {
-        let index_reader = factory.create_byte_reader(index_scoped_stream.clone());
-        let index_writer = factory.create_byte_writer(index_scoped_stream);
-        let data_writer = factory.create_byte_writer(data_scoped_stream);
-        let index_searcher = IndexSearcher::new(index_reader);
+    fn new(element: super::PravegaSink, interval_seconds: u64, retention_policy: RetentionPolicy, factory: ClientFactoryAsync, index_scoped_stream: ScopedStream, data_scoped_stream: ScopedStream) -> Self {
+        let index_reader = factory.runtime_handle().block_on(factory.create_byte_reader(index_scoped_stream.clone()));
+        let index_writer = factory.runtime_handle().block_on(factory.create_byte_writer(index_scoped_stream));
+        let data_writer = factory.runtime_handle().block_on(factory.create_byte_writer(data_scoped_stream));
+        let index_searcher = IndexSearcher::new(SyncByteReader::new(index_reader, factory.runtime_handle()));
         Self {
             element,
             interval_seconds,
@@ -183,7 +186,7 @@ impl RetentionMaintainer {
 
                     let search_result = self.index_searcher.search_timestamp_and_return_index_offset(truncate_at_timestamp, SearchMethod::Before);
                     if let Ok(result) = search_result {
-                        let runtime = self.factory.runtime();
+                        let runtime = self.factory.runtime_handle();
                         runtime.block_on(self.index_writer.truncate_data_before(result.1 as i64)).unwrap();
                         gst_info!(CAT, obj: &self.element, "Index truncated at offset {}", result.1);
                         runtime.block_on(self.data_writer.truncate_data_before(result.0.offset as i64)).unwrap();
@@ -196,7 +199,7 @@ impl RetentionMaintainer {
 
                     let search_result = self.index_searcher.search_size_and_return_index_offset(bytes, SearchMethod::Before);
                     if let Ok(result) = search_result {
-                        let runtime = self.factory.runtime();
+                        let runtime = self.factory.runtime_handle();
                         runtime.block_on(self.index_writer.truncate_data_before(result.1 as i64)).unwrap();
                         gst_info!(CAT, obj: &self.element, "Index truncated at offset {}", result.1);
                         runtime.block_on(self.data_writer.truncate_data_before(result.0.offset as i64)).unwrap();
@@ -267,9 +270,9 @@ impl Default for Settings {
 enum State {
     Stopped,
     Started {
-        client_factory: ClientFactory,
+        runtime: Runtime,
         writer: CountingWriter<BufWriter<SeekableByteWriter>>,
-        index_writer: ByteWriter,
+        index_writer: SeekableByteWriter,
         // First received PTS that is not None.
         first_valid_time: PravegaTimestamp,
         // PTS of last written index record.
@@ -749,9 +752,9 @@ impl BaseSinkImpl for PravegaSink {
             gst_info!(CAT, obj: element, "start: is_tls_enabled={}", config.is_tls_enabled);
             gst_info!(CAT, obj: element, "start: is_auth_enabled={}", config.is_auth_enabled);
 
-            let client_factory = ClientFactory::new(config);
+            let runtime = Runtime::new().unwrap();
+            let client_factory = ClientFactoryAsync::new(config, runtime.handle().to_owned());
             let controller_client = client_factory.controller_client();
-            let runtime = client_factory.runtime();
 
             // Create scope.
             gst_info!(CAT, obj: element, "start: allow_create_scope={}", settings.allow_create_scope);
@@ -803,19 +806,20 @@ impl BaseSinkImpl for PravegaSink {
                 scope: scope.clone(),
                 stream: stream.clone(),
             };
-            let mut writer = client_factory.create_byte_writer(scoped_stream.clone());
+            let writer = runtime.block_on(client_factory.create_byte_writer(scoped_stream.clone()));
+            let mut seekable_writer = SeekableByteWriter::new(writer, runtime.handle().to_owned());
             gst_info!(CAT, obj: element, "start: Opened Pravega writer for data");
-            writer.seek_to_tail();
+            seekable_writer.seek_to_tail();
 
             let index_scoped_stream = ScopedStream {
                 scope: scope.clone(),
                 stream: index_stream.clone(),
             };
-            let mut index_writer = client_factory.create_byte_writer(index_scoped_stream.clone());
+            let index_writer = runtime.block_on(client_factory.create_byte_writer(index_scoped_stream.clone()));
+            let mut index_writer = SeekableByteWriter::new(index_writer, runtime.handle().to_owned());
             gst_info!(CAT, obj: element, "start: Opened Pravega writer for index");
             index_writer.seek_to_tail();
 
-            let seekable_writer = SeekableByteWriter::new(writer).unwrap();
             gst_info!(CAT, obj: element, "start: Buffer size is {}", settings.buffer_size);
             let buf_writer = BufWriter::with_capacity(settings.buffer_size, seekable_writer);
             let counting_writer = CountingWriter::new(buf_writer).unwrap();
@@ -831,7 +835,7 @@ impl BaseSinkImpl for PravegaSink {
             let retention_thread_handle = retention_maintainer.run(retention_thread_stop_rx);
 
             *state = State::Started {
-                client_factory,
+                runtime,
                 writer: counting_writer,
                 index_writer,
                 first_valid_time: PravegaTimestamp::NONE,
@@ -1125,25 +1129,25 @@ impl BaseSinkImpl for PravegaSink {
             };
 
             let mut state = self.state.lock().unwrap();
-            let (writer,
+            let (runtime,
+                writer,
                 index_writer,
-                client_factory,
                 final_timestamp,
                 final_offset,
                 retention_thread_stop_tx,
                 retention_thread_handle) = match *state {
                 State::Started {
+                    ref runtime,
                     ref mut writer,
                     ref mut index_writer,
-                    ref mut client_factory,
                     ref mut final_timestamp,
                     ref mut final_offset,
                     ref mut retention_thread_stop_tx,
                     ref mut retention_thread_handle,
                     ..
-                } => (writer,
+                } => (runtime,
+                    writer,
                     index_writer,
-                    client_factory,
                     final_timestamp,
                     final_offset,
                     retention_thread_stop_tx,
@@ -1182,10 +1186,10 @@ impl BaseSinkImpl for PravegaSink {
             if seal {
                 gst_info!(CAT, obj: element, "stop: Sealing streams");
                 let writer = writer.get_mut().get_mut().get_mut();
-                client_factory.runtime().block_on(writer.seal()).map_err(|error| {
+                runtime.block_on(writer.seal()).map_err(|error| {
                     gst::error_msg!(gst::ResourceError::Write, ["Failed to seal Pravega data stream: {}", error])
                 })?;
-                client_factory.runtime().block_on(index_writer.seal()).map_err(|error| {
+                index_writer.seal().map_err(|error| {
                     gst::error_msg!(gst::ResourceError::Write, ["Failed to seal Pravega index stream: {}", error])
                 })?;
                 gst_info!(CAT, obj: element, "stop: Streams sealed");
