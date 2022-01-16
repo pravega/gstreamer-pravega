@@ -10,6 +10,7 @@
 
 #![allow(dead_code)]
 
+mod camera_recorder_tests;
 mod extreme_tests;
 mod failure_recovery_tests;
 mod file_import_tests;
