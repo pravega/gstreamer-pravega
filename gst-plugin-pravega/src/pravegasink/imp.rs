@@ -1148,15 +1148,12 @@ impl BaseSinkImpl for PravegaSink {
             if let Some(seconds) = simulate_failure_after_sec {
                 if !first_valid_time.is_none() {
                     if (timestamp - first_valid_time.to_owned()).nanoseconds().unwrap() > (seconds as i32 * SECOND).nanoseconds().unwrap() {
-                        // TODO: close pravega writers
-                        //drop(writer.get_mut().get_mut().get_mut());
-                        //drop(index_writer);
                         gst::element_error!(element, gst::CoreError::Failed, ["Simulate pravegasink failure"]);
                         return Err(gst::FlowError::Error);
                     }
                 }
             }
-            
+
             Ok(gst::FlowSuccess::Ok)
         })();
         gst_trace!(CAT, obj: element, "render: END: result={:?}", result);
@@ -1178,7 +1175,8 @@ impl BaseSinkImpl for PravegaSink {
                 final_timestamp,
                 final_offset,
                 retention_thread_stop_tx,
-                retention_thread_handle) = match *state {
+                retention_thread_handle,
+                simulate_failure_after_sec) = match *state {
                 State::Started {
                     ref runtime,
                     ref mut writer,
@@ -1187,6 +1185,7 @@ impl BaseSinkImpl for PravegaSink {
                     ref mut final_offset,
                     ref mut retention_thread_stop_tx,
                     ref mut retention_thread_handle,
+                    simulate_failure_after_sec,
                     ..
                 } => (runtime,
                     writer,
@@ -1194,7 +1193,8 @@ impl BaseSinkImpl for PravegaSink {
                     final_timestamp,
                     final_offset,
                     retention_thread_stop_tx,
-                    retention_thread_handle),
+                    retention_thread_handle,
+                    simulate_failure_after_sec),
                 State::Stopped => {
                     return Err(gst::error_msg!(
                         gst::ResourceError::Settings,
@@ -1206,6 +1206,12 @@ impl BaseSinkImpl for PravegaSink {
             writer.flush().map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Write, ["Failed to flush Pravega data stream: {}", error])
             })?;
+
+            if let Some(_) = simulate_failure_after_sec {
+                gst_info!(CAT, obj: element, "Simulate pravegasink failure");
+                *state = State::Stopped;
+                return Ok(());
+            }
 
             // Write final index record.
             // The timestamp will be the the buffer timestamp + duration of the final buffer.
