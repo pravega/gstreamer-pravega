@@ -56,6 +56,7 @@ const PROPERTY_NAME_RETENTION_TYPE: &str = "retention-type";
 const PROPERTY_NAME_RETENTION_DAYS: &str = "retention-days";
 const PROPERTY_NAME_RETENTION_BYTES: &str = "retention-bytes";
 const PROPERTY_NAME_RETENTION_MAINTENANCE_INTERVAL_SECONDS: &str = "retention-maintenance-interval-seconds";
+const PROPERTY_NAME_SIMULATE_FAILURE_AFTER_SEC: &str = "simulate-failure-after-sec";
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy, glib::GEnum)]
 #[repr(u32)]
@@ -244,6 +245,7 @@ struct Settings {
     retention_days: Option<f64>,
     retention_bytes: Option<u64>,
     retention_maintenance_interval_seconds: u64,
+    simulate_failure_after_sec: Option<u64>,
 }
 
 impl Default for Settings {
@@ -263,6 +265,7 @@ impl Default for Settings {
             retention_days: None,
             retention_bytes: None,
             retention_maintenance_interval_seconds: DEFAULT_RETENTION_MAINTENANCE_INTERVAL_SECONDS,
+            simulate_failure_after_sec: None,
         }
     }
 }
@@ -284,6 +287,7 @@ enum State {
         buffers_written: u64,
         retention_thread_stop_tx: Sender<()>,
         retention_thread_handle: Option<JoinHandle<()>>,
+        simulate_failure_after_sec: Option<u64>,
     },
 }
 
@@ -481,6 +485,15 @@ impl ObjectImpl for PravegaSink {
                 DEFAULT_RETENTION_MAINTENANCE_INTERVAL_SECONDS,
                 glib::ParamFlags::WRITABLE,
             ),
+            glib::ParamSpec::new_uint64(
+                PROPERTY_NAME_SIMULATE_FAILURE_AFTER_SEC,
+                "Simulate failure after seconds",
+                "Simulate raw data writting failure after successful specfied seconds of index wrtting",
+                0,
+                std::u64::MAX,
+                0,
+                glib::ParamFlags::WRITABLE,
+            ),
         ]});
         PROPERTIES.as_ref()
     }
@@ -664,7 +677,20 @@ impl ObjectImpl for PravegaSink {
                 if let Err(err) = res {
                     gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_RETENTION_MAINTENANCE_INTERVAL_SECONDS, err);
                 }
-            },       
+            },
+            PROPERTY_NAME_SIMULATE_FAILURE_AFTER_SEC => {
+                let res: Result<(), glib::Error> = match value.get::<u64>() {
+                    Ok(seconds) => {
+                        let mut settings = self.settings.lock().unwrap();
+                        settings.simulate_failure_after_sec = Some(seconds);
+                        Ok(())
+                    },
+                    Err(_) => unreachable!("type checked upstream"),
+                };
+                if let Err(err) = res {
+                    gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_SIMULATE_FAILURE_AFTER_SEC, err);
+                }
+            },
         _ => unimplemented!(),
         };
     }
@@ -744,6 +770,7 @@ impl BaseSinkImpl for PravegaSink {
             gst_info!(CAT, obj: element, "start: controller={}", controller);
             let keycloak_file = settings.keycloak_file.clone();
             gst_info!(CAT, obj: element, "start: keycloak_file={:?}", keycloak_file);
+            gst_info!(CAT, obj: element, "start: simulate_failure_after_sec={:?}", settings.simulate_failure_after_sec);
             let config = utils::create_client_config(controller, keycloak_file).map_err(|error| {
                 gst::error_msg!(gst::ResourceError::Settings, ["Failed to create Pravega client config: {}", error])
             })?;
@@ -845,6 +872,7 @@ impl BaseSinkImpl for PravegaSink {
                 buffers_written: 0,
                 retention_thread_stop_tx,
                 retention_thread_handle,
+                simulate_failure_after_sec: settings.simulate_failure_after_sec,
             };
             gst_info!(CAT, obj: element, "start: Started");
             Ok(())
@@ -867,7 +895,8 @@ impl BaseSinkImpl for PravegaSink {
                 last_index_time,
                 final_timestamp,
                 final_offset,
-                buffers_written) = match *state {
+                buffers_written,
+                simulate_failure_after_sec) = match *state {
                 State::Started {
                     ref mut writer,
                     ref mut index_writer,
@@ -876,6 +905,7 @@ impl BaseSinkImpl for PravegaSink {
                     ref mut final_timestamp,
                     ref mut final_offset,
                     ref mut buffers_written,
+                    simulate_failure_after_sec,
                     ..
                 } => (writer,
                     index_writer,
@@ -883,7 +913,8 @@ impl BaseSinkImpl for PravegaSink {
                     last_index_time,
                     final_timestamp,
                     final_offset,
-                    buffers_written),
+                    buffers_written,
+                    simulate_failure_after_sec),
                 State::Stopped => {
                     gst::element_error!(element, gst::CoreError::Failed, ["Not started yet"]);
                     return Err(gst::FlowError::Error);
@@ -1114,6 +1145,18 @@ impl BaseSinkImpl for PravegaSink {
             }
             *final_offset = Some(writer_offset_end);
 
+            if let Some(seconds) = simulate_failure_after_sec {
+                if !first_valid_time.is_none() {
+                    if (timestamp - first_valid_time.to_owned()).nanoseconds().unwrap() > (seconds as i32 * SECOND).nanoseconds().unwrap() {
+                        // TODO: close pravega writers
+                        //drop(writer.get_mut().get_mut().get_mut());
+                        //drop(index_writer);
+                        gst::element_error!(element, gst::CoreError::Failed, ["Simulate pravegasink failure"]);
+                        return Err(gst::FlowError::Error);
+                    }
+                }
+            }
+            
             Ok(gst::FlowSuccess::Ok)
         })();
         gst_trace!(CAT, obj: element, "render: END: result={:?}", result);
