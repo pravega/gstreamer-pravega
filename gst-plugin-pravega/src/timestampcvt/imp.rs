@@ -220,7 +220,7 @@ impl TimestampCvt {
                     // Adjust DTS if it exists by the nominal PTS offset.
                     let input_dts = buffer.dts();
                     if input_dts.is_some() && state.pts_offset_nanos.is_some() {
-                        let output_dts = ClockTime::from_nseconds((input_dts.nanoseconds().unwrap() as i128 + state.pts_offset_nanos.unwrap()) as u64)
+                        let output_dts = ClockTime::from_nseconds((input_dts.nanoseconds().unwrap() as i128 + state.pts_offset_nanos.unwrap()) as u64);
                         gst_log!(CAT, obj: pad, "Input DTS {}, Output DTS {:?}", input_dts, output_dts);
                         buffer_ref.set_dts(output_dts);
                     }
