@@ -24,7 +24,7 @@ pub const ELEMENT_NAME: &str = "timestampcvt";
 const ELEMENT_CLASS_NAME: &str = "TimestampCvt";
 const ELEMENT_LONG_NAME: &str = "Convert timestamps";
 const ELEMENT_DESCRIPTION: &str = "\
-This element converts PTS timestamps for buffers.\
+This element converts PTS and DTS timestamps for buffers.\
 Use this for pipelines that will eventually write to pravegasink (timestamp-mode=tai). \
 This element drops any buffers without PTS. \
 Additionally, any PTS values that decrease will have their PTS corrected.";
@@ -214,8 +214,17 @@ impl TimestampCvt {
                     state.prev_output_pts = output_pts;
                     let output_pts_clocktime = pravega_to_clocktime(output_pts);
                     let buffer_ref = buffer.make_mut();
-                    gst_log!(CAT, obj: pad, "Input PTS {}, Output PTS {:?}", input_pts, output_pts);
+                    gst_log!(CAT, obj: pad, "Input PTS {}, Output PTS {:?}", input_pts, output_pts);                    
                     buffer_ref.set_pts(output_pts_clocktime);
+
+                    // Adjust DTS if it exists by the nominal PTS offset.
+                    let input_dts = buffer.dts();
+                    if input_dts.is_some() && state.pts_offset_nanos.is_some() {
+                        let output_dts = ClockTime::from_nseconds((input_dts.nanoseconds().unwrap() as i128 + state.pts_offset_nanos.unwrap()) as u64)
+                        gst_log!(CAT, obj: pad, "Input DTS {}, Output DTS {:?}", input_dts, output_dts);
+                        buffer_ref.set_dts(output_dts);
+                    }
+
                     self.srcpad.push(buffer)
                 }
             } else {
