@@ -76,7 +76,7 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 RUN set -eux; \
     rustArch="x86_64-unknown-linux-gnu"; \
     url="https://static.rust-lang.org/rustup/archive/1.23.1/${rustArch}/rustup-init"; \
-    wget "$url"
+    wget --ca-directory=/usr/local/share/ca-certificates/ "$url"
 
 RUN chmod +x rustup-init; \
     ./rustup-init -y --no-modify-path --default-toolchain $RUST_VERSION --default-host ${rustArch}; \
