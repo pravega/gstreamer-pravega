@@ -73,6 +73,8 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     PATH=/usr/local/cargo/bin:$PATH \
     RUST_VERSION=1.54.0
 
+RUN update-ca-certificates
+
 RUN set -eux; \
     rustArch="x86_64-unknown-linux-gnu"; \
     url="https://static.rust-lang.org/rustup/archive/1.23.1/${rustArch}/rustup-init"; \
