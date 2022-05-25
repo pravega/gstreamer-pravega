@@ -74,6 +74,8 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     PATH=/usr/local/cargo/bin:$PATH \
     RUST_VERSION=1.54.0
 
+RUN mv /usr/local/bin/openssl /root/backup/openssl/bin/openssl
+RUN mv /usr/local/ssl /root/backup/openssl/
 RUN update-ca-certificates
 
 RUN set -eux; \
