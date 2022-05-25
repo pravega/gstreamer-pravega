@@ -21,6 +21,7 @@ RUN ["/install-dependencies"]
 
 COPY docker/ca-certificates /usr/local/share/ca-certificates/
 RUN update-ca-certificates
+RUN ln -s /etc/ssl/certs/ca-certificates.crt  /usr/lib/ssl/cert.pem
 
 ARG GSTREAMER_REPOSITORY=https://gitlab.freedesktop.org/nazar-pc/gstreamer.git
 ARG GSTREAMER_CHECKOUT=master
@@ -74,6 +75,7 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     RUST_VERSION=1.54.0
 
 RUN update-ca-certificates
+RUN ln -s /etc/ssl/certs/ca-certificates.crt  /usr/lib/ssl/cert.pem
 
 RUN set -eux; \
     rustArch="x86_64-unknown-linux-gnu"; \
