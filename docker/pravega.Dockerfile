@@ -74,9 +74,7 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     PATH=/usr/local/cargo/bin:$PATH \
     RUST_VERSION=1.54.0
 
-RUN ls -l /usr/lib/ssl/cert.pem
-
-RUN mv /usr/local/ssl /root/backup/openssl/
+RUN ls -l /etc/ssl/certs/ca-certificates.crt
 RUN update-ca-certificates
 
 RUN set -eux; \
