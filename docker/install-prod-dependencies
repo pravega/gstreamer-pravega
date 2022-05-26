@@ -29,7 +29,7 @@ apt-get install -y --no-install-recommends \
   libgtk-3-0 \
   liba52-0.7.4 \
   libaa1 \
-  libaom0 \
+  libaom3 \
   libass9 \
   libavcodec58 \
   libavfilter7 \
