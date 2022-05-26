@@ -53,7 +53,7 @@ apt-get install -y --no-install-recommends \
   libfaad2 \
   libfdk-aac2 \
   libflite1 \
-  libfluidsynth2 \
+  libfluidsynth3 \
   libgbm1 \
   libgcrypt20 \
   libgl1 \
@@ -62,7 +62,7 @@ apt-get install -y --no-install-recommends \
   libglib2.0-0 \
   libgme0 \
   libgmp10 \
-  libgsl25 \
+  libgsl27 \
   libgsm1 \
   libgudev-1.0-0 \
   libharfbuzz-icu0 \
@@ -99,7 +99,7 @@ apt-get install -y --no-install-recommends \
   libspeex1 \
   libsrt1.4-openssl \
   libsrtp2-1 \
-  libssl1.1 \
+  libssl3 \
   libtag1v5 \
   libtheora0 \
   libtwolame0 \
@@ -109,20 +109,20 @@ apt-get install -y --no-install-recommends \
   libvo-aacenc0 \
   libvo-amrwbenc0 \
   libvorbis0a \
-  libvpx6 \
+  libvpx7 \
   libvulkan1 \
   libwavpack1 \
   libwayland-client0 \
   libwayland-egl1 \
   libwayland-server0 \
-  libwebp6 \
+  libwebp7 \
   libwebpdemux2 \
   libwebpmux3 \
   libwebrtc-audio-processing1 \
   libwildmidi2 \
   libwoff1 \
-  libx264-160 \
-  libx265-192 \
+  libx264-163 \
+  libx265-199 \
   libxkbcommon0 \
   libxslt1.1 \
   libzbar0 \
