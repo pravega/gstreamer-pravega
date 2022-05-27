@@ -20,7 +20,7 @@ fn init() {
 
     INIT.call_once(|| {
         gst::init().unwrap();
-        gstpravega::plugin_register_static().unwrap();
+        //gstpravega::plugin_register_static().unwrap();
     });
 }
 
