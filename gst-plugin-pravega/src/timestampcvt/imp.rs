@@ -151,7 +151,7 @@ impl TimestampCvt {
         let pts_correction_delta = 15 * MSECOND;
 
         let input_pts = buffer.pts();
-        let input_dts = buffer.dts();
+        // let input_dts = buffer.dts();
         if input_pts.is_some() {
             let input_nanos = input_pts.nanoseconds().unwrap();
             // corrected_input_pts will be the TAI timestamp of the input buffer.
