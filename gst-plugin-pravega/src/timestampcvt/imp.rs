@@ -215,7 +215,7 @@ impl TimestampCvt {
                     state.prev_output_pts = output_pts;
                     let output_pts_clocktime = pravega_to_clocktime(output_pts);
                     let buffer_ref = buffer.make_mut();
-                    gst_log!(CAT, obj: pad, "Input PTS {}, Output PTS {:?}", input_pts, output_pts);                    
+                    gst_log!(CAT, obj: pad, "Input PTS {}, Output PTS {:?}", input_pts, output_pts);
                     buffer_ref.set_pts(output_pts_clocktime);
 
                     // Adjust DTS if it exists by the nominal PTS offset.

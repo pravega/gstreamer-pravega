@@ -17,6 +17,8 @@ FROM ${FROM_IMAGE} as builder-base
 COPY docker/ca-certificates /usr/local/share/ca-certificates/
 RUN update-ca-certificates
 
+RUN apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub
+
 # Install Python Bindings for DeepStream.
 
 RUN apt-get update && \
