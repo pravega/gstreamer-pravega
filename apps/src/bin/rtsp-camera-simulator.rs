@@ -213,14 +213,13 @@ mod media_factory {
             // This creates the GStreamer pipeline that will generate the video to send to the RTSP client.
             fn create_element(
                 &self,
-                _factory: &Self::Type,
                 url: &gst_rtsp::RTSPUrl,
             ) -> Option<gst::Element> {
 
                 let opts: Opts = Opts::parse();
 
                 // Parse the URL to get parameters used to build the pipeline.
-                let url = url.request_uri().unwrap().to_string();
+                let url = url.request_uri().to_string();
                 let url = Url::parse(&url[..]).unwrap();
                 info!("create_element: Received request: url={:?}", url);
                 let query_map: HashMap<_, _> = url.query_pairs().into_owned().collect();
@@ -317,7 +316,7 @@ mod media_factory {
 
     impl Default for Factory {
         fn default() -> Factory {
-            glib::Object::new(&[]).expect("Failed to create factory")
+            glib::Object::new::<T>(&[]).expect("Failed to create factory")
         }
     }
 }

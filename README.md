@@ -898,11 +898,9 @@ See [Failure Recovery](documentation/src/docs/failure-recovery.md).
 
 # How to Update Dependencies
 
+This will update all packages in `Cargo.lock`. Use with caution. See [cargo update](https://doc.rust-lang.org/cargo/commands/cargo-update.html)
 ```bash
-pushd gst-plugin-pravega ; cargo update ; popd
-pushd pravega-video ; cargo update ; popd
-pushd pravega-video-server ; cargo update ; popd
-pushd apps ; cargo update ; popd
+cargo update
 ```
 
 # References

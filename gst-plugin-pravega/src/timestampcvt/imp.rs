@@ -13,7 +13,7 @@ use gst::ClockTime;
 use gst::prelude::*;
 use gst::subclass::prelude::*;
 #[allow(unused_imports)]
-use gst::{gst_debug, gst_error, gst_warning, gst_info, gst_log, gst_trace};
+use gst::{debug, error, warning, info, log, trace};
 use once_cell::sync::Lazy;
 use pravega_video::timestamp::{PravegaTimestamp, MSECOND};
 use std::convert::TryFrom;
@@ -35,11 +35,11 @@ const PROPERTY_NAME_INPUT_TIMESTAMP_MODE: &str = "input-timestamp-mode";
 const PROPERTY_NAME_START_UTC: &str = "start-utc";
 const NICK_START_AT_CURRENT_TIME: &str = "start-at-current-time";
 
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy, glib::GEnum)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy, glib::Enum)]
 #[repr(u32)]
-#[genum(type_name = "GstInputTimestampMode")]
+#[enum_type(name = "GstInputTimestampMode")]
 pub enum InputTimestampMode {
-    #[genum(
+    #[enum_type(
         name = "Input buffer timestamps are nanoseconds \
                 since the NTP epoch 1900-01-01 00:00:00 UTC, not including leap seconds. \
                 Use this for buffers from rtspsrc (ntp-sync=true ntp-time-source=running-time) \
@@ -48,7 +48,7 @@ pub enum InputTimestampMode {
     )]
     Ntp = 0,
 
-    #[genum(
+    #[enum_type(
         name = "Input buffer timestamps are nanoseconds \
                 since 1970-01-01 00:00:00 TAI International Atomic Time, including leap seconds. \
                 Use this for buffers from pravegasrc.",
@@ -56,14 +56,14 @@ pub enum InputTimestampMode {
     )]
     Tai = 1,
 
-    #[genum(
+    #[enum_type(
         name = "The first buffer corresponds with the current time. \
                 All output buffer timestamps will be offset by the same amount.",
         nick = "start-at-current-time"
     )]
     StartAtCurrentTime = 2,
 
-    #[genum(
+    #[enum_type(
         name = "The first buffer corresponds to the fixed time specified in start-utc. \
                 All buffer timestamps will be offset by the same amount.",
         nick = "start-at-fixed-time"
@@ -91,7 +91,7 @@ impl Default for Settings {
 
 #[derive(Debug)]
 struct StartedState {
-    prev_input_pts: ClockTime,
+    prev_input_pts: Option<ClockTime>,
     prev_output_pts: PravegaTimestamp,
     pts_offset_nanos: Option<i128>,
 }
@@ -106,7 +106,7 @@ impl Default for State {
     fn default() -> State {
         State::Started {
             state: StartedState {
-                prev_input_pts: ClockTime::none(),
+                prev_input_pts: ClockTime::NONE,
                 prev_output_pts: PravegaTimestamp::none(),
                 pts_offset_nanos: None,
             }
@@ -133,7 +133,6 @@ impl TimestampCvt {
     fn sink_chain(
         &self,
         pad: &gst::Pad,
-        _element: &super::TimestampCvt,
         mut buffer: gst::Buffer,
     ) -> Result<gst::FlowSuccess, gst::FlowError> {
 
@@ -152,134 +151,140 @@ impl TimestampCvt {
 
         let input_pts = buffer.pts();
         let input_dts = buffer.dts();
-        if input_pts.is_some() {
-            let input_nanos = input_pts.nanoseconds().unwrap();
-            // corrected_input_pts will be the TAI timestamp of the input buffer.
-            let corrected_input_pts = match input_timestamp_mode {
-                InputTimestampMode::Tai => {
-                    input_pts
-                },
-                InputTimestampMode::Ntp => {
-                    pravega_to_clocktime(PravegaTimestamp::from_ntp_nanoseconds(input_pts.nanoseconds()))
-                },
-                InputTimestampMode::StartAtCurrentTime => {
-                    if state.pts_offset_nanos.is_none() {
-                        let now = PravegaTimestamp::now();
-                        state.pts_offset_nanos = Some(now.nanoseconds().unwrap() as i128 - input_nanos as i128);
-                        gst_info!(CAT, obj: pad,
-                            "Input buffer PTS timestamps will be adjusted by {} nanoseconds to synchronize with the current system time.",
-                            state.pts_offset_nanos.unwrap());
+        match input_pts {
+            Some(input_pts_val) => {
+                let input_nanos = input_pts_val.nseconds();
+                // corrected_input_pts will be the TAI timestamp of the input buffer.
+                let corrected_input_pts = match input_timestamp_mode {
+                    InputTimestampMode::Tai => {
+                        input_pts_val
+                    },
+                    InputTimestampMode::Ntp => {
+                        pravega_to_clocktime(PravegaTimestamp::from_ntp_nanoseconds(Some(input_nanos)))
+                    },
+                    InputTimestampMode::StartAtCurrentTime => {
+                        if state.pts_offset_nanos.is_none() {
+                            let now = PravegaTimestamp::now();
+                            state.pts_offset_nanos = Some(now.nanoseconds().unwrap() as i128 - input_nanos as i128);
+                            info!(CAT, obj: pad,
+                                "Input buffer PTS timestamps will be adjusted by {} nanoseconds to synchronize with the current system time.",
+                                state.pts_offset_nanos.unwrap());
+                            }
+                        ClockTime::from_nseconds((input_nanos as i128 + state.pts_offset_nanos.unwrap()) as u64)
+                    },
+                    InputTimestampMode::StartAtFixedTime => {
+                        if state.pts_offset_nanos.is_none() {
+                            state.pts_offset_nanos = Some(start_timestamp as i128 - input_nanos as i128);
+                            info!(CAT, obj: pad,
+                                "Input buffer PTS timestamps will be adjusted by {} nanoseconds.",
+                                state.pts_offset_nanos.unwrap());
+                            }
+                        ClockTime::from_nseconds((input_nanos as i128 + state.pts_offset_nanos.unwrap()) as u64)
+                    },
+                };
+                let output_pts = match state.prev_input_pts {
+                    Some(prev_input_pts_val) => {
+                        if prev_input_pts_val == corrected_input_pts {
+                            // PTS has not changed.
+                            state.prev_output_pts
+                        } else {
+                            // PTS has changed. Calculate new output PTS.
+                            let output_pts = PravegaTimestamp::from_nanoseconds(Some(corrected_input_pts.nseconds()));
+                            if state.prev_output_pts < output_pts {
+                                // PTS has increased normally.
+                                output_pts
+                            } else {
+                                // Output PTS has decreased.
+                                let time_delta = state.prev_output_pts - output_pts;
+                                let corrected_pts = state.prev_output_pts + pts_correction_delta;
+                                warning!(CAT, obj: pad, "Output PTS would have decreased by {} from {} to {}. Correcting PTS to {}.",
+                                    time_delta, state.prev_output_pts, output_pts, corrected_pts);
+                                corrected_pts
+                            }
                         }
-                    ClockTime::from_nseconds((input_nanos as i128 + state.pts_offset_nanos.unwrap()) as u64)
-                },
-                InputTimestampMode::StartAtFixedTime => {
-                    if state.pts_offset_nanos.is_none() {
-                        state.pts_offset_nanos = Some(start_timestamp as i128 - input_nanos as i128);
-                        gst_info!(CAT, obj: pad,
-                            "Input buffer PTS timestamps will be adjusted by {} nanoseconds.",
-                            state.pts_offset_nanos.unwrap());
-                        }
-                    ClockTime::from_nseconds((input_nanos as i128 + state.pts_offset_nanos.unwrap()) as u64)
-                },
-            };
-            let output_pts = if state.prev_input_pts.is_some() {
-                if state.prev_input_pts == corrected_input_pts {
-                    // PTS has not changed.
-                    state.prev_output_pts
-                } else {
-                    // PTS has changed. Calculate new output PTS.
-                    let output_pts = PravegaTimestamp::from_nanoseconds(corrected_input_pts.nseconds());
-                    if state.prev_output_pts < output_pts {
-                        // PTS has increased normally.
-                        output_pts
+                    }
+                    None => {
+                        // This is our first buffer with a PTS.
+                        PravegaTimestamp::from_nanoseconds(Some(corrected_input_pts.nseconds()))
+                    }
+                };
+                let success = if output_pts.is_some() {
+                    if state.prev_output_pts.is_some() && output_pts < state.prev_output_pts {
+                        error!(CAT, obj: pad, "Internal error. prev_output_pts={}, output_pts={}",
+                            state.prev_output_pts, output_pts);
+                        Err(gst::FlowError::Error)
                     } else {
-                        // Output PTS has decreased.
-                        let time_delta = state.prev_output_pts - output_pts;
-                        let corrected_pts = state.prev_output_pts + pts_correction_delta;
-                        gst_warning!(CAT, obj: pad, "Output PTS would have decreased by {} from {} to {}. Correcting PTS to {}.",
-                            time_delta, state.prev_output_pts, output_pts, corrected_pts);
-                        corrected_pts
+                        state.prev_input_pts = Some(corrected_input_pts);
+                        state.prev_output_pts = output_pts;
+                        let output_pts_clocktime = pravega_to_clocktime(output_pts);
+                        let buffer_ref = buffer.make_mut();
+                        log!(CAT, obj: pad, "Input PTS {}, Output PTS {:?}", input_pts_val, output_pts);
+                        buffer_ref.set_pts(output_pts_clocktime);
+    
+                        // Adjust DTS if it exists by the nominal PTS offset.
+                        if input_dts.is_some() && state.pts_offset_nanos.is_some() {
+                            let output_dts = ClockTime::from_nseconds((input_dts.unwrap().nseconds() as i128 + state.pts_offset_nanos.unwrap()) as u64);
+                            log!(CAT, obj: pad, "Input DTS {}, Output DTS {:?}", input_dts.unwrap(), output_dts);
+                            buffer_ref.set_dts(output_dts);
+                        }
+    
+                        self.srcpad.push(buffer)
                     }
-                }
-            } else {
-                // This is our first buffer with a PTS.
-                PravegaTimestamp::from_nanoseconds(corrected_input_pts.nseconds())
-            };
-            let success = if output_pts.is_some() {
-                if state.prev_output_pts.is_some() && output_pts < state.prev_output_pts {
-                    gst_error!(CAT, obj: pad, "Internal error. prev_output_pts={}, output_pts={}",
-                        state.prev_output_pts, output_pts);
-                    Err(gst::FlowError::Error)
                 } else {
-                    state.prev_input_pts = corrected_input_pts;
-                    state.prev_output_pts = output_pts;
-                    let output_pts_clocktime = pravega_to_clocktime(output_pts);
-                    let buffer_ref = buffer.make_mut();
-                    gst_log!(CAT, obj: pad, "Input PTS {}, Output PTS {:?}", input_pts, output_pts);
-                    buffer_ref.set_pts(output_pts_clocktime);
-
-                    // Adjust DTS if it exists by the nominal PTS offset.
-                    if input_dts.is_some() && state.pts_offset_nanos.is_some() {
-                        let output_dts = ClockTime::from_nseconds((input_dts.nanoseconds().unwrap() as i128 + state.pts_offset_nanos.unwrap()) as u64);
-                        gst_log!(CAT, obj: pad, "Input DTS {}, Output DTS {:?}", input_dts, output_dts);
-                        buffer_ref.set_dts(output_dts);
+                    // For some RTSP sources, buffers during the first 5 seconds will have PTS near 0.
+                    // This will be logged as a warning.
+                    // If this persists for more than 15 seconds, the pipeline will stop with an error.
+                    warning!(CAT, obj: pad, "Dropping buffer because input PTS {} cannot be converted to the range {:?} to {:?}.",
+                        input_pts_val, PravegaTimestamp::MIN, PravegaTimestamp::MAX);
+                    if input_pts_val > 15 * ClockTime::SECOND {
+                        error!(CAT, obj: pad,
+                            "Input buffers do not have valid PTS timestamps. \
+                            If you are using an RTSP source, this may occur if the RTSP source is not sending RTCP Sender Reports. \
+                            This can be worked around by setting the property {}={}. \
+                            If launched with rtsp-camera-to-pravega.py, then set the environment variable TIMESTAMP_SOURCE=local-clock. \
+                            Beware that this will reduce timestamp accuracy.",
+                            PROPERTY_NAME_INPUT_TIMESTAMP_MODE, NICK_START_AT_CURRENT_TIME);
+                        Err(gst::FlowError::Error)
+                        }
+                    else {
+                        Ok(gst::FlowSuccess::Ok)
                     }
-
-                    self.srcpad.push(buffer)
-                }
-            } else {
-                // For some RTSP sources, buffers during the first 5 seconds will have PTS near 0.
-                // This will be logged as a warning.
-                // If this persists for more than 15 seconds, the pipeline will stop with an error.
-                gst_warning!(CAT, obj: pad, "Dropping buffer because input PTS {} cannot be converted to the range {:?} to {:?}.",
-                    input_pts, PravegaTimestamp::MIN, PravegaTimestamp::MAX);
-                if input_pts > 15 * gst::SECOND {
-                    gst_error!(CAT, obj: pad,
-                        "Input buffers do not have valid PTS timestamps. \
-                        If you are using an RTSP source, this may occur if the RTSP source is not sending RTCP Sender Reports. \
-                        This can be worked around by setting the property {}={}. \
-                        If launched with rtsp-camera-to-pravega.py, then set the environment variable TIMESTAMP_SOURCE=local-clock. \
-                        Beware that this will reduce timestamp accuracy.",
-                        PROPERTY_NAME_INPUT_TIMESTAMP_MODE, NICK_START_AT_CURRENT_TIME);
-                    Err(gst::FlowError::Error)
-                    }
-                else {
-                    Ok(gst::FlowSuccess::Ok)
-                }
-            };
-            success
-        } else {
-            gst_warning!(CAT, obj: pad, "Dropping buffer because PTS is none");
-            Ok(gst::FlowSuccess::Ok)
+                };
+                success
+            }
+            None => {
+                warning!(CAT, obj: pad, "Dropping buffer because PTS is none");
+                Ok(gst::FlowSuccess::Ok)
+            }
         }
     }
 
-    fn sink_event(&self, pad: &gst::Pad, _element: &super::TimestampCvt, event: gst::Event) -> bool {
-        gst_debug!(CAT, obj: pad, "sink_event: event={:?}", event);
+    fn sink_event(&self, pad: &gst::Pad, event: gst::Event) -> bool {
+        debug!(CAT, obj: pad, "sink_event: event={:?}", event);
         match event.view() {
             gst::EventView::Segment(segment) => {
                 // Segments from a file will have a start and end timestamp which will prevent
                 // playback after adjusting the PTS.
                 // To avoid this, we replace the segment with an empty one.
-                gst_debug!(CAT, obj: pad, "sink_event: segment={:?}", segment);
+                debug!(CAT, obj: pad, "sink_event: segment={:?}", segment);
                 let new_segment = gst::FormattedSegment::<gst::ClockTime>::new();
                 let new_event = gst::event::Segment::new(new_segment.as_ref());
-                gst_debug!(CAT, obj: pad, "sink_event: new_segment={:?}", new_segment);
+                debug!(CAT, obj: pad, "sink_event: new_segment={:?}", new_segment);
                 self.srcpad.push_event(new_event)
             }
             _ => self.srcpad.push_event(event)
         }        
     }
 
-    fn sink_query(&self, _pad: &gst::Pad, _element: &super::TimestampCvt, query: &mut gst::QueryRef) -> bool {
+    fn sink_query(&self, _pad: &gst::Pad, query: &mut gst::QueryRef) -> bool {
         self.srcpad.peer_query(query)
     }
 
-    fn src_event(&self, _pad: &gst::Pad, _element: &super::TimestampCvt, event: gst::Event) -> bool {
+    fn src_event(&self, _pad: &gst::Pad, event: gst::Event) -> bool {
         self.sinkpad.push_event(event)
     }
 
-    fn src_query(&self, _pad: &gst::Pad, _element: &super::TimestampCvt, query: &mut gst::QueryRef) -> bool {
+    fn src_query(&self, _pad: &gst::Pad, query: &mut gst::QueryRef) -> bool {
         self.sinkpad.peer_query(query)
     }
 }
@@ -297,21 +302,21 @@ impl ObjectSubclass for TimestampCvt {
                 TimestampCvt::catch_panic_pad_function(
                     parent,
                     || Err(gst::FlowError::Error),
-                    |identity, element| identity.sink_chain(pad, element, buffer),
+                    |identity| identity.sink_chain(pad, buffer),
                 )
             })
             .event_function(|pad, parent, event| {
                 TimestampCvt::catch_panic_pad_function(
                     parent,
                     || false,
-                    |identity, element| identity.sink_event(pad, element, event),
+                    |identity| identity.sink_event(pad, event),
                 )
             })
             .query_function(|pad, parent, query| {
                 TimestampCvt::catch_panic_pad_function(
                     parent,
                     || false,
-                    |identity, element| identity.sink_query(pad, element, query),
+                    |identity| identity.sink_query(pad, query),
                 )
             })
             .build();
@@ -322,14 +327,14 @@ impl ObjectSubclass for TimestampCvt {
             TimestampCvt::catch_panic_pad_function(
                 parent,
                 || false,
-                |identity, element| identity.src_event(pad, element, event),
+                |identity| identity.src_event(pad, event),
             )
         })
         .query_function(|pad, parent, query| {
             TimestampCvt::catch_panic_pad_function(
                 parent,
                 || false,
-                |identity, element| identity.src_query(pad, element, query),
+                |identity| identity.src_query(pad, query),
             )
         })
         .build();
@@ -344,15 +349,15 @@ impl ObjectSubclass for TimestampCvt {
 }
 
 impl ObjectImpl for TimestampCvt {
-    fn constructed(&self, obj: &Self::Type) {
-        self.parent_constructed(obj);
-        obj.add_pad(&self.sinkpad).unwrap();
-        obj.add_pad(&self.srcpad).unwrap();
+    fn constructed(&self) {
+        self.parent_constructed();
+        self.instance().add_pad(&self.sinkpad).unwrap();
+        self.instance().add_pad(&self.srcpad).unwrap();
     }
 
     fn properties() -> &'static [glib::ParamSpec] {
         static PROPERTIES: Lazy<Vec<glib::ParamSpec>> = Lazy::new(|| { vec![
-            glib::ParamSpec::new_enum(
+            glib::ParamSpecEnum::new(
                 PROPERTY_NAME_INPUT_TIMESTAMP_MODE,
                 "Input timestamp mode",
                 "Timestamp mode used by the input",
@@ -360,7 +365,7 @@ impl ObjectImpl for TimestampCvt {
                 DEFAULT_INPUT_TIMESTAMP_MODE as i32,
                 glib::ParamFlags::WRITABLE,
             ),
-            glib::ParamSpec::new_string(
+            glib::ParamSpecString::new(
                 PROPERTY_NAME_START_UTC,
                 "Start UTC",
                 "If input-timestamp-mode=start-at-fixed-time, this is the timestamp at which to start, \
@@ -374,11 +379,11 @@ impl ObjectImpl for TimestampCvt {
 
     fn set_property(
         &self,
-        obj: &Self::Type,
         _id: usize,
         value: &glib::Value,
         pspec: &glib::ParamSpec,
     ) {
+        let obj = self.instance();
         match pspec.name() {
             PROPERTY_NAME_INPUT_TIMESTAMP_MODE => {
                 let res: Result<(), glib::Error> = match value.get::<InputTimestampMode>() {
@@ -390,7 +395,7 @@ impl ObjectImpl for TimestampCvt {
                     Err(_) => unreachable!("type checked upstream"),
                 };
                 if let Err(err) = res {
-                    gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_INPUT_TIMESTAMP_MODE, err);
+                    error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_INPUT_TIMESTAMP_MODE, err);
                 }
             },
             PROPERTY_NAME_START_UTC => {
@@ -403,13 +408,15 @@ impl ObjectImpl for TimestampCvt {
                     Err(_) => unreachable!("type checked upstream"),
                 };
                 if let Err(err) = res {
-                    gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_START_UTC, err);
+                    error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_START_UTC, err);
                 }
             },
         _ => unimplemented!(),
         };
     }
 }
+
+impl GstObjectImpl for TimestampCvt {}
 
 impl ElementImpl for TimestampCvt {
     fn metadata() -> Option<&'static gst::subclass::ElementMetadata> {

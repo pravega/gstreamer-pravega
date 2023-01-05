@@ -26,7 +26,7 @@ mod test {
     fn test_rtspsrc_ignore(#[case] buffer_mode: &str, #[case] ntp_sync: bool, #[case] ntp_time_source: &str, #[case] clock_type: gst::ClockType) {
         gst_init();
         let clock = gst::SystemClock::obtain();
-        clock.set_property("clock-type", &clock_type).unwrap();
+        clock.set_property("clock-type", &clock_type);
         gst::SystemClock::set_default(Some(&clock));
         let rtsp_server_config = RTSPCameraSimulatorConfigBuilder::default().fps(20).build().unwrap();
         let (rtsp_url, _rtsp_server) = start_or_get_rtsp_test_source(rtsp_server_config);

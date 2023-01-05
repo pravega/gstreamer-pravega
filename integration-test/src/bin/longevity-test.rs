@@ -334,18 +334,18 @@ fn main() -> Result<(), Error> {
     let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
 
     let pravegasrc = pipeline.clone().dynamic_cast::<gst::Pipeline>().unwrap().by_name("pravegasrc").unwrap();
-    pravegasrc.set_property("buffer-size", 10*1024*1024 as u32).unwrap();
-    pravegasrc.set_property("controller", &opts.pravega_controller_uri).unwrap();
-    pravegasrc.set_property("stream", &scoped_stream).unwrap();
-    pravegasrc.set_property("keycloak-file", &opts.keycloak_service_account_file).unwrap();
-    pravegasrc.set_property("allow-create-scope", &false).unwrap();
+    pravegasrc.set_property("buffer-size", 10*1024*1024 as u32);
+    pravegasrc.set_property("controller", &opts.pravega_controller_uri);
+    pravegasrc.set_property("stream", &scoped_stream);
+    pravegasrc.set_property("keycloak-file", &opts.keycloak_service_account_file);
+    pravegasrc.set_property("allow-create-scope", &false);
     if let Some(start_utc) = opts.start_utc {
         pravegasrc.set_property_from_str("start-mode", "timestamp");
-        pravegasrc.set_property("start-utc", &start_utc).unwrap();
+        pravegasrc.set_property("start-utc", &start_utc);
     }
     if let Some(end_utc) = opts.end_utc {
         pravegasrc.set_property_from_str("end-mode", "timestamp");
-        pravegasrc.set_property("end-utc", &end_utc).unwrap();
+        pravegasrc.set_property("end-utc", &end_utc);
     }
 
     let max_gap = opts.max_gap_ms * MSECOND;

@@ -14,7 +14,7 @@ authors = ["Claudio Fahey <claudio.fahey@dell.com>"]
 repository = "https://github.com/pravega/gstreamer-pravega"
 license = "Apache-2.0"
 description = "Pravega Protocol Adapter for NVIDIA DeepStream"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 anyhow = "1"

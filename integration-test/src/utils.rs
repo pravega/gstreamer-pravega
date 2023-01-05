@@ -473,7 +473,7 @@ fn run_pipeline_until_eos(pipeline: &gst::Pipeline) -> Result<(), Error> {
 
 pub fn monitor_pipeline_until_eos(pipeline: &gst::Pipeline) -> Result<(), Error> {
     let bus = pipeline.bus().unwrap();
-    while let Some(msg) = bus.timed_pop(gst::CLOCK_TIME_NONE) {
+    while let Some(msg) = bus.timed_pop(ClockTime::NONE) {
         trace!("Bus message: {:?}", msg);
         match msg.view() {
             gst::MessageView::Eos(..) => break,

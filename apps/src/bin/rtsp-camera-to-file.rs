@@ -71,7 +71,7 @@ fn main() {
     let pipeline = pipeline.dynamic_cast::<gst::Pipeline>().unwrap();
 
     let clock = gst::SystemClock::obtain();
-    clock.set_property("clock-type", &gst::ClockType::Realtime).unwrap();
+    clock.set_property("clock-type", &gst::ClockType::Realtime);
     println!("clock={:?}, time={:?}", clock, clock.time());
     pipeline.use_clock(Some(&clock));
 
@@ -79,11 +79,11 @@ fn main() {
         .clone()
         .dynamic_cast::<gst::Pipeline>().unwrap()
         .by_name("src").unwrap();
-    rtspsrc.set_property("location", &opts.location).unwrap();
+    rtspsrc.set_property("location", &opts.location);
 
     // let pravegasink = pipeline.by_name("sink").unwrap();
-    // pravegasink.set_property("controller", &opts.controller).unwrap();
-    // pravegasink.set_property("stream", &opts.stream).unwrap();
+    // pravegasink.set_property("controller", &opts.controller);
+    // pravegasink.set_property("stream", &opts.stream);
 
     // Start playing
     pipeline
@@ -92,7 +92,7 @@ fn main() {
 
     // Wait until error or EOS
     let bus = pipeline.bus().unwrap();
-    for msg in bus.iter_timed(gst::CLOCK_TIME_NONE) {
+    for msg in bus.iter_timed(ClockTime::NONE) {
         use gst::MessageView;
 
         match msg.view() {

@@ -18,7 +18,7 @@ struct CustomData {
     terminate: bool,          // Should we terminate execution?
     seek_enabled: bool,       // Is seeking enabled for this media?
     seek_done: bool,          // Have we performed the seek already?
-    duration: gst::ClockTime, // How long does this media last, in nanoseconds
+    duration: Option<gst::ClockTime>, // How long does this media last, in nanoseconds
 }
 
 fn main() {
@@ -51,11 +51,11 @@ fn main() {
         terminate: false,
         seek_enabled: false,
         seek_done: false,
-        duration: gst::CLOCK_TIME_NONE,
+        duration: ClockTime::NONE,
     };
 
     while !custom_data.terminate {
-        let msg = bus.timed_pop(100 * gst::MSECOND);
+        let msg = bus.timed_pop(100 * ClockTime::MSECOND);
 
         match msg {
             Some(msg) => {
@@ -69,7 +69,7 @@ fn main() {
                         .expect("Could not query current position.");
 
                     // If we didn't know it yet, query the stream duration
-                    if custom_data.duration == gst::CLOCK_TIME_NONE {
+                    if custom_data.duration == ClockTime::NONE {
                         custom_data.duration = custom_data
                             .pipeline
                             .query_duration()
@@ -122,7 +122,7 @@ fn handle_message(custom_data: &mut CustomData, msg: &gst::Message) {
         }
         MessageView::DurationChanged(_) => {
             // The duration has changed, mark the current one as invalid
-            custom_data.duration = gst::CLOCK_TIME_NONE;
+            custom_data.duration = ClockTime::NONE;
         }
         MessageView::StateChanged(state_changed) => {
             if state_changed

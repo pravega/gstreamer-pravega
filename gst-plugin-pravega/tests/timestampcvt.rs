@@ -39,34 +39,34 @@ fn test_timestampcvt() {
     println!("first_expected_pts={}", first_expected_pts);
 
     println!("Simulate start of rtspsrc with PTS starting at 0.");
-    push_and_validate(&mut h, 0 * gst::MSECOND, None);
-    push_and_validate(&mut h, 1000 * gst::MSECOND, None);
+    push_and_validate(&mut h, 0 * ClockTime::MSECOND, None);
+    push_and_validate(&mut h, 1000 * ClockTime::MSECOND, None);
     println!("No PTS.");
-    push_and_validate(&mut h, ClockTime::none(), None);
+    push_and_validate(&mut h, ClockTime::NONE, None);
     println!("Key frame with multiple buffers at same PTS.");
-    push_and_validate(&mut h, first_input_pts + 0 * gst::MSECOND, Some(first_expected_pts + 0 * gst::MSECOND));
-    push_and_validate(&mut h, first_input_pts + 0 * gst::MSECOND, Some(first_expected_pts + 0 * gst::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 0 * ClockTime::MSECOND, Some(first_expected_pts + 0 * ClockTime::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 0 * ClockTime::MSECOND, Some(first_expected_pts + 0 * ClockTime::MSECOND));
     println!("Delta frames.");
-    push_and_validate(&mut h, first_input_pts + 50 * gst::MSECOND, Some(first_expected_pts + 50 * gst::MSECOND));
-    push_and_validate(&mut h, first_input_pts + 100 * gst::MSECOND, Some(first_expected_pts + 100 * gst::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 50 * ClockTime::MSECOND, Some(first_expected_pts + 50 * ClockTime::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 100 * ClockTime::MSECOND, Some(first_expected_pts + 100 * ClockTime::MSECOND));
     println!("Large jump forward.");
-    push_and_validate(&mut h, first_input_pts + 1000 * gst::MSECOND, Some(first_expected_pts + 1000 * gst::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 1000 * ClockTime::MSECOND, Some(first_expected_pts + 1000 * ClockTime::MSECOND));
     println!("Decreasing PTS.");
-    push_and_validate(&mut h, first_input_pts + 500 * gst::MSECOND, Some(first_expected_pts + 1015 * gst::MSECOND));
-    push_and_validate(&mut h, first_input_pts + 500 * gst::MSECOND, Some(first_expected_pts + 1015 * gst::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 500 * ClockTime::MSECOND, Some(first_expected_pts + 1015 * ClockTime::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 500 * ClockTime::MSECOND, Some(first_expected_pts + 1015 * ClockTime::MSECOND));
     println!("Next frame but still decreasing.");
-    push_and_validate(&mut h, first_input_pts + 550 * gst::MSECOND, Some(first_expected_pts + 1030 * gst::MSECOND));
-    push_and_validate(&mut h, first_input_pts + 550 * gst::MSECOND, Some(first_expected_pts + 1030 * gst::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 550 * ClockTime::MSECOND, Some(first_expected_pts + 1030 * ClockTime::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 550 * ClockTime::MSECOND, Some(first_expected_pts + 1030 * ClockTime::MSECOND));
     println!("Back to PTS before decrease.");
-    push_and_validate(&mut h, first_input_pts + 1000 * gst::MSECOND, Some(first_expected_pts + 1045 * gst::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 1000 * ClockTime::MSECOND, Some(first_expected_pts + 1045 * ClockTime::MSECOND));
     println!("Back to normal.");
-    push_and_validate(&mut h, first_input_pts + 1050 * gst::MSECOND, Some(first_expected_pts + 1050 * gst::MSECOND));
-    push_and_validate(&mut h, first_input_pts + 1050 * gst::MSECOND, Some(first_expected_pts + 1050 * gst::MSECOND));
-    push_and_validate(&mut h, first_input_pts + 1100 * gst::MSECOND, Some(first_expected_pts + 1100 * gst::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 1050 * ClockTime::MSECOND, Some(first_expected_pts + 1050 * ClockTime::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 1050 * ClockTime::MSECOND, Some(first_expected_pts + 1050 * ClockTime::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 1100 * ClockTime::MSECOND, Some(first_expected_pts + 1100 * ClockTime::MSECOND));
     println!("No PTS, part 2.");
-    push_and_validate(&mut h, ClockTime::none(), None);
+    push_and_validate(&mut h, ClockTime::NONE, None);
     println!("Back to normal, part 2.");
-    push_and_validate(&mut h, first_input_pts + 1150 * gst::MSECOND, Some(first_expected_pts + 1150 * gst::MSECOND));
+    push_and_validate(&mut h, first_input_pts + 1150 * ClockTime::MSECOND, Some(first_expected_pts + 1150 * ClockTime::MSECOND));
 
     println!("test_timestampcvt: END");
 }
@@ -84,11 +84,11 @@ fn test_timestampcvt_start_at_zero() {
 
     println!("Simulate start of rtspsrc with PTS starting at 0.");
     let expected_t0 = pravega_to_clocktime(PravegaTimestamp::now());
-    let t0 = push_and_get_pts(&mut h, 0 * gst::MSECOND);
-    assert!(t0 > expected_t0 - 60 * gst::SECOND);
-    assert!(t0 < expected_t0 + 60 * gst::SECOND);
-    push_and_validate(&mut h, 1000 * gst::MSECOND, Some(t0 + 1000 * gst::MSECOND));
-    push_and_validate(&mut h, 2000 * gst::MSECOND, Some(t0 + 2000 * gst::MSECOND));
+    let t0 = push_and_get_pts(&mut h, 0 * ClockTime::MSECOND);
+    assert!(t0 > expected_t0 - 60 * ClockTime::SECOND);
+    assert!(t0 < expected_t0 + 60 * ClockTime::SECOND);
+    push_and_validate(&mut h, 1000 * ClockTime::MSECOND, Some(t0 + 1000 * ClockTime::MSECOND));
+    push_and_validate(&mut h, 2000 * ClockTime::MSECOND, Some(t0 + 2000 * ClockTime::MSECOND));
 
     println!("test_timestampcvt_start_at_zero: END");
 }
@@ -108,8 +108,8 @@ fn test_timestampcvt_start_fixed_time() {
     h.play();
 
     let expected_t0 = pravega_to_clocktime(start_timestamp);
-    push_and_validate(&mut h, 10000 * gst::MSECOND, Some(expected_t0));
-    push_and_validate(&mut h, 10100 * gst::MSECOND, Some(expected_t0 + 100 * gst::MSECOND));
+    push_and_validate(&mut h, 10000 * ClockTime::MSECOND, Some(expected_t0));
+    push_and_validate(&mut h, 10100 * ClockTime::MSECOND, Some(expected_t0 + 100 * ClockTime::MSECOND));
 
     println!("test_timestampcvt_start_fixed_time: END");
 }
@@ -127,7 +127,7 @@ fn push_and_validate(harness: &mut gst_check::Harness, input_pts: ClockTime, exp
         Some(expected_output_pts) => {
             let result = harness.push_and_pull(buffer).unwrap();
             println!("push_and_validate: input_pts={:?}, output={:?}", input_pts, result);
-            assert_eq!(result.pts(), expected_output_pts)
+            assert_eq!(result.pts().unwrap(), expected_output_pts)
         },
         None => {
             harness.push(buffer).unwrap();

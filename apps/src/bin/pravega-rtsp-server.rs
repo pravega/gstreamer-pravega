@@ -144,12 +144,12 @@ mod media_factory {
 
         // Implementation of glib::Object virtual methods
         impl ObjectImpl for Factory {
-            fn constructed(&self, factory: &Self::Type) {
-                self.parent_constructed(factory);
+            fn constructed(&self) {
+                self.parent_constructed();
                 // All media created by this factory are our custom media type. This would
                 // not require a media factory subclass and can also be called on the normal
                 // RTSPMediaFactory.
-                factory.set_media_gtype(super::media::Media::static_type());
+                self.instance().set_media_gtype(super::media::Media::static_type());
             }
         }
 
@@ -177,11 +177,11 @@ mod media_factory {
 
                 // let bin = gst::Bin::new(None);
                 // let pravegasrc = gst::ElementFactory::make("pravegasrc", None).unwrap();
-                // pravegasrc.set_property("controller", &"192.168.1.123:9090".to_value()).unwrap();
-                // pravegasrc.set_property("stream", &"examples/demo18".to_value()).unwrap();
+                // pravegasrc.set_property("controller", &"192.168.1.123:9090".to_value());
+                // pravegasrc.set_property("stream", &"examples/demo18".to_value());
                 // let demux = gst::ElementFactory::make("tsdemux", None).unwrap();
                 // let pay = gst::ElementFactory::make("rtph264pay", Some("pay0")).unwrap();
-                // pay.set_property("pt", &96u32.to_value()).unwrap();
+                // pay.set_property("pt", &96u32.to_value());
                 // bin.add_many(&[&pravegasrc, &demux, &pay]).unwrap();
                 // gst::Element::link_many(&[&pravegasrc, &demux, &pay]).unwrap();
                 // Some(bin.upcast())
@@ -246,7 +246,7 @@ mod media {
                 sdp: &mut gst_sdp::SDPMessageRef,
                 info: &gst_rtsp_server::subclass::SDPInfo,
             ) -> Result<(), gst::LoggableError> {
-                self.parent_setup_sdp(media, sdp, info)?;
+                self.parent_setup_sdp(sdp, info)?;
 
                 sdp.add_attribute("my-custom-attribute", Some("has-a-value"));
 
@@ -255,7 +255,7 @@ mod media {
 
             fn query_stop(&self, media: &Self::Type) -> Option<gst::ClockTime> {
                 info!("query_stop: BEGIN");
-                let result = self.parent_query_stop(media);
+                let result = self.parent_query_stop();
                 info!("query_stop: END; result={:?}", result);
                 result
             }

@@ -15,7 +15,7 @@ use glib::subclass::prelude::*;
 use gst::ClockTime;
 use gst::prelude::*;
 use gst::subclass::prelude::*;
-use gst::{gst_debug, gst_error, gst_info, gst_log, gst_trace};
+use gst::{debug, error, info, log, trace};
 
 use std::convert::TryInto;
 use std::sync::Mutex;
@@ -38,7 +38,7 @@ impl Default for Settings {
     fn default() -> Self {
         Settings {
             first_pts: DEFAULT_FIRST_PTS,
-            apply_offset_after_pts: DEFAULT_APPLY_OFFSET_AFTER_PTS_MSECOND * gst::MSECOND,
+            apply_offset_after_pts: DEFAULT_APPLY_OFFSET_AFTER_PTS_MSECOND * ClockTime::MSECOND,
         }
     }
 }
@@ -52,7 +52,7 @@ enum State {
 impl Default for State {
     fn default() -> State {
         State::Started {
-            pts_offset: ClockTime::none(),
+            pts_offset: ClockTime::NONE,
         }
     }
 }
@@ -81,7 +81,7 @@ impl RtspSrcSimulator {
         _element: &super::RtspSrcSimulator,
         mut buffer: gst::Buffer,
     ) -> Result<gst::FlowSuccess, gst::FlowError> {
-        gst_log!(CAT, obj: pad, "Handling buffer {:?}", buffer);
+        log!(CAT, obj: pad, "Handling buffer {:?}", buffer);
 
         let settings = self.settings.lock().unwrap();
         let mut state = self.state.lock().unwrap();
@@ -100,23 +100,23 @@ impl RtspSrcSimulator {
                     Some(_) => *pts_offset_setting,
                     None => {
                         let first_pts = ClockTime::from_nseconds(settings.first_pts);
-                        gst_log!(CAT, obj: pad, "first_pts={}", first_pts);
-                        gst_log!(CAT, obj: pad, "buffer_pts={}", buffer_pts);
+                        log!(CAT, obj: pad, "first_pts={}", first_pts);
+                        log!(CAT, obj: pad, "buffer_pts={}", buffer_pts);
                         let new_pts_offset = first_pts - buffer_pts;
-                        gst_log!(CAT, obj: pad, "Got first buffer. PTS offset is {:?}.", new_pts_offset.nanoseconds());
+                        log!(CAT, obj: pad, "Got first buffer. PTS offset is {:?}.", new_pts_offset.nanoseconds());
                         *pts_offset_setting = new_pts_offset;
                         new_pts_offset
                     }
                 };
                 let new_pts = buffer_pts + pts_offset;
                 let buffer_ref = buffer.make_mut();
-                gst_log!(CAT, obj: pad, "Input PTS {}, Output PTS {}", buffer_pts, new_pts);
+                log!(CAT, obj: pad, "Input PTS {}, Output PTS {}", buffer_pts, new_pts);
                 buffer_ref.set_pts(new_pts);
             }
         }
 
         let timestamp = PravegaTimestamp::from_ntp_nanoseconds(buffer.get_pts().nanoseconds());
-        gst_log!(CAT, obj: pad, "Output timestamp {}", timestamp);
+        log!(CAT, obj: pad, "Output timestamp {}", timestamp);
 
         self.srcpad.push(buffer)
     }
@@ -129,7 +129,7 @@ impl RtspSrcSimulator {
     // See the documentation of gst::Event and gst::EventRef to see what can be done with
     // events, and especially the gst::EventView type for inspecting events.
     fn sink_event(&self, pad: &gst::Pad, _element: &super::RtspSrcSimulator, event: gst::Event) -> bool {
-        gst_log!(CAT, obj: pad, "Handling event {:?}", event);
+        log!(CAT, obj: pad, "Handling event {:?}", event);
         self.srcpad.push_event(event)
     }
 
@@ -148,7 +148,7 @@ impl RtspSrcSimulator {
         _element: &super::RtspSrcSimulator,
         query: &mut gst::QueryRef,
     ) -> bool {
-        gst_log!(CAT, obj: pad, "Handling query {:?}", query);
+        log!(CAT, obj: pad, "Handling query {:?}", query);
         self.srcpad.peer_query(query)
     }
 
@@ -161,7 +161,7 @@ impl RtspSrcSimulator {
     // See the documentation of gst::Event and gst::EventRef to see what can be done with
     // events, and especially the gst::EventView type for inspecting events.
     fn src_event(&self, pad: &gst::Pad, _element: &super::RtspSrcSimulator, event: gst::Event) -> bool {
-        gst_log!(CAT, obj: pad, "Handling event {:?}", event);
+        log!(CAT, obj: pad, "Handling event {:?}", event);
         self.sinkpad.push_event(event)
     }
 
@@ -180,7 +180,7 @@ impl RtspSrcSimulator {
         _element: &super::RtspSrcSimulator,
         query: &mut gst::QueryRef,
     ) -> bool {
-        gst_log!(CAT, obj: pad, "Handling query {:?}", query);
+        log!(CAT, obj: pad, "Handling query {:?}", query);
         self.sinkpad.peer_query(query)
     }
 }
@@ -304,7 +304,7 @@ impl ObjectImpl for RtspSrcSimulator {
                     Err(_) => unreachable!("type checked upstream"),
                 };
                 if let Err(err) = res {
-                    gst_error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_FIRST_PTS, err);
+                    error!(CAT, obj: obj, "Failed to set property `{}`: {}", PROPERTY_NAME_FIRST_PTS, err);
                 }
             },
         _ => unimplemented!(),
@@ -370,7 +370,7 @@ impl ElementImpl for RtspSrcSimulator {
         element: &Self::Type,
         transition: gst::StateChange,
     ) -> Result<gst::StateChangeSuccess, gst::StateChangeError> {
-        gst_trace!(CAT, obj: element, "Changing state {:?}", transition);
+        trace!(CAT, obj: self.instance(), "Changing state {:?}", transition);
 
         // Call the parent class' implementation of ::change_state()
         self.parent_change_state(element, transition)

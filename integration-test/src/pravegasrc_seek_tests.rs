@@ -147,7 +147,7 @@ mod test {
 
         let bus = pipeline.bus().unwrap();
         loop {
-            let msg = bus.timed_pop(100 * gst::MSECOND);
+            let msg = bus.timed_pop(100 * ClockTime::MSECOND);
             trace!("Bus message: {:?}", msg);
 
             // Query the current position (pts) every 100 ms.

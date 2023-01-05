@@ -8,6 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+use gst::ClockTime;
 use gst::prelude::*;
 
 fn main() {
@@ -29,7 +30,7 @@ fn main() {
 
     // Wait until error or EOS
     let bus = pipeline.bus().unwrap();
-    for msg in bus.iter_timed(gst::CLOCK_TIME_NONE) {
+    for msg in bus.iter_timed(ClockTime::NONE) {
         use gst::MessageView;
 
         match msg.view() {
