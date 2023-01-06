@@ -26,6 +26,7 @@ fi
 # Build pravega-prod image which includes the binaries for all applications.
 if [[ "${BUILD_PROD}" != "0" ]]; then
     docker build \
+        --no-cache \
         -t pravega/gstreamer:pravega-prod \
         --build-arg GSTREAMER_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gstreamer.git \
         --build-arg GSTREAMER_CHECKOUT=${GSTREAMER_CHECKOUT} \
