@@ -13,10 +13,10 @@
 set -ex
 
 ROOT_DIR=$(readlink -f $(dirname $0)/..)
-GSTREAMER_CHECKOUT=${GSTREAMER_CHECKOUT:-1.18.5}
+GSTREAMER_CHECKOUT=${GSTREAMER_CHECKOUT:-1.20.3}
 RUST_JOBS=${RUST_JOBS:-4}
 DOCKER_REPOSITORY=${DOCKER_REPOSITORY}
-FROM_IMAGE=ubuntu:22.04
+FROM_IMAGE=ubuntu:22.10
 
 # Make sure to always have fresh base image.
 if [[ "${PULL_BASE}" != "0" ]]; then
