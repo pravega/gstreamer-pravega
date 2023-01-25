@@ -440,7 +440,7 @@ fn main() -> Result<(), Error> {
 
     pipeline.set_state(gst::State::Null)?;
     bus.remove_watch().unwrap();
-    glib::source_remove(timeout_id);
+    timeout_id.remove();
     info!("main: END");
     Ok(())
 }

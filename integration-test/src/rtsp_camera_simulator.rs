@@ -124,7 +124,7 @@ impl RTSPCameraSimulator {
             let port = server.bound_port();
             tx.send(port).unwrap();
             main_loop_clone.run();
-            glib::source_remove(source_id);
+            source_id.remove();
             info!("RTSP server stopped");
         });
         let port = rx.recv().unwrap();
