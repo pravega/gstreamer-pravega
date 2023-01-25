@@ -14,7 +14,7 @@
 //   - https://gitlab.freedesktop.org/gstreamer/gstreamer-rs/-/blob/master/examples/src/bin/rtsp-server-record.rs
 
 use anyhow::Error;
-use clap::Clap;
+use clap::Parser;
 use derive_more::{Display, Error};
 use glib::subclass::prelude::*;
 use glib::translate::*;
@@ -44,53 +44,53 @@ pub const DEFAULT_RUST_LOG: &str = "info";
 struct NoMountPoints;
 
 /// RTSP camera simulator
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 struct Opts {
     /// TCP port to listen on
-    #[clap(long, env = "CAMERA_PORT", default_value = "8554")]
+    #[arg(long, env = "CAMERA_PORT", default_value = "8554")]
     port: u16,
     /// URL path to accept
-    #[clap(long, env = "CAMERA_PATH", default_value = "/cam/realmonitor")]
+    #[arg(long, env = "CAMERA_PATH", default_value = "/cam/realmonitor")]
     path: String,
     /// User name for basic authentication
-    #[clap(long, env = "CAMERA_USER", default_value = "user")]
+    #[arg(long, env = "CAMERA_USER", default_value = "user")]
     user_name: String,
     /// Password for basic authentication. Authentication will be disabled if not specified.
-    #[clap(long, env = "CAMERA_PASSWORD")]
+    #[arg(long, env = "CAMERA_PASSWORD")]
     password: Option<String>,
     /// Tls cert file for secure connection. Tls will be disabled if not specified.
-    #[clap(long, env = "TLS_CERT_FILE")]
+    #[arg(long, env = "TLS_CERT_FILE")]
     tls_cert_file: Option<String>,
     /// Tls key file for secure connection. Tls will be disabled if not specified.
-    #[clap(long, env = "TLS_KEY_FILE")]
+    #[arg(long, env = "TLS_KEY_FILE")]
     tls_key_file: Option<String>,
     /// Default width
-    #[clap(long, env = "CAMERA_WIDTH", default_value = "320")]
+    #[arg(long, env = "CAMERA_WIDTH", default_value = "320")]
     width: u32,
     /// Default height
-    #[clap(long, env = "CAMERA_HEIGHT", default_value = "180")]
+    #[arg(long, env = "CAMERA_HEIGHT", default_value = "180")]
     height: u32,
     /// Default frames per second
-    #[clap(long, env = "CAMERA_FPS", default_value = "30")]
+    #[arg(long, env = "CAMERA_FPS", default_value = "30")]
     fps: f64,
     /// Default maximum key frame interval, in number of frames
-    #[clap(long, env = "CAMERA_KEY_FRAME_INTERVAL_MAX", default_value = "30")]
+    #[arg(long, env = "CAMERA_KEY_FRAME_INTERVAL_MAX", default_value = "30")]
     key_frame_interval_max: u32,
     /// Default target rate in KB/sec
-    #[clap(long, env = "CAMERA_TARGET_RATE_KILOBYTES_PER_SEC", default_value = "25.0")]
+    #[arg(long, env = "CAMERA_TARGET_RATE_KILOBYTES_PER_SEC", default_value = "25.0")]
     target_rate_kilobytes_per_sec: f64,
     /// If 0, hides the clock by default
-    #[clap(long, env = "CAMERA_SHOW_CLOCK", default_value = "1")]
+    #[arg(long, env = "CAMERA_SHOW_CLOCK", default_value = "1")]
     show_clock: u8,
     /// If 1, the first connected client will start the pipeline and all subsequent clients using
     /// the same URL will get the same stream.
     /// This is useful for performance testing to reduce the CPU load.
     /// This causes a 5 second interruption in the stream when new clients connect.
     /// If 0, each client will use its own pipeline.
-    #[clap(long, env = "SHARE_PIPELINE", default_value = "1")]
+    #[arg(long, env = "SHARE_PIPELINE", default_value = "1")]
     share_pipeline: u8,
     /// Can be x264enc or nvv4l2h264enc
-    #[clap(long, env = "VIDEO_ENCODER_PIPELINE", default_value = "x264enc")]
+    #[arg(long, env = "VIDEO_ENCODER_PIPELINE", default_value = "x264enc")]
     video_encoder_pipeline: String,
 }
 

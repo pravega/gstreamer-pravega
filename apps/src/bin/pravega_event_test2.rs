@@ -9,7 +9,7 @@
 //
 
 use anyhow::anyhow;
-use clap::Clap;
+use clap::Parser;
 use log::info;
 
 use uuid::Uuid;
@@ -20,16 +20,16 @@ use pravega_client_shared::{Scope, Stream, StreamConfiguration, ScopedStream, Sc
 
 use pravega_video::utils;
 
-#[derive(Clap)]
+#[derive(Parser)]
 struct Opts {
     /// Pravega controller in format "127.0.0.1:9090"
-    #[clap(short, long, default_value = "127.0.0.1:9090")]
+    #[arg(short, long, default_value = "127.0.0.1:9090")]
     controller: String,
     /// Pravega scope
-    #[clap(long)]
+    #[arg(long)]
     scope: String,
     /// Pravega stream
-    #[clap(long)]
+    #[arg(long)]
     stream: String,
 }
 

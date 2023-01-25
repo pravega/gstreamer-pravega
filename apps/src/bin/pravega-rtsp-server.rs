@@ -15,7 +15,7 @@
 // using GStreamers rtsp server.
 
 use anyhow::Error;
-use clap::Clap;
+use clap::Parser;
 use derive_more::{Display, Error};
 use glib::subclass::prelude::*;
 use gst::prelude::*;
@@ -30,13 +30,13 @@ use url::Url;
 struct NoMountPoints;
 
 /// Pravega RTSP server
-#[derive(Clap)]
+#[derive(Parser)]
 struct Opts {
     /// Pravega controller in format "127.0.0.1:9090"
-    #[clap(short, long, default_value = "127.0.0.1:9090")]
+    #[arg(short, long, default_value = "127.0.0.1:9090")]
     controller: String,
     /// Pravega scope
-    #[clap(short, long)]
+    #[arg(short, long)]
     scope: String,
 }
 
@@ -157,10 +157,9 @@ mod media_factory {
         impl RTSPMediaFactoryImpl for Factory {
             fn create_element(
                 &self,
-                _factory: &Self::Type,
                 url: &gst_rtsp::RTSPUrl,
             ) -> Option<gst::Element> {
-                let url = url.request_uri().unwrap().to_string();
+                let url = url.request_uri().to_string();
                 let url = Url::parse(&url[..]).unwrap();
                 info!("url={:?}", url);
                 let query_map: HashMap<_, _> = url.query_pairs().into_owned().collect();

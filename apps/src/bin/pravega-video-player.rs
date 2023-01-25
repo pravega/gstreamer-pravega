@@ -12,7 +12,7 @@
 // Based on https://github.com/sdroege/gstreamer-rs/blob/master/tutorials/src/bin/basic-tutorial-5.rs
 
 use anyhow::Error;
-use clap::Clap;
+use clap::Parser;
 use gst::prelude::*;
 use gst_video::prelude::*;
 use glib::object::ObjectType;
@@ -35,19 +35,19 @@ pub const DEFAULT_GST_DEBUG: &str = "FIXME";
 pub const DEFAULT_RUST_LOG: &str = "pravega_video_player=info,warn";
 
 /// Pravega video player.
-#[derive(Clap)]
+#[derive(Parser)]
 struct Opts {
     /// Pravega controller in format "127.0.0.1:9090"
-    #[clap(short, long, default_value = "127.0.0.1:9090")]
+    #[arg(short, long, default_value = "127.0.0.1:9090")]
     controller: String,
     /// The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.
-    #[clap(short, long, default_value = "", setting(clap::ArgSettings::AllowEmptyValues))]
+    #[arg(short, long, default_value = "")]
     keycloak_file: String,
     /// Pravega scope/stream
-    #[clap(short, long)]
+    #[arg(short, long)]
     stream: String,
     /// If no-sync is set, frames will be displayed as soon as they are decoded
-    #[clap(long)]
+    #[arg(long)]
     no_sync: bool,
 }
 

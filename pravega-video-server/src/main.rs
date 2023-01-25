@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use clap::Clap;
+use clap::Parser;
 use pravega_client::client_factory::ClientFactoryAsync;
 use pravega_video::utils;
 use std::path::Path;
@@ -20,16 +20,16 @@ use warp::Filter;
 
 /// Serve HTTP Live Streaming (HLS) from a Pravega Video Stream.
 /// Point your browser to: http://localhost:3030/player?scope=examples&stream=hlsav4
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 struct Opts {
     /// Pravega controller in format "tcp://127.0.0.1:9090"
-    #[clap(long, env = "PRAVEGA_CONTROLLER_URI", default_value = "tcp://127.0.0.1:9090")]
+    #[arg(long, env = "PRAVEGA_CONTROLLER_URI", default_value = "tcp://127.0.0.1:9090")]
     pravega_controller_uri: String,
     /// The filename containing the Keycloak credentials JSON. If missing or empty, authentication will be disabled.
-    #[clap(long, env = "KEYCLOAK_SERVICE_ACCOUNT_FILE", default_value = "", setting(clap::ArgSettings::AllowEmptyValues))]
+    #[arg(long, env = "KEYCLOAK_SERVICE_ACCOUNT_FILE", default_value = "")]
     keycloak_service_account_file: String,
     /// Directory containing static files and templates.
-    #[clap(long, env = "PRAVEGA_VIDEO_SERVER_RESOURCE_DIR", default_value = "./resources")]
+    #[arg(long, env = "PRAVEGA_VIDEO_SERVER_RESOURCE_DIR", default_value = "./resources")]
     resource_dir: String,
 }
 

@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use clap::Clap;
+use clap::Parser;
 use log::info;
 use std::{thread, time};
 
@@ -19,23 +19,22 @@ use pravega_video::index::IndexSearcher;
 use pravega_video::utils;
 use pravega_video::utils::SyncByteReader;
 
-#[derive(Clap)]
+#[derive(Parser)]
 struct Opts {
     /// Pravega controller in format "127.0.0.1:9090"
-    #[clap(short, long, default_value = "127.0.0.1:9090")]
+    #[arg(short, long, default_value = "127.0.0.1:9090")]
     controller: String,
     /// Pravega scope
-    #[clap(long)]
+    #[arg(long)]
     scope: String,
     /// Pravega stream
-    #[clap(long)]
+    #[arg(long)]
     stream: String,
     /// Pravega keycloak file
-    #[clap(long, default_value = "", setting(clap::ArgSettings::AllowEmptyValues))]
+    #[arg(long, default_value = "")]
     keycloak_file: String,
-
     /// Check period
-    #[clap(long, default_value = "60", setting(clap::ArgSettings::AllowEmptyValues))]
+    #[arg(long, default_value = "60")]
     check_period: u64,
 }
 

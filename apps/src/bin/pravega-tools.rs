@@ -10,7 +10,7 @@
 
 // A CLI that provides tools to manage Pravega streams.
 
-use clap::Clap;
+use clap::Parser;
 use std::time::{Duration, SystemTime};
 
 use pravega_client::client_factory::ClientFactory;
@@ -21,31 +21,31 @@ use pravega_video::timestamp::PravegaTimestamp;
 use pravega_video::utils::{parse_controller_uri, SyncByteReader};
 
 /// Tools to manage Pravega streams.
-#[derive(Clap)]
+#[derive(Parser)]
 struct Opts {
     /// Pravega controller in format "127.0.0.1:9090"
-    #[clap(short, long, default_value = "127.0.0.1:9090")]
+    #[arg(short, long, default_value = "127.0.0.1:9090")]
     controller: String,
-    #[clap(subcommand)]
+    #[arg(subcommand)]
     subcmd: SubCommand,
 }
 
-#[derive(Clap)]
+#[derive(Parser)]
 enum SubCommand {
     TruncateStream(TruncateStream),
 }
 
 /// Truncate a stream written by the pravegasink GStreamer plugin.
-#[derive(Clap)]
+#[derive(Parser)]
 struct TruncateStream {
     /// Pravega scope
-    #[clap(long)]
+    #[arg(long)]
     scope: String,
     /// Pravega stream
-    #[clap(long)]
+    #[arg(long)]
     stream: String,
     /// All data older than this many days will be deleted. Decimals are allowed.
-    #[clap(long)]
+    #[arg(long)]
     age_days: f64,
 }
 

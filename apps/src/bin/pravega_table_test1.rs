@@ -8,7 +8,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use clap::Clap;
+use clap::Parser;
 use log::info;
 
 use serde::{Deserialize, Serialize};
@@ -19,16 +19,16 @@ use pravega_client::sync::table::{TableError, Version};
 use pravega_client_config::ClientConfigBuilder;
 use pravega_client_shared::Scope;
 
-#[derive(Clap)]
+#[derive(Parser)]
 struct Opts {
     /// Pravega controller in format "127.0.0.1:9090"
-    #[clap(short, long, default_value = "127.0.0.1:9090")]
+    #[arg(short, long, default_value = "127.0.0.1:9090")]
     controller: String,
     /// Pravega scope
-    #[clap(long, default_value = "examples")]
+    #[arg(long, default_value = "examples")]
     scope: String,
     /// Pravega stream
-    #[clap(long, default_value = "table1")]
+    #[arg(long, default_value = "table1")]
     table: String,
 }
 

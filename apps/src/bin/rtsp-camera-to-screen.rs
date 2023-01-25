@@ -8,20 +8,20 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use clap::Clap;
+use clap::Parser;
 use gst::prelude::*;
 use log::info;
 use std::path::Path;
 use gst_rtsp_server::gio::TlsFileDatabase;
 
 /// RTSP Camera to Pravega.
-#[derive(Clap)]
+#[derive(Parser)]
 struct Opts {
     /// RTSP URL
-    #[clap(long)]
+    #[arg(long)]
     location: String,
     /// TLS CA file for secure connection. TLS will be disabled if not specified.
-    #[clap(long, env = "TLS_CA_FILE")]
+    #[arg(long, env = "TLS_CA_FILE")]
     tls_ca_file: Option<String>,
 }
 

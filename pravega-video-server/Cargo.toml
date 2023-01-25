@@ -19,7 +19,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
-clap = "3.0.0"
+clap = { version = "4.1.0", features = ["derive", "suggestions", "color", "env" ] }
 futures = "0.3"
 futures-util = "0.3.18"
 handlebars = "3"

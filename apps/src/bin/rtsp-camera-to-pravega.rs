@@ -8,21 +8,21 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-use clap::Clap;
+use clap::Parser;
 use gst::prelude::*;
 use log::info;
 
 /// RTSP Camera to Pravega.
-#[derive(Clap)]
+#[derive(Parser)]
 struct Opts {
     /// Pravega controller in format "127.0.0.1:9090"
-    #[clap(short, long, default_value = "127.0.0.1:9090")]
+    #[arg(short, long, default_value = "127.0.0.1:9090")]
     controller: String,
     /// Pravega scope/stream
-    #[clap(short, long)]
+    #[arg(short, long)]
     stream: String,
     /// RTSP URL
-    #[clap(long)]
+    #[arg(long)]
     location: String,
 }
 
