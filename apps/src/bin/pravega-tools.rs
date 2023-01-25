@@ -26,7 +26,7 @@ struct Opts {
     /// Pravega controller in format "127.0.0.1:9090"
     #[arg(short, long, default_value = "127.0.0.1:9090")]
     controller: String,
-    #[arg(subcommand)]
+    #[command(subcommand)]
     subcmd: SubCommand,
 }
 

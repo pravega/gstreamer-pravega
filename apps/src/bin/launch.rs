@@ -16,7 +16,6 @@
 // as launch syntax.
 // When the parsing succeeded, the pipeline is run until the stream ends or an error happens.
 
-use gst::ClockTime;
 use gst::prelude::*;
 use log::info;
 use std::env;
@@ -60,7 +59,7 @@ fn main() {
         .set_state(gst::State::Playing)
         .expect("Unable to set the pipeline to the `Playing` state");
 
-    for msg in bus.iter_timed(ClockTime::NONE) {
+    for msg in bus.iter_timed(gst::ClockTime::NONE) {
         use gst::MessageView;
 
         match msg.view() {

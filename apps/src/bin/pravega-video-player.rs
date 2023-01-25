@@ -71,7 +71,7 @@ impl ops::Deref for AppWindow {
 impl Drop for AppWindow {
     fn drop(&mut self) {
         if let Some(source_id) = self.timeout_id.take() {
-            glib::source_remove(source_id);
+            source_id.remove();
         }
     }
 }
@@ -142,7 +142,7 @@ fn create_ui(playbin: &gst::Pipeline, video_sink: &gst::Element) -> AppWindow {
         if pipeline
             .seek_simple(
                 gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT,
-                value * ClockTime::NSECOND,
+                value * gst::ClockTime::NSECOND,
             )
             .is_err()
         {
@@ -170,11 +170,11 @@ fn create_ui(playbin: &gst::Pipeline, video_sink: &gst::Element) -> AppWindow {
                     let (_seekable, start, end) = seeking_query.result();
                     debug!("create_ui: seeking_query={:?}, start={:?}, end={:?}", seeking_query, start, end);
                     let start = match start {
-                        gst::GenericFormattedValue::Time(start) => start.nanoseconds(),
+                        gst::GenericFormattedValue::Time(start) => start.map(|t| t.nseconds()),
                         _ => None,
                     };
                     let end = match end {
-                        gst::GenericFormattedValue::Time(end) => end.nanoseconds(),
+                        gst::GenericFormattedValue::Time(end) => end.map(|t| t.nseconds()),
                         _ => None,
                     };
                     (start, end)
@@ -184,7 +184,7 @@ fn create_ui(playbin: &gst::Pipeline, video_sink: &gst::Element) -> AppWindow {
         });
         let pos = pipeline
             .query_position::<gst::ClockTime>()
-            .and_then(|pos| pos.nanoseconds());
+            .and_then(|pos| Some(pos.nseconds()));
 
         debug!("create_ui: start={:?}, end={:?}, pos={:?}", start, end, pos);
 

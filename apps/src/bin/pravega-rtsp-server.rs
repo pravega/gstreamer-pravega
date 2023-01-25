@@ -110,7 +110,7 @@ fn run() -> Result<(), Error>  {
     // our quality content to connecting clients.
     main_loop.run();
 
-    glib::source_remove(id);
+    id.remove();
 
     Ok(())
 }
@@ -201,7 +201,7 @@ mod media_factory {
     impl Default for Factory {
         // Creates a new instance of our factory
         fn default() -> Factory {
-            glib::Object::new(&[]).expect("Failed to create factory")
+            glib::Object::new(&[])
         }
     }
 }
@@ -241,7 +241,6 @@ mod media {
         impl RTSPMediaImpl for Media {
             fn setup_sdp(
                 &self,
-                media: &Self::Type,
                 sdp: &mut gst_sdp::SDPMessageRef,
                 info: &gst_rtsp_server::subclass::SDPInfo,
             ) -> Result<(), gst::LoggableError> {
@@ -252,7 +251,7 @@ mod media {
                 Ok(())
             }
 
-            fn query_stop(&self, media: &Self::Type) -> Option<gst::ClockTime> {
+            fn query_stop(&self) -> Option<gst::ClockTime> {
                 info!("query_stop: BEGIN");
                 let result = self.parent_query_stop();
                 info!("query_stop: END; result={:?}", result);

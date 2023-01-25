@@ -51,11 +51,11 @@ fn main() {
         terminate: false,
         seek_enabled: false,
         seek_done: false,
-        duration: ClockTime::NONE,
+        duration: gst::ClockTime::NONE,
     };
 
     while !custom_data.terminate {
-        let msg = bus.timed_pop(100 * ClockTime::MSECOND);
+        let msg = bus.timed_pop(100 * gst::ClockTime::MSECOND);
 
         match msg {
             Some(msg) => {
@@ -69,26 +69,25 @@ fn main() {
                         .expect("Could not query current position.");
 
                     // If we didn't know it yet, query the stream duration
-                    if custom_data.duration == ClockTime::NONE {
+                    if custom_data.duration == gst::ClockTime::NONE {
                         custom_data.duration = custom_data
                             .pipeline
                             .query_duration()
-                            .expect("Could not query current duration.")
                     }
 
                     // Print current position and total duration
-                    println!("Position {} {} / {}", position.unwrap_or_default(), position, custom_data.duration);
+                    println!("Position {} / {:?}", position, custom_data.duration);
 
                     if custom_data.seek_enabled
                         && !custom_data.seek_done
-                        && position > 1601791517680733 * gst::USECOND
+                        && position > 1601791517680733 * gst::ClockTime::USECOND
                     {
                         println!("Performing seek...");
                         custom_data
                             .pipeline
                             .seek_simple(
                                 gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT,
-                                1601791512680733 * gst::USECOND,
+                                1601791512680733 * gst::ClockTime::USECOND,
                             )
                             .expect("Failed to seek.");
                         // custom_data.seek_done = true;
@@ -122,7 +121,7 @@ fn handle_message(custom_data: &mut CustomData, msg: &gst::Message) {
         }
         MessageView::DurationChanged(_) => {
             // The duration has changed, mark the current one as invalid
-            custom_data.duration = ClockTime::NONE;
+            custom_data.duration = gst::ClockTime::NONE;
         }
         MessageView::StateChanged(state_changed) => {
             if state_changed

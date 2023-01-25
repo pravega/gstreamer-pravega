@@ -181,7 +181,7 @@ fn run() -> Result<(), Error>  {
 
     main_loop.run();
 
-    glib::source_remove(source_id);
+    source_id.remove();
 
     info!("main: END");
     Ok(())
@@ -316,7 +316,7 @@ mod media_factory {
 
     impl Default for Factory {
         fn default() -> Factory {
-            glib::Object::new::<T>(&[]).expect("Failed to create factory")
+            glib::Object::new(&[])
         }
     }
 }
