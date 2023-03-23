@@ -761,7 +761,7 @@ The index must be reliable in the sense that if it has a {timestamp, offset} pai
 The index and related data stream must satisfy the following constraints.
 
 1. If the first record in the index has timestamp T1 and offset O1 (T1, O1),
-   and the last record in the index has timestamp TN and offset TN (TN, ON),
+   and the last record in the index has timestamp TN and offset ON (TN, ON),
    then the data stream can be read from offset O1 inclusive to ON exclusive.
    The bytes prior to O1 may have been truncated.
    All bytes between O1 and ON have been written to the Pravega server and,
