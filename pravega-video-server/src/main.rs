@@ -17,6 +17,7 @@ use tracing_subscriber::fmt::format::FmtSpan;
 #[allow(unused_imports)]
 use tracing::{error, info, info_span, warn, trace, event, Level, span};
 use warp::Filter;
+use warp::http::header::{HeaderMap, HeaderValue};
 
 /// Serve HTTP Live Streaming (HLS) from a Pravega Video Stream.
 /// Point your browser to: http://localhost:3030/player?scope=examples&stream=hlsav4
@@ -63,9 +64,12 @@ fn main() {
         //     warp::redirect::temporary(Uri::from_static("/static/hls-js.html"))
         // });
 
+        let mut headers = HeaderMap::new();
+        headers.insert("access-control-allow-origin", HeaderValue::from_static("*"));
         let routes = api
             .or(ui)
             .or(static_dir)
+            .with(warp::reply::with::headers(headers))
             .with(warp::trace::request());
         warp::serve(routes).run(([0, 0, 0, 0], 3030)).await;
     })
