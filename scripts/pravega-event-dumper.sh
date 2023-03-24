@@ -16,7 +16,7 @@ pushd ${ROOT_DIR}/apps
 cargo build
 popd
 
-export RUST_LOG=${RUST_LOG:-info}
+#export RUST_LOG=${RUST_LOG:-info}
 export RUST_BACKTRACE=1
 PRAVEGA_CONTROLLER_URI=${PRAVEGA_CONTROLLER_URI:-127.0.0.1:9090}
 PRAVEGA_SCOPE=${PRAVEGA_SCOPE:-examples}
@@ -27,6 +27,8 @@ cargo run --bin pravega_event_dumper -- \
 --controller ${PRAVEGA_CONTROLLER_URI} \
 --scope ${PRAVEGA_SCOPE} \
 --stream ${PRAVEGA_STREAM} \
+--index-num 100 \
+--show-event \
 --keycloak-file "${KEYCLOAK_SERVICE_ACCOUNT_FILE}" \
 $* \
 |& tee /tmp/pravega-event-dumper.log

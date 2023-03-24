@@ -9,15 +9,14 @@
 //
 
 use clap::Clap;
-use log::info;
-use std::{thread, time};
 
 use pravega_client::client_factory::ClientFactory;
 use pravega_client_shared::{Scope, Stream, ScopedStream};
-
-use pravega_video::index::IndexSearcher;
+use pravega_video::event_serde::EventReader;
+use pravega_video::index::{IndexRecord, IndexRecordReader};
 use pravega_video::utils;
-use pravega_video::utils::SyncByteReader;
+use pravega_video::utils::{CurrentHead, SyncByteReader};
+use std::io::{ErrorKind, Read, Seek, SeekFrom};
 
 #[derive(Clap)]
 struct Opts {
@@ -30,6 +29,11 @@ struct Opts {
     /// Pravega stream
     #[clap(long)]
     stream: String,
+    /// Index number
+    #[clap(long, default_value = "10")]
+    index_num: u32,
+    #[clap(long)]
+    show_event: bool,
     /// Pravega keycloak file
     #[clap(long, default_value = "", setting(clap::ArgSettings::AllowEmptyValues))]
     keycloak_file: String,
@@ -47,21 +51,67 @@ fn main() {
     let client_config = utils::create_client_config(opts.controller, keycloak_file).expect("creating config");
     let client_factory = ClientFactory::new(client_config);
     let scope = Scope::from(opts.scope);
-    let stream_name = format!("{}-index", opts.stream);
-    let stream = Stream::from(stream_name);
-    let index_scoped_stream = ScopedStream {
-        scope: scope,
+    let index_stream_name = format!("{}-index", opts.stream);
+    let stream = Stream::from(opts.stream);
+    let index_stream = Stream::from(index_stream_name);
+
+    let stream = ScopedStream {
+        scope: scope.clone(),
         stream: stream,
     };
-    let runtime = client_factory.runtime();
-    let index_reader = runtime.block_on(client_factory.create_byte_reader(index_scoped_stream));
-    let mut index_searcher = IndexSearcher::new(SyncByteReader::new(index_reader, client_factory.runtime_handle()));
+    let index_stream = ScopedStream {
+        scope: scope,
+        stream: index_stream,
+    };
 
-    let first_record = index_searcher.get_first_record().unwrap();
-    info!("The first index record: timestamp={}", first_record.timestamp);
-    let last_record = index_searcher.get_last_record().unwrap();
-    info!("The last index record: timestamp={}", last_record.timestamp);
-    let size = last_record.offset - first_record.offset;
-    let size_in_mb = size / 1024 / 1024;
-    info!("Data size between the first index and last index is {} MB",  size_in_mb);
+    let runtime = client_factory.runtime();
+    let byte_reader = runtime.block_on(client_factory.create_byte_reader(index_stream));
+    let mut index_reader = SyncByteReader::new(byte_reader, client_factory.runtime_handle());
+    let mut index_record_reader = IndexRecordReader::new();
+
+    let byte_reader = runtime.block_on(client_factory.create_byte_reader(stream));
+    let mut stream_reader = SyncByteReader::new(byte_reader, client_factory.runtime_handle());
+
+    let index_head_offset = index_reader.current_head().expect("get index head offset");
+    let index_tail_offset = index_reader.seek(SeekFrom::End(0)).expect("get index tail offset");
+    if index_tail_offset < index_head_offset + IndexRecord::RECORD_SIZE as u64 {
+        println!("Index has no records");
+        return;
+    }
+    
+    index_reader.seek(SeekFrom::Start(index_head_offset)).expect("seek to first index");
+    let mut index_reader = index_reader.take(index_tail_offset - index_head_offset);
+    
+    let mut stream_begin_offset = u64::MAX;
+    for _ in 0..opts.index_num {
+        let index_record = index_record_reader.read(&mut index_reader).expect("read index");
+        println!("{:?}", index_record);
+        
+        if opts.show_event {
+            let stream_end_offset = index_record.offset;
+            if stream_begin_offset < stream_end_offset {
+                stream_reader.seek(SeekFrom::Start(stream_begin_offset)).expect("seek to stream begin offset");
+                let mut reader = stream_reader.take(stream_end_offset - stream_begin_offset);
+                loop {
+                    let mut event_reader = EventReader::new();
+                    let required_buffer_length =
+                        match event_reader.read_required_buffer_length(&mut reader) {
+                            Ok(n) => n,
+                            Err(e) if e.kind() == ErrorKind::UnexpectedEof && reader.limit() == 0 => {
+                                break;
+                            },
+                            Err(e) => {
+                                println!("{:?}", e);
+                                return;
+                            },
+                    };
+                    let mut read_buffer: Vec<u8> = vec![0; required_buffer_length];
+                    let event = event_reader.read_event(&mut reader, &mut read_buffer[..]).expect("read event");
+                    println!("{:?}", event.header);
+                }
+                stream_reader = reader.into_inner();
+            }
+            stream_begin_offset = stream_end_offset;
+        }
+    }
 }
