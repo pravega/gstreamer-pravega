@@ -463,48 +463,47 @@ mod models {
                             // It is possible that the duration of the gap in the index is very short or even 0.
                             // However, we still need to count the gap so that the Media Sequence Numbers
                             // correspond to the index offset.
+                            // h264parse would add discontinuity flag in each I frames in some conditions. Just simply ignore
+                            // discontinuity flag before figure out why.
 
-                            let mut discont = index_record.discontinuity;
-                            if discont {
-                                warn!("Detected discontinuity; discontinuity flag set in {:?}", index_record);
-                            } else {
-                                if let Some(timestamp_nanos) = index_record.timestamp.nanoseconds() {
-                                    let prev_timestamp_nanos = prev_index_record.timestamp.nanoseconds().unwrap();
-                                    if timestamp_nanos < prev_timestamp_nanos {
-                                        let rewind_seconds = (prev_timestamp_nanos - timestamp_nanos) as f64 * 1e-9;
-                                        warn!("Detected discontinuity; rewind of {:.3} seconds from {} to {}",
-                                        rewind_seconds, prev_index_record.timestamp, index_record.timestamp);
+                            let mut discont = false;
+                           
+                            if let Some(timestamp_nanos) = index_record.timestamp.nanoseconds() {
+                                let prev_timestamp_nanos = prev_index_record.timestamp.nanoseconds().unwrap();
+                                if timestamp_nanos < prev_timestamp_nanos {
+                                    let rewind_seconds = (prev_timestamp_nanos - timestamp_nanos) as f64 * 1e-9;
+                                    warn!("Detected discontinuity; rewind of {:.3} seconds from {} to {}",
+                                    rewind_seconds, prev_index_record.timestamp, index_record.timestamp);
+                                    discont = true;
+                                } else {
+                                    let duration_seconds = (timestamp_nanos - prev_timestamp_nanos) as f64 * 1e-9;
+                                    // If the timestamp increased by much more than the target duration,
+                                    // then assume we have a discontinuity.
+                                    if duration_seconds > target_duration_seconds + 1.0 {
+                                        warn!("Detected discontinuity; {:.3} second gap from {} to {}, target_duration_seconds={:.3}",
+                                            duration_seconds, prev_index_record.timestamp, index_record.timestamp, target_duration_seconds);
                                         discont = true;
                                     } else {
-                                        let duration_seconds = (timestamp_nanos - prev_timestamp_nanos) as f64 * 1e-9;
-                                        // If the timestamp increased by much more than the target duration,
-                                        // then assume we have a discontinuity.
-                                        if duration_seconds > target_duration_seconds + 1.0 {
-                                            warn!("Detected discontinuity; {:.3} second gap from {} to {}, target_duration_seconds={:.3}",
-                                                duration_seconds, prev_index_record.timestamp, index_record.timestamp, target_duration_seconds);
-                                            discont = true;
-                                        } else {
-                                            if next_segment_discont {
-                                                playlist_body.push_str("#EXT-X-DISCONTINUITY\n");
-                                                next_segment_discont = false;
-                                            }
-                                            let ema_alpha = 0.1;
-                                            target_duration_seconds = ema_alpha * duration_seconds + (1.0 - ema_alpha) * target_duration_seconds;
-                                            let begin_offset = prev_index_record.offset;
-                                            let end_offset = index_record.offset;
-                                            // "#EXTINF:10," where 10 is the duration of the segment in seconds
-                                            playlist_body.push_str(&format!("#EXTINF:{},\n", duration_seconds));
-                                            // "#EXT-X-PROGRAM-DATE-TIME:2010-02-19T14:54:23.123456789Z"
-                                            playlist_body.push_str(&format!("#EXT-X-PROGRAM-DATE-TIME:{}\n", prev_index_record.timestamp.to_iso_8601().unwrap()));
-                                            // "media?begin=0&end=204" where 0 and 204 are the begin and end byte offsets
-                                            playlist_body.push_str(&format!("media?begin={}&end={}\n", begin_offset, end_offset));
+                                        if next_segment_discont {
+                                            playlist_body.push_str("#EXT-X-DISCONTINUITY\n");
+                                            next_segment_discont = false;
                                         }
+                                        let ema_alpha = 0.1;
+                                        target_duration_seconds = ema_alpha * duration_seconds + (1.0 - ema_alpha) * target_duration_seconds;
+                                        let begin_offset = prev_index_record.offset;
+                                        let end_offset = index_record.offset;
+                                        // "#EXTINF:10," where 10 is the duration of the segment in seconds
+                                        playlist_body.push_str(&format!("#EXTINF:{},\n", duration_seconds));
+                                        // "#EXT-X-PROGRAM-DATE-TIME:2010-02-19T14:54:23.123456789Z"
+                                        playlist_body.push_str(&format!("#EXT-X-PROGRAM-DATE-TIME:{}\n", prev_index_record.timestamp.to_iso_8601().unwrap()));
+                                        // "media?begin=0&end=204" where 0 and 204 are the begin and end byte offsets
+                                        playlist_body.push_str(&format!("media?begin={}&end={}\n", begin_offset, end_offset));
                                     }
-                                } else {
-                                    warn!("Detected discontinuity; missing timestamp in index at offset {}",
-                                        index_record.offset);
-                                    discont = true;
                                 }
+                            } else {
+                                warn!("Detected discontinuity; missing timestamp in index at offset {}",
+                                    index_record.offset);
+                                discont = true;
                             }
                             if discont {
                                 // warn!("Detected discontinuity; index_record={:?}", index_record);
