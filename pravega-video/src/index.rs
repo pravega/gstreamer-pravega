@@ -45,6 +45,7 @@ impl IndexRecord {
     }
 }
 
+/// ```text
 /**
    A struct to serialize an IndexRecord for writing to a Pravega byte stream.
 
@@ -104,6 +105,7 @@ impl IndexRecord {
    4. If index records 2 through N have DIS of 0, then it is guaranteed that
       the bytes between O1 and ON were written continuously.
 */
+/// ```
 pub struct IndexRecordWriter {
 }
 

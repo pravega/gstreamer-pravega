@@ -37,6 +37,7 @@ pub struct EventWithHeader<'a> {
     pub payload: &'a [u8],
 }
 
+/// ```text
 /**
    A struct to serialize an EventWithHeader for writing to a Pravega byte stream.
 
@@ -113,6 +114,7 @@ pub struct EventWithHeader<'a> {
       Writes of the entire frame (type code through payload) must be atomic,
       which means it must be 8 MiB or smaller.
 */
+/// ```
 pub struct EventWriter {
 }
 
