@@ -39,7 +39,7 @@ struct Opts {
     keycloak_file: String,
 }
 
-/// Demonstrate ability to write using the byte stream writer and read using the event reader.
+/// Dump the indexes and events for debug purpose
 fn main() {
     env_logger::init();
     let opts: Opts = Opts::parse();
