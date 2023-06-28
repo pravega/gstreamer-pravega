@@ -60,6 +60,13 @@ apt-get install -y --no-install-recommends \
   libgles1 \
   libgles2 \
   libglib2.0-0 \
+  ibgstreamer1.0-dev \
+  libgstreamer-plugins-base1.0-dev \
+  libgstrtspserver-1.0-0 \
+  gstreamer1.0-libav \
+  gstreamer1.0-plugins-ugly \
+  gstreamer1.0-plugins-bad \
+  gstreamer1.0-plugins-good \
   libgme0 \
   libgmp10 \
   libgsl27 \
