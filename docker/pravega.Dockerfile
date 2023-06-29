@@ -14,8 +14,8 @@ ARG FROM_IMAGE
 # Build image that that will contain the GStreamer source code.
 FROM "${DOCKER_REPOSITORY}${FROM_IMAGE}" as gstreamer-source-code
 
-COPY docker/build-gstreamer/install-dependencies /
-RUN ["/install-dependencies"]
+COPY docker/build-gstreamer/install-dependencies-ubuntu-20 /
+RUN ["/install-dependencies-ubuntu-20"]
 
 COPY docker/ca-certificates /usr/local/share/ca-certificates/
 RUN update-ca-certificates
