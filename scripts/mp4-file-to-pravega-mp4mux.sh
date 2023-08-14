@@ -45,4 +45,3 @@ filesrc location=${VIDEO_FILE} \
   controller=${PRAVEGA_CONTROLLER} \
   keycloak-file=\"${KEYCLOAK_SERVICE_ACCOUNT_FILE}\" \
   seal=false sync=false timestamp-mode=tai
-
