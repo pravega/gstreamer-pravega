@@ -16,7 +16,7 @@ ROOT_DIR=$(readlink -f $(dirname $0)/..)
 GSTREAMER_CHECKOUT=${GSTREAMER_CHECKOUT:-1.18.5}
 RUST_JOBS=${RUST_JOBS:-4}
 DOCKER_REPOSITORY=${DOCKER_REPOSITORY}
-FROM_IMAGE=ubuntu:22.04
+FROM_IMAGE=ubuntu:22.10
 
 # Make sure to always have fresh base image.
 if [[ "${PULL_BASE}" != "0" ]]; then
@@ -26,6 +26,7 @@ fi
 # Build pravega-prod image which includes the binaries for all applications.
 if [[ "${BUILD_PROD}" != "0" ]]; then
     docker build \
+        --no-cache \
         -t pravega/gstreamer:pravega-prod \
         --build-arg GSTREAMER_REPOSITORY=https://gitlab.freedesktop.org/gstreamer/gstreamer.git \
         --build-arg GSTREAMER_CHECKOUT=${GSTREAMER_CHECKOUT} \

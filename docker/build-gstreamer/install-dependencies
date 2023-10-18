@@ -129,7 +129,7 @@ apt-get install -y --no-install-recommends \
   libxslt1-dev \
   libzbar-dev \
   libzvbi-dev \
-  netcat \
+  netcat-openbsd \
   python-gi-dev \
   python3 \
   python3-gi \
