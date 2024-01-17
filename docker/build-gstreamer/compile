@@ -13,6 +13,9 @@
 set -ex
 
 for repo in gstreamer libnice gst-plugins-base gst-plugins-bad gst-plugins-good gst-plugins-ugly gst-libav gst-rtsp-server; do
+  if [[ $repo != "libnice" ]]; then
+    repo="gstreamer/subprojects/$repo"
+  fi
   pushd $repo
 
   opts="-D prefix=/usr"
