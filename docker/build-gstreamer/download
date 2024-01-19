@@ -20,20 +20,8 @@ checkoutInRepo() {
 
 git clone --no-checkout "$GSTREAMER_REPOSITORY" &
 git clone --no-checkout "$LIBNICE_REPOSITORY" &
-git clone --no-checkout "$GST_PLUGINS_BASE_REPOSITORY" &
-git clone --no-checkout "$GST_PLUGINS_BAD_REPOSITORY" &
-git clone --no-checkout "$GST_PLUGINS_GOOD_REPOSITORY" &
-git clone --no-checkout "$GST_PLUGINS_UGLY_REPOSITORY" &
-git clone --no-checkout "$GST_LIBAV_REPOSITORY" &
-git clone --no-checkout "$GST_RTSP_SERVER_REPOSITORY" &
 
 wait
 
 checkoutInRepo gstreamer "$GSTREAMER_CHECKOUT"
 checkoutInRepo libnice "$LIBNICE_CHECKOUT"
-checkoutInRepo gst-plugins-base "$GST_PLUGINS_BASE_CHECKOUT"
-checkoutInRepo gst-plugins-bad "$GST_PLUGINS_BAD_CHECKOUT"
-checkoutInRepo gst-plugins-good "$GST_PLUGINS_GOOD_CHECKOUT"
-checkoutInRepo gst-plugins-ugly "$GST_PLUGINS_UGLY_CHECKOUT"
-checkoutInRepo gst-libav "$GST_LIBAV_CHECKOUT"
-checkoutInRepo gst-rtsp-server "$GST_RTSP_SERVER_CHECKOUT"
