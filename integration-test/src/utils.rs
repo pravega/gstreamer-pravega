@@ -37,7 +37,7 @@ pub fn gst_init() {
     };
     info!("GST_DEBUG={}", std::env::var("GST_DEBUG").unwrap_or_default());
     gst::init().unwrap();
-    gstpravega::plugin_register_static().unwrap();
+    //gstpravega::plugin_register_static().unwrap();
 }
 
 // TODO: Also compare hash of buffer contents.
