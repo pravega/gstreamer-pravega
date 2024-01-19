@@ -29,6 +29,7 @@ apt-get install -y --no-install-recommends \
   gettext \
   git \
   gperf \
+  gstreamer1.0-plugins-ugly \
   intel-media-va-driver-non-free \
   iso-codes \
   less \
